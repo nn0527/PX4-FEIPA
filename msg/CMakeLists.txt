@@ -68,6 +68,7 @@ set(msg_files
 	DistanceSensor.msg
 	DistanceSensorModeChangeRequest.msg
 	Ekf2Timestamps.msg
+	Esp32UartFrame.msg
 	EscReport.msg
 	EscStatus.msg
 	EstimatorAidSource1d.msg
