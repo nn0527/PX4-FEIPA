@@ -49,6 +49,7 @@
 #include <uORB/SubscriptionCallback.hpp>
 #include <uORB/topics/actuator_controls_status.h>
 #include <uORB/topics/battery_status.h>
+#include <uORB/topics/ceiling_contact_status.h>
 #include <uORB/topics/control_allocator_status.h>
 #include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/parameter_update.h>
@@ -95,6 +96,7 @@ private:
 	uORB::Subscription _battery_status_sub{ORB_ID(battery_status)};
 	uORB::Subscription _control_allocator_status_sub{ORB_ID(control_allocator_status)};
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
+	uORB::Subscription _ceiling_contact_status_sub{ORB_ID(ceiling_contact_status)};
 	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 	uORB::Subscription _vehicle_rates_setpoint_sub{ORB_ID(vehicle_rates_setpoint)};
@@ -117,6 +119,7 @@ private:
 	bool _maybe_landed{true};
 
 	hrt_abstime _last_run{0};
+	static constexpr uint64_t CEILING_STATUS_TIMEOUT_US = 200_ms;
 
 	perf_counter_t	_loop_perf;			/**< loop duration performance counter */
 

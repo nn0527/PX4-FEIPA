@@ -255,6 +255,25 @@ MulticopterRateControl::Run()
 				}
 			}
 
+			ceiling_contact_status_s ceiling_status{};
+
+			if (_ceiling_contact_status_sub.copy(&ceiling_status)
+			    && hrt_elapsed_time(&ceiling_status.timestamp) < CEILING_STATUS_TIMEOUT_US
+			    && _vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING
+			    && PX4_ISFINITE(ceiling_status.thrust_body_z_sp)) {
+
+				const bool ceiling_thrust_override_active =
+					ceiling_status.state == ceiling_contact_status_s::ATTACH_CONTROL_MODE
+					|| ceiling_status.state == ceiling_contact_status_s::SURFACE_MANUAL_MODE
+					|| ceiling_status.state == ceiling_contact_status_s::DETACH_MODE;
+
+				if (ceiling_thrust_override_active) {
+					// 贴顶接触后由 ceiling_controller 动态给出 z 向推力。
+					// PX4 多旋翼 body Z 推力为负值时向上，越接近 0 上推越小。
+					vehicle_thrust_setpoint.xyz[2] = math::constrain(ceiling_status.thrust_body_z_sp, -1.f, -0.05f);
+				}
+			}
+
 			vehicle_thrust_setpoint.timestamp_sample = angular_velocity.timestamp_sample;
 			vehicle_thrust_setpoint.timestamp = hrt_absolute_time();
 			_vehicle_thrust_setpoint_pub.publish(vehicle_thrust_setpoint);

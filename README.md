@@ -92,7 +92,18 @@ ceiling_distance_m = distance_mm * 0.001f;
 ceiling_contact_status
 ```
 
-当前阶段 `ceiling_controller` 只完成距离接入、状态判断和状态发布；尚未接入 `mc_pos_control` 或 `mc_rate_control`，因此还不会真正覆盖多旋翼 z 向推力。
+当前阶段已将 `ceiling_contact_status` 接入多旋翼控制链：
+
+- `mc_pos_control` 在 `APPROACH_MODE` 使用 `approach_vz_sp` 慢速接近天花板；
+- `mc_rate_control` 在贴顶相关状态使用 `thrust_body_z_sp` 覆盖多旋翼 z 向推力；
+- `mc_att_control` 不直接修改，它仍然负责姿态到角速度控制。
+
+PX4 多旋翼 z 向推力符号需要特别注意：
+
+```text
+thrust_body[2] 越负，上推越强
+thrust_body[2] 越接近 0，上推越弱
+```
 
 ### 3. 自动启动与端口占用
 
@@ -152,8 +163,9 @@ ceiling_contact_status.ceiling_distance: 0.200
 
 - `uart_rx` 是唯一 UART 读取模块。
 - `ceiling_controller` 只订阅 `esp32_uart_frame`，不直接访问串口。
-- 当前没有修改 `mc_pos_control`、`mc_rate_control` 或电机分配逻辑。
-- 后续如果要实现贴顶后覆盖 z 向推力，建议让 `mc_rate_control` 订阅 `ceiling_contact_status`，并在发布 `vehicle_thrust_setpoint` 前应用受限的 z 推力覆盖。
+- `mc_pos_control` 只在 `APPROACH_MODE` 接管 z 方向接近速度。
+- `mc_rate_control` 只在 `ATTACH_CONTROL_MODE`、`SURFACE_MANUAL_MODE`、`DETACH_MODE` 使用受限的 z 推力覆盖。
+- 当前没有修改电机分配逻辑，也没有处理固定翼、VTOL transition 或 rover。
 
 * Official Website: http://px4.io (License: BSD 3-clause, [LICENSE](https://github.com/PX4/PX4-Autopilot/blob/main/LICENSE))
 * [Supported airframes](https://docs.px4.io/main/en/airframes/airframe_reference.html) ([portfolio](https://px4.io/ecosystem/commercial-systems/)):

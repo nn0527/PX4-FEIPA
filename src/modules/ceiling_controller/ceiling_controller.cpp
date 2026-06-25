@@ -115,11 +115,10 @@ float CeilingController::compute_distance_control(float dt)
 	}
 
 	float thrust_z = baseline - pid_out;
-	if (_state == ceiling_contact_status_s::ATTACH_CONTROL_MODE
-	    || _state == ceiling_contact_status_s::SURFACE_MANUAL_MODE) {
-		float thrust_floor = -math::min(_hover_thrust * 1.05f, 0.95f);
-		thrust_z = math::min(thrust_z, thrust_floor);
-	}
+
+	// PX4 多旋翼 body Z 推力符号：负值代表上推，越接近 0 上推越小。
+	// 因此 error > 0（离顶面偏远）时 pid_out 为正，thrust_z 会更负以增加上推；
+	// error < 0（压得过近）时 thrust_z 会接近 0，以减小上推。
 	float max_thrust = -math::max(_param_ceil_max_thrust.get(), 0.05f);
 	thrust_z = math::constrain(thrust_z, max_thrust, -0.05f);
 	return thrust_z;

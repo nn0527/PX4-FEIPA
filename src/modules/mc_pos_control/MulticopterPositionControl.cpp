@@ -541,6 +541,27 @@ void MulticopterPositionControl::Run()
 				math::min(speed_up, _param_mpc_z_vel_max_up.get()), // takeoff ramp starts with negative velocity limit
 				math::max(speed_down, 0.f));
 
+			ceiling_contact_status_s ceiling_status{};
+
+			if (_ceiling_contact_status_sub.copy(&ceiling_status)
+			    && hrt_elapsed_time(&ceiling_status.timestamp) < CEILING_STATUS_TIMEOUT_US) {
+
+				if (ceiling_status.integral_reset_request) {
+					// 贴顶控制接管 z 方向时，清掉位置控制积分，避免原高度目标继续积累误差。
+					_control.resetIntegral();
+				}
+
+				if (ceiling_status.state == ceiling_contact_status_s::APPROACH_MODE
+				    && PX4_ISFINITE(ceiling_status.approach_vz_sp)) {
+					// 接近顶面阶段由 ceiling_controller 给出慢速上升速度。
+					// NED 坐标中 z 轴向下为正，因此向上接近天花板使用负速度。
+					_setpoint.position[2] = NAN;
+					_setpoint.velocity[2] = math::constrain(ceiling_status.approach_vz_sp,
+									       -_param_mpc_z_vel_max_up.get(), 0.f);
+					_setpoint.acceleration[2] = NAN;
+				}
+			}
+
 			_control.setInputSetpoint(_setpoint);
 
 			// update states
