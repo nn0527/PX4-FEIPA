@@ -54,6 +54,7 @@ set(msg_files
 	CameraTrigger.msg
 	CanInterfaceStatus.msg
 	CellularStatus.msg
+	CeilingContactStatus.msg
 	CollisionConstraints.msg
 	ControlAllocatorStatus.msg
 	Cpuload.msg

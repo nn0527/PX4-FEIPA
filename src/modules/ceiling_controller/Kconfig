@@ -1,0 +1,5 @@
+menuconfig MODULES_CEILING_CONTROLLER
+	bool "ceiling_controller"
+	default n
+	---help---
+		Enable the ceiling contact inspection controller for bridge-bottom UAV operations.

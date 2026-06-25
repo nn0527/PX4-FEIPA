@@ -22,6 +22,7 @@ else
 				echo "WARN [uart_rx] TELEM2 is assigned to MAVLink; not starting"
 			else
 				uart_rx start
+				ceiling_controller start
 			fi
 		fi
 	fi
