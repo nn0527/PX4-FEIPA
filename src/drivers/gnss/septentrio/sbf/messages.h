@@ -41,6 +41,8 @@
 
 #pragma once
 
+#pragma GCC system_header
+
 #include <cstddef>
 #include <cstdint>
 
