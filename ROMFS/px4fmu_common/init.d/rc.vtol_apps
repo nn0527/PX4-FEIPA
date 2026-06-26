@@ -17,6 +17,12 @@ vtol_att_control start
 mc_rate_control start vtol
 mc_att_control start vtol
 flight_mode_manager start
+
+#
+# Start Ceiling Contact Controller (bridge inspection).
+#
+ceiling_controller start
+
 mc_pos_control start vtol
 mc_hover_thrust_estimator start
 

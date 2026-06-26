@@ -581,6 +581,23 @@ else
 	#
 	# Start any custom addons from the sdcard.
 	#
+	
+	# Start MCU UART reader
+      	set +e
+	mcu_uart_reader start -d /dev/ttyS4 -b 115200
+	set -e
+	
+	# Start CeilingReader module
+	set +e
+	CeilingReader start
+	set -e
+	
+	# Start UartRx module (ESP32 UART receiver)
+	set +e
+	uart_rx start -d /dev/ttyS4 -b 115200
+	set -e
+       
+        
 	if [ -f $FEXTRAS ]
 	then
 		echo "Addons script: ${FEXTRAS}"

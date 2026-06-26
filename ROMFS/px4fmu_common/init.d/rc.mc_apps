@@ -30,6 +30,12 @@ fi
 #
 mc_hover_thrust_estimator start
 flight_mode_manager start
+
+#
+# Start Ceiling Contact Controller (bridge inspection).
+#
+ceiling_controller start
+
 mc_pos_control start
 
 #
