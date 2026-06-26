@@ -541,6 +541,28 @@ void MulticopterPositionControl::Run()
 				math::min(speed_up, _param_mpc_z_vel_max_up.get()), // takeoff ramp starts with negative velocity limit
 				math::max(speed_down, 0.f));
 
+			// Ceiling contact controller integration
+			ceiling_contact_status_s cc_status{};
+			bool cc_updated = _ceiling_contact_status_sub.update(&cc_status);
+
+			if (cc_updated && cc_status.state == ceiling_contact_status_s::APPROACH_MODE) {
+				// Lock XY motion, only allow slow upward Z motion
+				_setpoint.velocity[0] = 0.f;
+				_setpoint.velocity[1] = 0.f;
+				_setpoint.position[0] = NAN;
+				_setpoint.position[1] = NAN;
+
+				if (PX4_ISFINITE(cc_status.approach_vz_sp)) {
+					_setpoint.velocity[2] = cc_status.approach_vz_sp;
+					_setpoint.position[2] = NAN;
+					_setpoint.acceleration[2] = NAN;
+				}
+			}
+
+			if (cc_updated && cc_status.integral_reset_request) {
+				_control.resetIntegral();
+			}
+
 			_control.setInputSetpoint(_setpoint);
 
 			// update states
@@ -606,6 +628,16 @@ void MulticopterPositionControl::Run()
 			vehicle_attitude_setpoint_s attitude_setpoint{};
 			_control.getAttitudeSetpoint(attitude_setpoint);
 			attitude_setpoint.timestamp = hrt_absolute_time();
+
+			// Ceiling contact distance control override: directly set body-Z thrust in attach states
+			// Only override in ATTACH_CONTROL and SURFACE_MANUAL; let mc_pos_control handle DETACH normally
+			if (cc_updated && (cc_status.state == ceiling_contact_status_s::ATTACH_CONTROL_MODE
+						   || cc_status.state == ceiling_contact_status_s::SURFACE_MANUAL_MODE)) {
+				if (PX4_ISFINITE(cc_status.thrust_body_z_sp)) {
+					attitude_setpoint.thrust_body[2] = cc_status.thrust_body_z_sp;
+				}
+			}
+
 			_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
 
 		} else {

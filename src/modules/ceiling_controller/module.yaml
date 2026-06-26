@@ -1,0 +1,121 @@
+module_name: ceiling_controller
+
+parameters:
+    - group: Ceiling Controller
+      definitions:
+        CEIL_D0:
+            description:
+                short: Uncompressed top distance D0
+            type: float
+            unit: m
+            min: 0.05
+            max: 2.0
+            default: 0.5
+        CEIL_COMP_TGT:
+            description:
+                short: Target wheel compression
+            type: float
+            unit: m
+            min: 0.001
+            max: 0.1
+            default: 0.02
+        CEIL_DIST_THR:
+            description:
+                short: Distance threshold to trigger approach
+            type: float
+            unit: m
+            min: 0.1
+            max: 2.0
+            default: 0.6
+        CEIL_VEL_THR:
+            description:
+                short: Max vertical speed to allow approach
+            type: float
+            unit: m/s
+            min: 0.05
+            max: 2.0
+            default: 0.3
+        CEIL_APPR_VZ:
+            description:
+                short: Approach vertical speed magnitude
+            type: float
+            unit: m/s
+            min: 0.01
+            max: 0.5
+            default: 0.05
+        CEIL_APPR_TO:
+            description:
+                short: Approach timeout before abort
+            type: int32
+            unit: ms
+            min: 1000
+            max: 60000
+            default: 10000
+        CEIL_DIST_KP:
+            description:
+                short: Distance controller P gain
+            type: float
+            min: 0.0
+            max: 5.0
+            default: 0.5
+        CEIL_DIST_KI:
+            description:
+                short: Distance controller I gain
+            type: float
+            min: 0.0
+            max: 2.0
+            default: 0.1
+        CEIL_DIST_KD:
+            description:
+                short: Distance controller D gain
+            type: float
+            min: 0.0
+            max: 1.0
+            default: 0.3
+        CEIL_STABLE_T:
+            description:
+                short: Distance stable confirmation time
+            type: float
+            unit: s
+            min: 0.1
+            max: 10.0
+            default: 2.0
+        CEIL_MAX_ROLL:
+            description:
+                short: Max roll in attach mode
+            type: float
+            unit: deg
+            min: 5.0
+            max: 45.0
+            default: 15.0
+        CEIL_MAX_PITCH:
+            description:
+                short: Max pitch in attach mode
+            type: float
+            unit: deg
+            min: 5.0
+            max: 45.0
+            default: 15.0
+        CEIL_MAX_THRUST:
+            description:
+                short: Max normalized thrust in attach
+            type: float
+            min: 0.1
+            max: 1.0
+            default: 0.9
+        CEIL_RAMP_DIST:
+            description:
+                short: Distance ramp rate during detach
+            type: float
+            unit: m/s
+            min: 0.001
+            max: 0.5
+            default: 0.02
+        CEIL_FLT_TC:
+            description:
+                short: Distance low-pass filter time constant
+            type: float
+            unit: s
+            min: 0.0
+            max: 1.0
+            default: 0.05

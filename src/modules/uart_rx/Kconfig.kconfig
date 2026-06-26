@@ -1,0 +1,9 @@
+menuconfig EXAMPLES_UART_RX
+	bool "uart_rx"
+	default n
+	---help---
+		Enable the ESP32 UART receiver and esp32_uart_frame uORB publisher.
+
+		The module defaults to /dev/ttyS4 at 115200 baud, which is TELEM2
+		on the PX4 FMUv6X board. It accepts only complete frames in the format
+		AA 55 payload[3] 0D 0A and publishes the raw 7-byte frame on uORB.

@@ -1,0 +1,5 @@
+menuconfig MODULES_UART_RX
+	bool "uart_rx"
+	default n
+	---help---
+		Enable the ESP32 UART receiver module for reading distance sensor frames.

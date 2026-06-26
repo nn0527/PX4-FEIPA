@@ -1,0 +1,5 @@
+menuconfig MODULES_CEILING_READER
+	bool "ceiling_reader"
+	default n
+	---help---
+		Enable the CeilingReader module for ceiling contact sensor data processing.
