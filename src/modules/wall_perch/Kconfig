@@ -1,0 +1,5 @@
+menuconfig MODULES_WALL_PERCH
+	bool "wall_perch"
+	default n
+	---help---
+		Enable the wall perching maneuver module for wall-contact UAV operations.

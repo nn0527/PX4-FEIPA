@@ -95,11 +95,11 @@ float CeilingController::compute_distance_control(float dt)
 	float thrust_z = baseline - pid_out;
 	if (_state == ceiling_contact_status_s::ATTACH_CONTROL_MODE
 	    || _state == ceiling_contact_status_s::SURFACE_MANUAL_MODE) {
-		float thrust_floor = -math::min(_hover_thrust * 1.05f, 0.95f);
+		float thrust_floor = -math::min(_hover_thrust * 1.5f, 0.95f);
 		thrust_z = math::min(thrust_z, thrust_floor);
 	}
 	float max_thrust = -math::max(_param_ceil_max_thrust.get(), 0.05f);
-	thrust_z = math::constrain(thrust_z, max_thrust, -0.05f);
+	thrust_z = math::constrain(thrust_z, max_thrust, -_hover_thrust);
 	return thrust_z;
 }
 
@@ -130,7 +130,7 @@ bool CeilingController::check_fault_conditions()
 	if (fabsf(_attitude_euler.phi()) > max_roll || fabsf(_attitude_euler.theta()) > max_pitch) return true;
 	if (_state >= ceiling_contact_status_s::ATTACH_CONTROL_MODE
 	    && _state <= ceiling_contact_status_s::SURFACE_MANUAL_MODE)
-		if (_ceiling_distance_lpf > _param_ceil_d0.get() + 0.02f) return true;
+		if (_ceiling_distance_lpf > _param_ceil_d0.get() + 0.08f) return true;
 	return false;
 }
 

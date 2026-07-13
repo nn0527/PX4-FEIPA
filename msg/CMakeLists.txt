@@ -55,6 +55,7 @@ set(msg_files
 	CanInterfaceStatus.msg
 	CellularStatus.msg
 	CeilingContactStatus.msg
+	WallPerchStatus.msg
 	CollisionConstraints.msg
 	Esp32UartFrame.msg
 	ControlAllocatorStatus.msg

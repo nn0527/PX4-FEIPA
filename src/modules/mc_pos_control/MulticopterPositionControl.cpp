@@ -638,7 +638,16 @@ void MulticopterPositionControl::Run()
 				}
 			}
 
-			_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
+			// wall_perch guard: when wall_perch is active, it publishes vehicle_attitude_setpoint
+			// so mc_pos_control must skip publishing to avoid conflict
+			wall_perch_status_s wp_status{};
+			bool wp_updated = _wall_perch_status_sub.update(&wp_status);
+
+			if (wp_updated && wp_status.active) {
+				// wall_perch is in control — skip mc_pos_control attitude setpoint
+			} else {
+				_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
+			}
 
 		} else {
 			// an update is necessary here because otherwise the takeoff state doesn't get skipped with non-altitude-controlled modes
