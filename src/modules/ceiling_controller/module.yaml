@@ -41,8 +41,8 @@ parameters:
             type: float
             unit: m/s
             min: 0.01
-            max: 0.5
-            default: 0.05
+            max: 1.0
+            default: 0.3
         CEIL_APPR_TO:
             description:
                 short: Approach timeout before abort
@@ -111,6 +111,13 @@ parameters:
             min: 0.001
             max: 0.5
             default: 0.02
+        CEIL_ATTACH_MULT:
+            description:
+                short: Attach thrust multiplier of hover (approach climb / attach lock)
+            type: float
+            min: 1.0
+            max: 3.0
+            default: 1.5
         CEIL_FLT_TC:
             description:
                 short: Distance low-pass filter time constant

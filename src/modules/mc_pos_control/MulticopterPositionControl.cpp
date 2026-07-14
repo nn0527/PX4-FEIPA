@@ -630,7 +630,7 @@ void MulticopterPositionControl::Run()
 			attitude_setpoint.timestamp = hrt_absolute_time();
 
 			// Ceiling contact distance control override: directly set body-Z thrust in attach states
-			// Only override in ATTACH_CONTROL and SURFACE_MANUAL; let mc_pos_control handle DETACH normally
+			// Only override in ATTACH_CONTROL and SURFACE_MANUAL; let mc_pos_control handle DETACH/APPROACH normally
 			if (cc_updated && (cc_status.state == ceiling_contact_status_s::ATTACH_CONTROL_MODE
 						   || cc_status.state == ceiling_contact_status_s::SURFACE_MANUAL_MODE)) {
 				if (PX4_ISFINITE(cc_status.thrust_body_z_sp)) {

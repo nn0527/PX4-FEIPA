@@ -103,6 +103,13 @@ float CeilingController::compute_distance_control(float dt)
 	return thrust_z;
 }
 
+float CeilingController::compute_lock_thrust()
+{
+	// Lock body-Z thrust to CEIL_ATTACH_MULT x hover to stick to the ceiling.
+	float lock = math::min(_recorded_hover_thrust * _param_ceil_attach_mult.get(), 0.95f);
+	return -lock;
+}
+
 bool CeilingController::check_attach_confirmed()
 {
 	float compression = _param_ceil_d0.get() - _ceiling_distance_lpf;
@@ -148,6 +155,8 @@ void CeilingController::enter_state(uint8_t new_state)
 	if (_state == ceiling_contact_status_s::APPROACH_MODE) {
 		_attach_detect_start = 0;
 		_dist_error_integral = 0.f; _dist_error_prev = 0.f;
+		_recorded_hover_thrust = _hover_thrust;
+		_approach_reset_pending = true;
 	}
 	if (_state == ceiling_contact_status_s::ATTACH_CONTROL_MODE) {
 		_dist_stable_start = 0;
@@ -195,7 +204,7 @@ void CeilingController::update_state_machine(float dt)
 		if (!_ceiling_arm_switch) { enter_state(ceiling_contact_status_s::NORMAL_FLIGHT); }
 		else if (hrt_elapsed_time(&_state_entry_time) > (hrt_abstime)(_param_ceil_appr_to.get() * 1000ULL)) {
 			enter_state(ceiling_contact_status_s::NORMAL_FLIGHT);
-		} else if (check_attach_confirmed()) {
+		} else if (_ceiling_distance_lpf <= _param_ceil_d0.get() + 0.02f) {
 			enter_state(ceiling_contact_status_s::ATTACH_CONTROL_MODE);
 		}
 		break;
@@ -271,12 +280,17 @@ void CeilingController::Run()
 	bool integral_reset_request = false, wheel_stop_request = false;
 
 	if (_state == ceiling_contact_status_s::APPROACH_MODE) {
-		approach_vz_sp = -math::constrain(_param_ceil_appr_vz.get(), 0.05f, 0.1f);
-		integral_reset_request = true;
+		// Velocity-controlled approach: climb at a normal speed to the ceiling.
+		approach_vz_sp = -math::constrain(_param_ceil_appr_vz.get(), 0.05f, 1.0f);
+		_recorded_hover_thrust = _hover_thrust;
+		if (_approach_reset_pending) { integral_reset_request = true; _approach_reset_pending = false; }
 	}
 	if (_state == ceiling_contact_status_s::ATTACH_CONTROL_MODE
-	    || _state == ceiling_contact_status_s::SURFACE_MANUAL_MODE
-	    || _state == ceiling_contact_status_s::DETACH_MODE) {
+	    || _state == ceiling_contact_status_s::SURFACE_MANUAL_MODE) {
+		integral_reset_request = true;
+		thrust_body_z_sp = compute_lock_thrust();
+	}
+	if (_state == ceiling_contact_status_s::DETACH_MODE) {
 		integral_reset_request = true; thrust_body_z_sp = compute_distance_control(dt);
 	}
 	if (_state == ceiling_contact_status_s::DETACH_MODE || check_fault_conditions())

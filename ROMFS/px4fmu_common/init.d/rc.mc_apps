@@ -39,7 +39,7 @@ ceiling_controller start
 #
 # Start Wall Perch Controller.
 #
-wall_perch start
+#wall_perch start
 
 mc_pos_control start
 

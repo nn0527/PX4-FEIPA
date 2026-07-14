@@ -47,6 +47,7 @@ private:
 	bool check_distance_stable();
 	bool check_fault_conditions();
 	float compute_distance_control(float dt);
+	float compute_lock_thrust();
 	void read_switches(bool &ceiling_arm, bool &detach);
 
 	float _ceiling_distance{100.f};
@@ -58,6 +59,8 @@ private:
 	float _dist_error_prev{0.f};
 	float _ceiling_distance_lpf{100.f};
 	float _hover_thrust{0.72f};
+	float _recorded_hover_thrust{0.72f};
+	bool _approach_reset_pending{false};
 	float _attach_baseline_thrust{-0.72f};
 	bool _attach_baseline_initialized{false};
 	bool _lpf_initialized{false};
@@ -85,6 +88,7 @@ private:
 		(ParamFloat<px4::params::CEIL_MAX_PITCH>) _param_ceil_max_pitch,
 		(ParamFloat<px4::params::CEIL_MAX_THRUST>) _param_ceil_max_thrust,
 		(ParamFloat<px4::params::CEIL_RAMP_DIST>) _param_ceil_ramp_dist,
+		(ParamFloat<px4::params::CEIL_ATTACH_MULT>) _param_ceil_attach_mult,
 		(ParamFloat<px4::params::CEIL_FLT_TC>) _param_ceil_flt_tc
 	)
 
