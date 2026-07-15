@@ -108,6 +108,7 @@ const char *WallPerch::state_name(State s) const
 	case State::FLIP_TO_WALL:      return "FLIP_TO_WALL";
 	case State::WALL_CAPTURE:      return "WALL_CAPTURE";
 	case State::WALL_HOLD:         return "WALL_HOLD";
+	case State::WALL_PIN:          return "WALL_PIN";
 	case State::DETACH_ROTATE:     return "DETACH_ROTATE";
 	case State::RECOVER:           return "RECOVER";
 	case State::EXIT:              return "EXIT";
@@ -187,6 +188,11 @@ void WallPerch::Run()
 
 	// --- Update state machine ---
 	update_state_machine(dt);
+
+	// --- Mixer bypass control ---
+	// While pinned (WALL_PIN) disable control allocation so the mixer uses
+	// wall_perch's raw actuator_motors; otherwise keep it enabled.
+	publish_control_mode(_state != State::WALL_PIN);
 
 	// --- Publish status ---
 	publish_wall_perch_status();
@@ -272,81 +278,21 @@ bool WallPerch::user_start_requested()
 {
 	if (!_param_wp_enable.get()) { return false; }
 
-	// HARDCODED TRUE for control-logic testing — bypasses RC mapping chain.
-	return true;
-	// ceiling_controller's read_switches — if the ceiling test can read
-	// aux1, this path should work too).
 	manual_control_setpoint_s manual{};
-	bool copy_ok = _manual_control_setpoint_sub.copy(&manual);
+	if (!_manual_control_setpoint_sub.copy(&manual)) { return false; }
 
-	// Diagnostic: log every 2 s so we can see whether copy succeeds
-	static hrt_abstime _usr_diag_last{0};
-	if (hrt_elapsed_time(&_usr_diag_last) > 2_s) {
-		// Also peek at manual_control_input (rc_update's raw output,
-		// instance 0) to see if it has aux1 even when setpoint doesn't.
-		manual_control_setpoint_s raw_input{};
-		bool raw_ok = false;
-		{ // scope to avoid keeping the Subscription alive across diag calls
-			uORB::Subscription raw_sub{ORB_ID(manual_control_input), 0};
-			raw_ok = raw_sub.copy(&raw_input);
-		}
-		mavlink_log_info(&_mavlink_log_pub,
-			"[wall_perch] user_start: copy_ok=%d aux1=%.3f | raw=%.3f raw_ok=%d raw_valid=%d",
-			(int)copy_ok, copy_ok ? (double)manual.aux1 : -99.0,
-			raw_ok ? (double)raw_input.aux1 : -98.0,
-			(int)raw_ok, raw_ok ? (int)raw_input.valid : -1);
-		_usr_diag_last = hrt_absolute_time();
+	_aux1_raw = manual.aux1; _aux2_raw = manual.aux2;
+	_aux3_raw = manual.aux3; _aux4_raw = manual.aux4;
+
+	float val = 0.f;
+	switch (_param_wp_aux_ch.get()) {
+	case 1:  val = manual.aux1; break;
+	case 2:  val = manual.aux2; break;
+	case 3:  val = manual.aux3; break;
+	case 4:  val = manual.aux4; break;
+	default: val = manual.aux1; break;
 	}
-
-	if (copy_ok) {
-		_aux1_raw = manual.aux1; _aux2_raw = manual.aux2;
-		_aux3_raw = manual.aux3; _aux4_raw = manual.aux4;
-
-		float val = 0.f;
-		switch (_param_wp_aux_ch.get()) {
-		case 1:  val = manual.aux1; break;
-		case 2:  val = manual.aux2; break;
-		case 3:  val = manual.aux3; break;
-		case 4:  val = manual.aux4; break;
-		default: val = manual.aux1; break;
-		}
-		return val > 0.3f;
-	}
-
-	// Fallback: read raw input_rc directly (bypasses rc_update/manual_control).
-	// This works even when manual_control_setpoint isn't being published
-	// (e.g. SITL with MAVLink RC override and rc_update not fully calibrated).
-	input_rc_s rc{};
-	static constexpr int kAuxChannels[] = {-1, 4, 5, 6, 7}; // index 0 unused; AUX1→ch5(idx4)
-	int ch_idx = (_param_wp_aux_ch.get() >= 1 && _param_wp_aux_ch.get() <= 4)
-		     ? kAuxChannels[_param_wp_aux_ch.get()] : 4;
-
-	if (_input_rc_sub.copy(&rc)) {
-		uint16_t raw_val = (ch_idx >= 0 && ch_idx < 18) ? rc.values[ch_idx] : 0;
-		// Diagnostic: log raw RC value every 2 s while in IDLE
-		static hrt_abstime _rc_diag_last{0};
-		if (hrt_elapsed_time(&_rc_diag_last) > 2_s) {
-			mavlink_log_info(&_mavlink_log_pub,
-				"[wall_perch] RC fallback: ch_idx=%d raw=%d rc_lost=%d",
-				ch_idx, (int)raw_val, (int)rc.rc_lost);
-			_rc_diag_last = hrt_absolute_time();
-		}
-
-		if (ch_idx >= 0 && ch_idx < 18 && raw_val != 65535 && (float)raw_val > 1600.0f) {
-			_aux1_raw = 1.0f; // for diagnostic log
-			return true;
-		}
-		_aux1_raw = 0.0f;
-	} else {
-		static hrt_abstime _rc_miss_last{0};
-		if (hrt_elapsed_time(&_rc_miss_last) > 2_s) {
-			mavlink_log_info(&_mavlink_log_pub,
-				"[wall_perch] RC fallback: input_rc copy MISS (topic not advertised or no data)");
-			_rc_miss_last = hrt_absolute_time();
-		}
-	}
-
-	return false;
+	return val > 0.3f;
 }
 
 bool WallPerch::user_detach_requested()
@@ -607,6 +553,63 @@ void WallPerch::publish_wall_perch_status()
 	_status_pub.publish(status);
 }
 
+bool WallPerch::pin_trigger_reached() const
+{
+	if (!_param_wp_pin_enable.get()) { return false; }
+	// Nose-down pitch magnitude (theta) reaching the configured threshold.
+	return fabsf(_attitude_euler.theta()) >= math::radians(_param_wp_pin_pitch.get());
+}
+
+void WallPerch::publish_actuator_motors(float thrust)
+{
+	actuator_motors_s motors{};
+	motors.timestamp = hrt_absolute_time();
+	motors.timestamp_sample = motors.timestamp;
+
+	// Non-reversible motors: control[] in [0,1] is remapped to [-1,1] by the
+	// mixer. 1.0 => full forward (max RPM).  See FunctionMotors::updateValues.
+	motors.reversible_flags = 0;
+
+	for (int i = 0; i < actuator_motors_s::NUM_CONTROLS; ++i) {
+		motors.control[i] = NAN;
+	}
+
+	const float t = math::constrain(thrust, 0.f, 1.f);
+
+	// Four fans -> Motor1..Motor4 (control indices 0..3).
+	for (int i = 0; i < 4; ++i) {
+		motors.control[i] = t;
+	}
+
+	_actuator_motors_pub.publish(motors);
+}
+
+void WallPerch::publish_control_mode(bool enable_allocation)
+{
+	// Override the control-mode topic while pinning so the ControlAllocator
+	// stops publishing actuator_motors (flag_control_allocation_enabled).
+	// The mixer then uses wall_perch's directly-published actuator_motors.
+	// Attitude/rate flags are left enabled to avoid spurious failsafes; with
+	// allocation disabled the standard controllers cannot reach the motors.
+	vehicle_control_mode_s mode{};
+	mode.timestamp = hrt_absolute_time();
+	mode.flag_armed = _armed;
+	mode.flag_multicopter_position_control_enabled = true;
+	mode.flag_control_manual_enabled = true;
+	mode.flag_control_auto_enabled = true;
+	mode.flag_control_offboard_enabled = true;
+	mode.flag_control_position_enabled = true;
+	mode.flag_control_velocity_enabled = true;
+	mode.flag_control_altitude_enabled = true;
+	mode.flag_control_climb_rate_enabled = true;
+	mode.flag_control_acceleration_enabled = true;
+	mode.flag_control_attitude_enabled = true;
+	mode.flag_control_rates_enabled = true;
+	mode.flag_control_allocation_enabled = enable_allocation;
+	mode.flag_control_termination_enabled = false;
+	_control_mode_pub.publish(mode);
+}
+
 // ==========================================================================
 //  State entry
 // ==========================================================================
@@ -649,6 +652,13 @@ void WallPerch::enter_state(State new_state)
 		_detach_start_time = hrt_absolute_time();
 		break;
 
+	case State::WALL_PIN:
+		_pin_start_time = hrt_absolute_time();
+		mavlink_log_info(&_mavlink_log_pub,
+			"[wall_perch] WALL_PIN: mixer bypassed, motors at %.2f",
+			(double)_param_wp_pin_thr.get());
+		break;
+
 	case State::EXIT:
 		// Clear all timers
 		_front_ready_start = 0;
@@ -688,20 +698,6 @@ void WallPerch::update_state_machine(float dt)
 	// IDLE
 	// ================================================================
 	case State::IDLE: {
-		// Diagnostic: log each condition every 2 s while stuck in IDLE
-		static hrt_abstime _idle_diag_last{0};
-		if (hrt_elapsed_time(&_idle_diag_last) > 2_s) {
-			mavlink_log_info(&_mavlink_log_pub,
-				"[wall_perch] IDLE diag: start_req=%d armed=%d safe=%d "
-				"alt=%.3f(thr=%.3f) sensors=%d rate=%d vz=%d "
-				"aux1=%.3f aux2=%.3f",
-				(int)start_req, (int)_armed, (int)safe,
-				(double)_current_altitude, (double)_param_wp_min_alt.get(),
-				(int)sensors_valid(), (int)rate_safe(), (int)vz_safe(),
-				(double)_aux1_raw, (double)_aux2_raw);
-			_idle_diag_last = hrt_absolute_time();
-		}
-
 		if (start_req && _armed && safe &&
 		    _current_altitude > _param_wp_min_alt.get()) {
 			enter_state(State::FRONT_WALL_DETECT);
@@ -729,17 +725,8 @@ void WallPerch::update_state_machine(float dt)
 	// later takes over in SLOW_APPROACH.
 	// ================================================================
 	case State::STABILIZE_HOVER: {
-		if (cancel_req) {
-			PX4_WARN("[wall_perch] STABILIZE -> ABORT: cancel_req");
-			enter_state(State::ABORT); break;
-		}
-		if (!safe) {
-			mavlink_log_info(&_mavlink_log_pub,
-				"[wall_perch] STABILIZE -> ABORT: safe=0 "
-				"sensors=%d rate=%d vz=%d armed=%d",
-				(int)sensors_valid(), (int)rate_safe(), (int)vz_safe(), (int)_armed);
-			enter_state(State::ABORT); break;
-		}
+		if (cancel_req) { enter_state(State::ABORT); break; }
+		if (!safe)      { enter_state(State::ABORT); break; }
 
 		// Wait for stabilize time + attitude settled
 		if (hrt_elapsed_time(&_state_entry_time) > (hrt_abstime)(_param_wp_stab_time.get() * 1e6f) &&
@@ -789,6 +776,13 @@ void WallPerch::update_state_machine(float dt)
 		Quatf q_des = slerp_quat(_q_hover, _q_wall, s);
 		publish_attitude_setpoint(q_des, _hover_thrust * 1.05f); // WP_THR_FLIP = 1.05 * hover
 
+		// Once the nose-down pitch reaches the threshold, bypass the mixer and
+		// pin the aircraft to the wall at full thrust (no attitude recovery).
+		if (pin_trigger_reached()) {
+			enter_state(State::WALL_PIN);
+			break;
+		}
+
 		// Transition to WALL_CAPTURE when slerp is done or top sensor already sees wall
 		if (tau >= 1.f || top_contact_ready()) {
 			enter_state(State::WALL_CAPTURE);
@@ -808,6 +802,11 @@ void WallPerch::update_state_machine(float dt)
 				    _hover_thrust * 1.5f,
 				    _param_wp_capture_time.get());
 		publish_attitude_setpoint(_q_wall, thrust);
+
+		if (pin_trigger_reached()) {
+			enter_state(State::WALL_PIN);
+			break;
+		}
 
 		if (top_contact_ready()) {
 			enter_state(State::WALL_HOLD);
@@ -831,6 +830,11 @@ void WallPerch::update_state_machine(float dt)
 
 		publish_attitude_setpoint(_q_wall, _hover_thrust * 1.5f); // WP_THR_HOLD = 1.5 * hover
 
+		if (pin_trigger_reached()) {
+			enter_state(State::WALL_PIN);
+			break;
+		}
+
 		// Check top contact still valid
 		if (_top_wall_distance_m > _param_wp_top_ct_dist.get() * 3.f) {
 			PX4_WARN("[wall_perch] Lost wall contact");
@@ -846,6 +850,29 @@ void WallPerch::update_state_machine(float dt)
 		if (hold_time > 0.f &&
 		    hrt_elapsed_time(&_state_entry_time) > (hrt_abstime)(hold_time * 1e6f)) {
 			enter_state(State::DETACH_ROTATE);
+		}
+		break;
+	}
+
+	// ================================================================
+	// WALL_PIN — mixer bypassed: command all four motors to raw max,
+	// do NOT publish an attitude setpoint (no attitude recovery).
+	// The standard pipeline is silenced by publishing vehicle_control_mode
+	// with flag_control_allocation_enabled = false (see publish_control_mode).
+	// ================================================================
+	case State::WALL_PIN: {
+		// Raw max thrust on all four fans.
+		publish_actuator_motors(_param_wp_pin_thr.get());
+
+		// Stay pinned until the user cancels (recovers) or the optional
+		// hold timeout elapses.
+		if (cancel_req) {
+			enter_state(State::ABORT); break;
+		}
+
+		if (_param_wp_pin_hold.get() > 0.f &&
+		    hrt_elapsed_time(&_pin_start_time) > (hrt_abstime)(_param_wp_pin_hold.get() * 1e6f)) {
+			enter_state(State::ABORT); break;
 		}
 		break;
 	}

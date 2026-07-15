@@ -204,7 +204,8 @@ void CeilingController::update_state_machine(float dt)
 		if (!_ceiling_arm_switch) { enter_state(ceiling_contact_status_s::NORMAL_FLIGHT); }
 		else if (hrt_elapsed_time(&_state_entry_time) > (hrt_abstime)(_param_ceil_appr_to.get() * 1000ULL)) {
 			enter_state(ceiling_contact_status_s::NORMAL_FLIGHT);
-		} else if (_ceiling_distance_lpf <= _param_ceil_d0.get() + 0.02f) {
+		} 		else if (hrt_elapsed_time(&_state_entry_time) >= (hrt_abstime)(_param_ceil_appr_hover.get() * 1000ULL)
+			 && _ceiling_distance_lpf <= _param_ceil_d0.get() + 0.02f) {
 			enter_state(ceiling_contact_status_s::ATTACH_CONTROL_MODE);
 		}
 		break;
@@ -280,8 +281,14 @@ void CeilingController::Run()
 	bool integral_reset_request = false, wheel_stop_request = false;
 
 	if (_state == ceiling_contact_status_s::APPROACH_MODE) {
-		// Velocity-controlled approach: climb at a normal speed to the ceiling.
-		approach_vz_sp = -math::constrain(_param_ceil_appr_vz.get(), 0.05f, 1.0f);
+		// APPROACH is velocity-controlled (no thrust override, no RC dependency).
+		// First hover to settle, then climb at a fixed speed to the ceiling.
+		const float elapsed_s = hrt_elapsed_time(&_state_entry_time) / 1e6f;
+		if (elapsed_s < _param_ceil_appr_hover.get()) {
+			approach_vz_sp = 0.f;  // hover, hold altitude
+		} else {
+			approach_vz_sp = -math::constrain(_param_ceil_appr_vz.get(), 0.05f, 1.0f);
+		}
 		_recorded_hover_thrust = _hover_thrust;
 		if (_approach_reset_pending) { integral_reset_request = true; _approach_reset_pending = false; }
 	}

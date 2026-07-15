@@ -38,7 +38,8 @@
  *
  * State machine:
  *   IDLE → FRONT_WALL_DETECT → STABILIZE_HOVER → SLOW_APPROACH → FLIP_TO_WALL
- *   → WALL_CAPTURE → WALL_HOLD → DETACH_ROTATE → RECOVER → EXIT → IDLE
+ *   → WALL_CAPTURE → WALL_HOLD → WALL_PIN → DETACH_ROTATE → RECOVER → EXIT → IDLE
+ *   (FLIP_TO_WALL / WALL_CAPTURE / WALL_HOLD → WALL_PIN once pitch >= WP_PIN_PITCH)
  *   Any state → ABORT → RECOVER → EXIT → IDLE
  */
 
@@ -59,7 +60,6 @@
 #include <uORB/topics/wall_perch_status.h>
 #include <uORB/topics/distance_sensor.h>
 #include <uORB/topics/manual_control_setpoint.h>
-#include <uORB/topics/input_rc.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_attitude_setpoint.h>
@@ -67,6 +67,8 @@
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/hover_thrust_estimate.h>
+#include <uORB/topics/actuator_motors.h>
+#include <uORB/topics/vehicle_control_mode.h>
 #include <lib/systemlib/mavlink_log.h>
 
 using namespace time_literals;
@@ -94,6 +96,7 @@ private:
 		FLIP_TO_WALL,
 		WALL_CAPTURE,
 		WALL_HOLD,
+		WALL_PIN,
 		DETACH_ROTATE,
 		RECOVER,
 		EXIT,
@@ -143,7 +146,12 @@ private:
 
 	// Output
 	void publish_attitude_setpoint(const Quatf &q_des, float thrust_norm);
+	void publish_actuator_motors(float thrust);
+	void publish_control_mode(bool enable_allocation);
 	void publish_wall_perch_status();
+
+	// Pin trigger
+	bool pin_trigger_reached() const;
 
 	// -----------------------------------------------------------------------
 	// Sensor data
@@ -178,6 +186,9 @@ private:
 	// Slerp tracking
 	hrt_abstime _flip_start_time{0};
 	hrt_abstime _detach_start_time{0};
+
+	// Pin (mixer bypass) timing
+	hrt_abstime _pin_start_time{0};
 
 	// Approach timeout
 	hrt_abstime _approach_start_time{0};
@@ -248,7 +259,12 @@ private:
 		(ParamFloat<px4::params::WP_MAX_VZ_DOWN>) _param_wp_max_vz_down,
 		(ParamFloat<px4::params::WP_MIN_ALT>) _param_wp_min_alt,
 		(ParamFloat<px4::params::WP_RECOVER_RP>) _param_wp_recover_rp,
-		(ParamFloat<px4::params::WP_SENS_TIMEOUT>) _param_wp_sens_timeout
+		(ParamFloat<px4::params::WP_SENS_TIMEOUT>) _param_wp_sens_timeout,
+
+		(ParamBool<px4::params::WP_PIN_ENABLE>) _param_wp_pin_enable,
+		(ParamFloat<px4::params::WP_PIN_PITCH>) _param_wp_pin_pitch,
+		(ParamFloat<px4::params::WP_PIN_THR>) _param_wp_pin_thr,
+		(ParamFloat<px4::params::WP_PIN_HOLD>) _param_wp_pin_hold
 	)
 
 	// -----------------------------------------------------------------------
@@ -257,7 +273,6 @@ private:
 	uORB::Subscription _distance_sensor_front_sub{ORB_ID(distance_sensor), 0};
 	uORB::Subscription _distance_sensor_top_sub{ORB_ID(distance_sensor), 0};
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
-	uORB::Subscription _input_rc_sub{ORB_ID(input_rc), 0};
 	uORB::Subscription _vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
 	uORB::Subscription _vehicle_angular_velocity_sub{ORB_ID(vehicle_angular_velocity)};
 	uORB::Subscription _vehicle_local_pos_sub{ORB_ID(vehicle_local_position)};
@@ -270,6 +285,8 @@ private:
 	// -----------------------------------------------------------------------
 	uORB::Publication<wall_perch_status_s> _status_pub{ORB_ID(wall_perch_status)};
 	uORB::Publication<vehicle_attitude_setpoint_s> _att_sp_pub{ORB_ID(vehicle_attitude_setpoint)};
+	uORB::Publication<actuator_motors_s> _actuator_motors_pub{ORB_ID(actuator_motors)};
+	uORB::Publication<vehicle_control_mode_s> _control_mode_pub{ORB_ID(vehicle_control_mode)};
 
 	// -----------------------------------------------------------------------
 	// Performance counters

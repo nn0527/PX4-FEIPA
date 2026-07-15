@@ -14,7 +14,7 @@ parameters:
             type: int32
             min: 1
             max: 32
-            default: 1
+            default: 3
         WP_DETACH_AUX_CH:
             description:
                 short: Aux channel for detach trigger
@@ -232,3 +232,32 @@ parameters:
             min: 0.05
             max: 2.0
             default: 0.20
+
+        WP_PIN_ENABLE:
+            description:
+                short: Enable mixer-bypass pin-to-wall (raw max thrust, no attitude control)
+            type: boolean
+            default: 1
+        WP_PIN_PITCH:
+            description:
+                short: Pitch angle (deg) at which to bypass mixer and pin to wall
+            type: float
+            unit: deg
+            min: 30.0
+            max: 120.0
+            default: 85.0
+        WP_PIN_THR:
+            description:
+                short: Raw motor thrust during pin (0..1, 1 = max RPM)
+            type: float
+            min: 0.0
+            max: 1.0
+            default: 1.0
+        WP_PIN_HOLD:
+            description:
+                short: Max pin duration before auto-exit (0 = stay pinned until cancel)
+            type: float
+            unit: s
+            min: 0.0
+            max: 600.0
+            default: 0.0

@@ -79,6 +79,7 @@ private:
 		(ParamFloat<px4::params::CEIL_DIST_THR>) _param_ceil_dist_thr,
 		(ParamFloat<px4::params::CEIL_VEL_THR>) _param_ceil_vel_thr,
 		(ParamFloat<px4::params::CEIL_APPR_VZ>) _param_ceil_appr_vz,
+		(ParamFloat<px4::params::CEIL_APPR_HOVER>) _param_ceil_appr_hover,
 		(ParamInt<px4::params::CEIL_APPR_TO>) _param_ceil_appr_to,
 		(ParamFloat<px4::params::CEIL_DIST_KP>) _param_ceil_dist_kp,
 		(ParamFloat<px4::params::CEIL_DIST_KI>) _param_ceil_dist_ki,

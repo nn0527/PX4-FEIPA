@@ -37,12 +37,20 @@ parameters:
             default: 0.3
         CEIL_APPR_VZ:
             description:
-                short: Approach vertical speed magnitude
+                short: Approach vertical speed magnitude (climb after hover)
             type: float
             unit: m/s
             min: 0.01
             max: 1.0
             default: 0.3
+        CEIL_APPR_HOVER:
+            description:
+                short: Hover duration at start of APPROACH before climbing
+            type: float
+            unit: s
+            min: 0.0
+            max: 3.0
+            default: 1.0
         CEIL_APPR_TO:
             description:
                 short: Approach timeout before abort
