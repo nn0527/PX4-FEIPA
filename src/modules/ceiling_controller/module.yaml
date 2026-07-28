@@ -126,6 +126,13 @@ parameters:
             min: 1.0
             max: 3.0
             default: 1.5
+        CEIL_SURF_MULT:
+            description:
+                short: Surface (state 4) thrust multiplier of hover
+            type: float
+            min: 1.0
+            max: 3.0
+            default: 1.8
         CEIL_FLT_TC:
             description:
                 short: Distance low-pass filter time constant

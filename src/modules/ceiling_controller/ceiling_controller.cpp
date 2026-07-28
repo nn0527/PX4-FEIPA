@@ -211,7 +211,10 @@ void CeilingController::update_state_machine(float dt)
 		break;
 	case ceiling_contact_status_s::ATTACH_CONTROL_MODE:
 		if (!_ceiling_arm_switch) { enter_state(ceiling_contact_status_s::DETACH_MODE); }
-		else if (check_distance_stable()) { enter_state(ceiling_contact_status_s::SURFACE_MANUAL_MODE); }
+		else if (hrt_elapsed_time(&_state_entry_time) >= 500_ms
+			 && _ceiling_distance_lpf <= _param_ceil_d0.get() + 0.02f) {
+			enter_state(ceiling_contact_status_s::SURFACE_MANUAL_MODE);
+		}
 		break;
 	case ceiling_contact_status_s::SURFACE_MANUAL_MODE:
 		if (!_ceiling_arm_switch) { enter_state(ceiling_contact_status_s::DETACH_MODE); }
@@ -292,10 +295,14 @@ void CeilingController::Run()
 		_recorded_hover_thrust = _hover_thrust;
 		if (_approach_reset_pending) { integral_reset_request = true; _approach_reset_pending = false; }
 	}
-	if (_state == ceiling_contact_status_s::ATTACH_CONTROL_MODE
-	    || _state == ceiling_contact_status_s::SURFACE_MANUAL_MODE) {
+	if (_state == ceiling_contact_status_s::ATTACH_CONTROL_MODE) {
 		integral_reset_request = true;
 		thrust_body_z_sp = compute_lock_thrust();
+	}
+	if (_state == ceiling_contact_status_s::SURFACE_MANUAL_MODE) {
+		integral_reset_request = true;
+		float lock = math::min(_recorded_hover_thrust * _param_ceil_surf_mult.get(), 0.95f);
+		thrust_body_z_sp = -lock;
 	}
 	if (_state == ceiling_contact_status_s::DETACH_MODE) {
 		integral_reset_request = true; thrust_body_z_sp = compute_distance_control(dt);

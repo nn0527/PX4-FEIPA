@@ -90,6 +90,7 @@ private:
 		(ParamFloat<px4::params::CEIL_MAX_THRUST>) _param_ceil_max_thrust,
 		(ParamFloat<px4::params::CEIL_RAMP_DIST>) _param_ceil_ramp_dist,
 		(ParamFloat<px4::params::CEIL_ATTACH_MULT>) _param_ceil_attach_mult,
+		(ParamFloat<px4::params::CEIL_SURF_MULT>) _param_ceil_surf_mult,
 		(ParamFloat<px4::params::CEIL_FLT_TC>) _param_ceil_flt_tc
 	)
 

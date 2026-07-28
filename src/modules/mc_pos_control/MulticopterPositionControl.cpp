@@ -560,7 +560,11 @@ void MulticopterPositionControl::Run()
 			}
 
 			if (cc_updated && cc_status.integral_reset_request) {
-				_control.resetIntegral();
+				// Only reset the vertical integrator: the ceiling controller takes over
+				// the thrust in Z, but the pilot still commands XY via the sticks. Clearing
+				// the full integral (resetIntegral) would wipe the XY integrator every cycle
+				// and degrade manual horizontal control.
+				_control.resetIntegralZ();
 			}
 
 			_control.setInputSetpoint(_setpoint);

@@ -165,6 +165,15 @@ public:
 	void resetIntegralXY() { _vel_int.xy() = matrix::Vector2f(); }
 
 	/**
+	 * Set the integral term in z to 0.
+	 * Used when the ceiling controller takes over the vertical thrust so the
+	 * horizontal position controller integrator (and thus pilot XY control) is
+	 * left untouched.
+	 * @see _vel_int
+	 */
+	void resetIntegralZ() { _vel_int(2) = 0.f; }
+
+	/**
 	 * If set, the tilt setpoint is computed by assuming no vertical acceleration
 	 */
 	void decoupleHorizontalAndVecticalAcceleration(bool val) { _decouple_horizontal_and_vertical_acceleration = val; }
