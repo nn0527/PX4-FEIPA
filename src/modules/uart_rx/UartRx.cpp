@@ -120,6 +120,22 @@ bool UartRx::baud_to_speed(unsigned baudrate, speed_t &speed)
 	}
 }
 
+uint8_t UartRx::crc8_atm(const uint8_t *data, size_t length)
+{
+	uint8_t crc = 0;
+
+	for (size_t i = 0; i < length; ++i) {
+		crc ^= data[i];
+
+		for (uint8_t bit = 0; bit < 8; ++bit) {
+			crc = (crc & 0x80U) ? static_cast<uint8_t>((crc << 1U) ^ 0x07U)
+			      : static_cast<uint8_t>(crc << 1U);
+		}
+	}
+
+	return crc;
+}
+
 bool UartRx::configure_uart()
 {
 	speed_t speed;
@@ -138,16 +154,22 @@ bool UartRx::configure_uart()
 
 	// Raw 8N1, no hardware or software flow control.
 	uart_config.c_iflag = 0;
+
 	uart_config.c_oflag = 0;
+
 	uart_config.c_lflag = 0;
+
 	uart_config.c_cflag &= ~(PARENB | CSTOPB | CSIZE);
+
 	uart_config.c_cflag |= CS8 | CREAD | CLOCAL;
 
 #ifdef CRTSCTS
 	uart_config.c_cflag &= ~CRTSCTS;
+
 #endif
 
 	uart_config.c_cc[VMIN] = 0;
+
 	uart_config.c_cc[VTIME] = 0;
 
 	if (cfsetispeed(&uart_config, speed) < 0 || cfsetospeed(&uart_config, speed) < 0) {
@@ -186,11 +208,35 @@ void UartRx::publish_frame()
 	memcpy(message.frame, _frame, sizeof(message.frame));
 	_frame_pub.publish(message);
 
-	const uint16_t distance_mm = (static_cast<uint16_t>(message.frame[2]) << 8) | message.frame[3];
-	PX4_INFO("distance: %u mm", static_cast<unsigned>(distance_mm));
+	const uint16_t up_distance_mm = (static_cast<uint16_t>(message.frame[2]) << 8) | message.frame[3];
+	const uint16_t front_distance_mm = (static_cast<uint16_t>(message.frame[4]) << 8) | message.frame[5];
+	_last_up_distance_mm.store(up_distance_mm);
+	_last_front_distance_mm.store(front_distance_mm);
 
 	_valid_frames.fetch_add(1);
 	_last_valid_frame_timestamp.store(message.timestamp);
+}
+
+void UartRx::resynchronize_after_invalid_frame()
+{
+	// Retain an embedded AA 55 suffix so that a missing/inserted byte does not
+	// force the following valid frame to be discarded as well.
+	for (size_t i = 1; i + 1 < FRAME_LENGTH; ++i) {
+		if (_frame[i] == FRAME_HEADER_0 && _frame[i + 1] == FRAME_HEADER_1) {
+			const size_t retained = FRAME_LENGTH - i;
+			memmove(_frame, &_frame[i], retained);
+			_frame_index = static_cast<uint8_t>(retained);
+			return;
+		}
+	}
+
+	if (_frame[FRAME_LENGTH - 1] == FRAME_HEADER_0) {
+		_frame[0] = FRAME_HEADER_0;
+		_frame_index = 1;
+
+	} else {
+		_frame_index = 0;
+	}
 }
 
 void UartRx::process_byte(uint8_t byte)
@@ -226,19 +272,22 @@ void UartRx::process_byte(uint8_t byte)
 		return;
 	}
 
-	if (_frame[FRAME_LENGTH - 2] == FRAME_TAIL_0 && _frame[FRAME_LENGTH - 1] == FRAME_TAIL_1) {
+	const bool tail_valid = _frame[FRAME_LENGTH - 2] == FRAME_TAIL_0
+				&& _frame[FRAME_LENGTH - 1] == FRAME_TAIL_1;
+	const bool crc_valid = crc8_atm(_frame, CRC_DATA_LENGTH) == _frame[CRC_INDEX];
+
+	if (tail_valid && crc_valid) {
 		publish_frame();
+		_frame_index = 0;
 
 	} else {
 		_invalid_frames.fetch_add(1);
-	}
 
-	if (byte == FRAME_HEADER_0) {
-		_frame[0] = byte;
-		_frame_index = 1;
+		if (!crc_valid) {
+			_crc_errors.fetch_add(1);
+		}
 
-	} else {
-		_frame_index = 0;
+		resynchronize_after_invalid_frame();
 	}
 }
 
@@ -259,45 +308,27 @@ void UartRx::run()
 	PX4_INFO("reading ESP32 frames from %s at %u baud (8N1)", _device_path, _baudrate);
 
 	while (!should_exit()) {
-		px4_pollfd_struct_t fds[1] {};
-		fds[0].fd = _fd;
-		fds[0].events = POLLIN;
+		uint8_t buffer[RX_BUFFER_LENGTH];
+		const ssize_t bytes_read = ::read(_fd, buffer, sizeof(buffer));
 
-		const int poll_ret = px4_poll(fds, 1, 250);
+		if (bytes_read > 0) {
+			_rx_bytes.fetch_add(bytes_read);
 
-		if (poll_ret < 0) {
-			if (errno != EINTR) {
-				_read_errors.fetch_add(1);
-				PX4_ERR("poll failed (%i)", errno);
+			for (ssize_t i = 0; i < bytes_read; i++) {
+				process_byte(buffer[i]);
 			}
 
-			continue;
-		}
+		} else if (bytes_read == 0 || errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+			px4_usleep(2'000);
 
-		if (poll_ret == 0) {
-			continue;
-		}
+		} else if (errno == EIO || errno == EBADF || errno == ENXIO) {
+			PX4_WARN("UART peer disconnected");
+			break;
 
-		if (fds[0].revents & POLLIN) {
-			uint8_t buffer[RX_BUFFER_LENGTH];
-			const ssize_t bytes_read = ::read(_fd, buffer, sizeof(buffer));
-
-			if (bytes_read > 0) {
-				_rx_bytes.fetch_add(bytes_read);
-
-				for (ssize_t i = 0; i < bytes_read; i++) {
-					process_byte(buffer[i]);
-				}
-
-			} else if (bytes_read < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
-				_read_errors.fetch_add(1);
-				PX4_ERR("read failed (%i)", errno);
-			}
-		}
-
-		if (fds[0].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+		} else {
 			_read_errors.fetch_add(1);
-			PX4_ERR("UART poll error: 0x%lx", (unsigned long)fds[0].revents);
+			PX4_ERR("read failed (%i)", errno);
+			px4_usleep(20'000);
 		}
 	}
 
@@ -308,7 +339,7 @@ void UartRx::run()
 int UartRx::task_spawn(int argc, char *argv[])
 {
 	const int task_id = px4_task_spawn_cmd("uart_rx", SCHED_DEFAULT, SCHED_PRIORITY_DEFAULT,
-						  TASK_STACK_SIZE, run_trampoline, (char *const *)argv);
+					       TASK_STACK_SIZE, run_trampoline, (char *const *)argv);
 
 	if (task_id < 0) {
 		return -errno;
@@ -365,14 +396,17 @@ UartRx *UartRx::instantiate(int argc, char *argv[])
 int UartRx::print_status()
 {
 	PX4_INFO("running: %s at %u baud (8N1)", _device_path, _baudrate);
+	PX4_INFO("protocol: AA 55 UP_H UP_L FWD_H FWD_L CRC 0D 0A");
 	PX4_INFO("received: %" PRIu64 " bytes, read errors: %" PRIu32,
 		 _rx_bytes.load(), _read_errors.load());
-	PX4_INFO("frames: %" PRIu64 " valid, %" PRIu64 " invalid",
-		 _valid_frames.load(), _invalid_frames.load());
+	PX4_INFO("frames: %" PRIu64 " valid, %" PRIu64 " invalid, %" PRIu64 " CRC errors",
+		 _valid_frames.load(), _invalid_frames.load(), _crc_errors.load());
 
 	const hrt_abstime last_frame = _last_valid_frame_timestamp.load();
 
 	if (last_frame > 0) {
+		PX4_INFO("last ranges: UP=%" PRIu32 " mm, FRONT=%" PRIu32 " mm",
+			 _last_up_distance_mm.load(), _last_front_distance_mm.load());
 		PX4_INFO("last valid frame: %" PRIu64 " ms ago", (hrt_absolute_time() - last_frame) / 1000);
 
 	} else {
@@ -389,12 +423,12 @@ int UartRx::print_usage(const char *reason)
 	}
 
 	PRINT_MODULE_DESCRIPTION(
-		"Receives fixed 7-byte ESP32 UART distance frames and publishes valid frames on the "
+		"Receives fixed 9-byte ESP32 UART dual-distance frames and publishes valid frames on the "
 		"`esp32_uart_frame` uORB topic. The default is TELEM2 (`/dev/ttyS4`) "
 		"at 115200 baud on PX4 FMUv6X boards.\n"
 		"\n"
-		"Expected frame: `AA 55 distance_high distance_low reserved 0D 0A`. "
-		"Distance is printed in millimetres for each valid frame.\n"
+		"Expected frame: `AA 55 UP_H UP_L FWD_H FWD_L CRC 0D 0A`. "
+		"CRC is CRC-8/ATM over bytes 0 through 5 (poly 0x07, init 0).\n"
 		"The module only reads from the UART and requires exclusive ownership of the port.");
 
 	PRINT_MODULE_USAGE_NAME("uart_rx", "example");

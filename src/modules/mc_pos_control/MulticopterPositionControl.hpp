@@ -113,6 +113,9 @@ private:
 	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 
+	static constexpr hrt_abstime CEILING_STATUS_TIMEOUT{200_ms};
+	ceiling_contact_status_s _ceiling_contact_status{};
+
 	hrt_abstime _time_stamp_last_loop{0};		/**< time stamp of last loop iteration */
 	hrt_abstime _time_position_control_enabled{0};
 

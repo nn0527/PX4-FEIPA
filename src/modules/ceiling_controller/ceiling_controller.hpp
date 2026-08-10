@@ -12,6 +12,7 @@
 #include <uORB/Publication.hpp>
 #include <uORB/PublicationMulti.hpp>
 #include <uORB/Subscription.hpp>
+#include <uORB/SubscriptionMultiArray.hpp>
 #include <uORB/SubscriptionInterval.hpp>
 #include <uORB/topics/ceiling_contact_status.h>
 #include <uORB/topics/distance_sensor.h>
@@ -70,13 +71,23 @@ private:
 	uint32_t _fault_count{0};
 	static constexpr float COMPRESSION_THR{0.005f};
 	static constexpr uint64_t ATTACH_TIME_THR{100_ms};
+	static constexpr hrt_abstime DISTANCE_TIMEOUT{500_ms};
+	static constexpr hrt_abstime DETACH_MIN_TIME{300_ms};
+	static constexpr hrt_abstime DETACH_CONFIRM_TIME{200_ms};
+	static constexpr hrt_abstime DETACH_THRUST_RAMP_TIME{500_ms};
 	hrt_abstime _attach_detect_start{0};
 	hrt_abstime _dist_stable_start{0};
+	hrt_abstime _detach_confirm_start{0};
+	float _detach_start_thrust{0.72f};
+	bool _rearm_required{false};
+	bool _detach_timed_out{false};
+	bool _detach_sensor_failed{false};
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::CEIL_D0>) _param_ceil_d0,
 		(ParamFloat<px4::params::CEIL_COMP_TGT>) _param_ceil_comp_tgt,
 		(ParamFloat<px4::params::CEIL_DIST_THR>) _param_ceil_dist_thr,
+		(ParamFloat<px4::params::CEIL_APPR_START>) _param_ceil_appr_start,
 		(ParamFloat<px4::params::CEIL_VEL_THR>) _param_ceil_vel_thr,
 		(ParamFloat<px4::params::CEIL_APPR_VZ>) _param_ceil_appr_vz,
 		(ParamFloat<px4::params::CEIL_APPR_HOVER>) _param_ceil_appr_hover,
@@ -89,6 +100,8 @@ private:
 		(ParamFloat<px4::params::CEIL_MAX_PITCH>) _param_ceil_max_pitch,
 		(ParamFloat<px4::params::CEIL_MAX_THRUST>) _param_ceil_max_thrust,
 		(ParamFloat<px4::params::CEIL_RAMP_DIST>) _param_ceil_ramp_dist,
+		(ParamFloat<px4::params::CEIL_DET_THR_MIN>) _param_ceil_det_thr_min,
+		(ParamFloat<px4::params::CEIL_DET_TO>) _param_ceil_det_to,
 		(ParamFloat<px4::params::CEIL_ATTACH_MULT>) _param_ceil_attach_mult,
 		(ParamFloat<px4::params::CEIL_SURF_MULT>) _param_ceil_surf_mult,
 		(ParamFloat<px4::params::CEIL_FLT_TC>) _param_ceil_flt_tc
@@ -96,7 +109,7 @@ private:
 
 	orb_advert_t _mavlink_log_pub{nullptr};
 	uORB::Publication<ceiling_contact_status_s> _status_pub{ORB_ID(ceiling_contact_status)};
-	uORB::Subscription _distance_sensor_sub{ORB_ID(distance_sensor)};
+	uORB::SubscriptionMultiArray<distance_sensor_s> _distance_sensor_subs{ORB_ID::distance_sensor};
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
 	uORB::Subscription _vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
 	uORB::Subscription _vehicle_local_pos_sub{ORB_ID(vehicle_local_position)};
@@ -112,9 +125,10 @@ private:
 	bool _last_detach_switch{false};
 	hrt_abstime _last_status_log_time{0};
 	bool _first_run{false};
-	
+
 	// 简单的订阅状态
 	bool _distance_subscription_active{false};
+	hrt_abstime _last_distance_timestamp{0};
 
 	perf_counter_t _loop_interval_perf{perf_alloc(PC_INTERVAL, MODULE_NAME": cycle interval")};
 	perf_counter_t _loop_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": cycle")};

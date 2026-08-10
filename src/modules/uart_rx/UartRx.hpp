@@ -78,18 +78,22 @@ public:
 
 private:
 	static constexpr size_t DEVICE_PATH_LENGTH = 32;
-	static constexpr size_t FRAME_LENGTH = 7;
+	static constexpr size_t FRAME_LENGTH = 9;
+	static constexpr size_t CRC_DATA_LENGTH = 6;
+	static constexpr size_t CRC_INDEX = 6;
 	static constexpr uint8_t FRAME_HEADER_0 = 0xAA;
 	static constexpr uint8_t FRAME_HEADER_1 = 0x55;
 	static constexpr uint8_t FRAME_TAIL_0 = 0x0D;
 	static constexpr uint8_t FRAME_TAIL_1 = 0x0A;
 
 	static bool baud_to_speed(unsigned baudrate, speed_t &speed);
+	static uint8_t crc8_atm(const uint8_t *data, size_t length);
 
 	bool configure_uart();
 	void close_uart();
 	void process_byte(uint8_t byte);
 	void publish_frame();
+	void resynchronize_after_invalid_frame();
 
 	int _fd{-1};
 	struct termios _original_uart_config {};
@@ -103,7 +107,10 @@ private:
 	px4::atomic<uint64_t> _rx_bytes{0};
 	px4::atomic<uint64_t> _valid_frames{0};
 	px4::atomic<uint64_t> _invalid_frames{0};
+	px4::atomic<uint64_t> _crc_errors{0};
 	px4::atomic<uint32_t> _read_errors{0};
+	px4::atomic<uint32_t> _last_up_distance_mm{0};
+	px4::atomic<uint32_t> _last_front_distance_mm{0};
 	px4::atomic<hrt_abstime> _last_valid_frame_timestamp{0};
 
 	uORB::Publication<esp32_uart_frame_s> _frame_pub{ORB_ID(esp32_uart_frame)};

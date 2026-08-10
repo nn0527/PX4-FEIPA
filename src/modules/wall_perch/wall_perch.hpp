@@ -56,6 +56,7 @@
 #include <lib/perf/perf_counter.h>
 #include <uORB/Publication.hpp>
 #include <uORB/Subscription.hpp>
+#include <uORB/SubscriptionMultiArray.hpp>
 #include <uORB/SubscriptionInterval.hpp>
 #include <uORB/topics/wall_perch_status.h>
 #include <uORB/topics/distance_sensor.h>
@@ -116,8 +117,7 @@ private:
 
 	// Sensor helpers
 	bool sensors_valid();
-	float read_front_distance();
-	float read_top_distance();
+	void update_distance_sensors();
 
 	// User input helpers
 	bool user_start_requested();
@@ -270,8 +270,7 @@ private:
 	// -----------------------------------------------------------------------
 	// uORB subscriptions
 	// -----------------------------------------------------------------------
-	uORB::Subscription _distance_sensor_front_sub{ORB_ID(distance_sensor), 0};
-	uORB::Subscription _distance_sensor_top_sub{ORB_ID(distance_sensor), 0};
+	uORB::SubscriptionMultiArray<distance_sensor_s> _distance_sensor_subs{ORB_ID::distance_sensor};
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
 	uORB::Subscription _vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
 	uORB::Subscription _vehicle_angular_velocity_sub{ORB_ID(vehicle_angular_velocity)};

@@ -23,6 +23,9 @@ float32 approach_vz_sp        # Approach vertical speed (NED, negative = up)
 # Switch states
 bool ceiling_arm_switch_on    # CEILING_ENABLE_SWITCH (ch11/aux1)
 bool detach_switch_on         # DETACH_SWITCH (ch12/aux2)
+bool distance_sensor_valid    # Fresh valid upward-facing distance sample available
+bool rearm_required           # AUX1 must be cycled low before another ceiling engagement
+bool detach_timed_out         # Latest detach attempt exceeded CEIL_DET_TO
 
 # Status flags
 bool attach_confirmed         # Compression threshold reached

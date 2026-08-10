@@ -1,0 +1,52 @@
+#!/bin/sh
+#
+# @name Gazebo x500 dual range bridge inspection
+#
+# @type Quadrotor
+#
+
+PX4_SIM_MODEL=${PX4_SIM_MODEL:=x500_dual_range}
+
+# RaycastData is implemented by DART; bridge.sdf selects its Bullet collision
+# detector so the two body-frame physics rays can intersect bridge geometry.
+# This target is primarily used in VMware, where Ogre2 / OgreNext can segfault
+# in the virtual GPU driver.  The model contains an Ogre1-safe primitive visual
+# overlay, so forcing Ogre1 still leaves the complete vehicle visible.
+PX4_GZ_SIM_RENDER_ENGINE=ogre
+export PX4_GZ_SIM_RENDER_ENGINE
+PX4_GZ_SIM_PHYSICS_ENGINE=${PX4_GZ_SIM_PHYSICS_ENGINE:=gz-physics-dartsim-plugin}
+export PX4_GZ_SIM_PHYSICS_ENGINE
+
+. ${R}etc/init.d-posix/airframes/4001_gz_x500
+
+# Safe defaults for terminal AUX injection. Stored user/QGC values still win.
+# The generic SITL default is joystick-only, which deliberately discards
+# MAVLink RC_CHANNELS_OVERRIDE before it reaches manual_control_setpoint.
+param set-default COM_RC_IN_MODE 2
+param set-default RC_CHAN_CNT 8
+param set-default RC_MAP_ROLL 1
+param set-default RC_MAP_PITCH 2
+param set-default RC_MAP_YAW 3
+param set-default RC_MAP_THROTTLE 4
+param set-default RC_MAP_AUX1 5
+param set-default RC_MAP_AUX2 6
+param set-default RC_MAP_AUX3 7
+param set-default RC5_MIN 1000
+param set-default RC5_TRIM 1500
+param set-default RC5_MAX 2000
+param set-default RC6_MIN 1000
+param set-default RC6_TRIM 1500
+param set-default RC6_MAX 2000
+param set-default RC7_MIN 1000
+param set-default RC7_TRIM 1500
+param set-default RC7_MAX 2000
+
+param set-default WP_ENABLE 1
+param set-default WP_AUX_CH 1
+param set-default WP_DETACH_AUX_CH 2
+param set-default WP_CANCEL_AUX_CH 3
+param set-default WP_PIN_ENABLE 0
+param set-default WP_HOLD_TIME 0
+# The GZ x500 hovers near 0.72 normalized thrust.  The generic 0.55 wall
+# approach default causes an immediate descent-rate safety abort in this model.
+param set-default WP_THR_APPROACH 0.74

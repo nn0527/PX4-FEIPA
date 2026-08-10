@@ -21,12 +21,20 @@ parameters:
             default: 0.02
         CEIL_DIST_THR:
             description:
-                short: Distance threshold to trigger approach
+                short: Distance threshold confirming ceiling detach
             type: float
             unit: m
             min: 0.1
             max: 2.0
             default: 0.6
+        CEIL_APPR_START:
+            description:
+                short: UP distance threshold to start ceiling approach
+            type: float
+            unit: m
+            min: 0.1
+            max: 5.0
+            default: 1.2
         CEIL_VEL_THR:
             description:
                 short: Max vertical speed to allow approach
@@ -118,7 +126,22 @@ parameters:
             unit: m/s
             min: 0.001
             max: 0.5
-            default: 0.02
+            default: 0.1
+        CEIL_DET_THR_MIN:
+            description:
+                short: Minimum normalized upward thrust allowed during detach
+            type: float
+            min: 0.05
+            max: 0.8
+            default: 0.25
+        CEIL_DET_TO:
+            description:
+                short: Maximum detach duration before recovery
+            type: float
+            unit: s
+            min: 1.0
+            max: 30.0
+            default: 8.0
         CEIL_ATTACH_MULT:
             description:
                 short: Attach thrust multiplier of hover (approach climb / attach lock)

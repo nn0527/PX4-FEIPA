@@ -542,10 +542,12 @@ void MulticopterPositionControl::Run()
 				math::max(speed_down, 0.f));
 
 			// Ceiling contact controller integration
-			ceiling_contact_status_s cc_status{};
-			bool cc_updated = _ceiling_contact_status_sub.update(&cc_status);
+			_ceiling_contact_status_sub.update(&_ceiling_contact_status);
+			const bool cc_status_valid = _ceiling_contact_status.timestamp != 0
+						     && hrt_elapsed_time(&_ceiling_contact_status.timestamp) <= CEILING_STATUS_TIMEOUT;
+			const ceiling_contact_status_s &cc_status = _ceiling_contact_status;
 
-			if (cc_updated && cc_status.state == ceiling_contact_status_s::APPROACH_MODE) {
+			if (cc_status_valid && cc_status.state == ceiling_contact_status_s::APPROACH_MODE) {
 				// Lock XY motion, only allow slow upward Z motion
 				_setpoint.velocity[0] = 0.f;
 				_setpoint.velocity[1] = 0.f;
@@ -559,7 +561,7 @@ void MulticopterPositionControl::Run()
 				}
 			}
 
-			if (cc_updated && cc_status.integral_reset_request) {
+			if (cc_status_valid && cc_status.integral_reset_request) {
 				// Only reset the vertical integrator: the ceiling controller takes over
 				// the thrust in Z, but the pilot still commands XY via the sticks. Clearing
 				// the full integral (resetIntegral) would wipe the XY integrator every cycle
@@ -633,10 +635,11 @@ void MulticopterPositionControl::Run()
 			_control.getAttitudeSetpoint(attitude_setpoint);
 			attitude_setpoint.timestamp = hrt_absolute_time();
 
-			// Ceiling contact distance control override: directly set body-Z thrust in attach states
-			// Only override in ATTACH_CONTROL and SURFACE_MANUAL; let mc_pos_control handle DETACH/APPROACH normally
-			if (cc_updated && (cc_status.state == ceiling_contact_status_s::ATTACH_CONTROL_MODE
-						   || cc_status.state == ceiling_contact_status_s::SURFACE_MANUAL_MODE)) {
+			// The ceiling controller owns body-Z thrust while attached and during
+			// distance-controlled detach. XY attitude remains under position control.
+			if (cc_status_valid && (cc_status.state == ceiling_contact_status_s::ATTACH_CONTROL_MODE
+						|| cc_status.state == ceiling_contact_status_s::SURFACE_MANUAL_MODE
+						|| cc_status.state == ceiling_contact_status_s::DETACH_MODE)) {
 				if (PX4_ISFINITE(cc_status.thrust_body_z_sp)) {
 					attitude_setpoint.thrust_body[2] = cc_status.thrust_body_z_sp;
 				}

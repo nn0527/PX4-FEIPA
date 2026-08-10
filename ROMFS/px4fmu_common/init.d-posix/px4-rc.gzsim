@@ -23,6 +23,17 @@ if [ "$(printf '%s\n' "$GZ_SIM_VERSION" "$MIN_GZ_VERSION" | sort -V | head -n1)"
 		echo "INFO  [init] Setting Gazebo render engine to '${PX4_GZ_SIM_RENDER_ENGINE}'!"
 		gz_sub_command="${gz_sub_command} --render-engine ${PX4_GZ_SIM_RENDER_ENGINE}"
 	fi
+
+	if [ -n "${PX4_GZ_SIM_PHYSICS_ENGINE}" ]; then
+		echo "INFO  [init] Setting Gazebo physics engine to '${PX4_GZ_SIM_PHYSICS_ENGINE}'!"
+		gz_sub_command="${gz_sub_command} --physics-engine ${PX4_GZ_SIM_PHYSICS_ENGINE}"
+	fi
+
+	# Server-only mode still needs a render context for camera and GPU lidar
+	# sensors. Use EGL instead of GLX when no Gazebo GUI is requested.
+	if [ -n "${HEADLESS}" ]; then
+		gz_sub_command="${gz_sub_command} --headless-rendering"
+	fi
 else
     echo "ERROR [init] Gazebo gz sim version is too old ($GZ_SIM_VERSION). Minimum required version is $MIN_GZ_VERSION"
     exit 1
@@ -58,8 +69,17 @@ if [ -z "${PX4_GZ_STANDALONE}" ]; then
 			${gz_command} ${gz_sub_command} -g > /dev/null 2>&1 &
 		fi
 
+	elif [ -n "${PX4_GZ_WORLD}" ] && [ "${PX4_GZ_WORLD}" != "${gz_world}" ]; then
+		# A named-world target must not silently attach to another world. Doing so
+		# makes e.g. gz_x500_dual_range_bridge appear to start successfully while
+		# the model is actually spawned into a stale default world.
+		echo "ERROR [init] Requested Gazebo world '${PX4_GZ_WORLD}', but '${gz_world}' is already running"
+		echo "ERROR [init] Stop the existing PX4/Gazebo processes before switching worlds"
+		exit 1
+
 	else
-		# Gazebo is already running
+		# Gazebo is already running with either the requested world or no explicit
+		# world requirement (the default model-only target).
 		echo "INFO  [init] gazebo already running world: ${gz_world}"
 		PX4_GZ_WORLD=${gz_world}
 	fi

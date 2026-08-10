@@ -5,16 +5,17 @@
 # SITL script that triggers the wall_perch 90-degree flip maneuver.
 #
 # Strategy:
-#   1. Set wall_perch + RC params via MAVLink param_set.
-#   2. Send RC override IMMEDIATELY (ch1-4=1500 neutral, ch5=AUX_OFF) so
+#   1. Start uart_rx/CeilingReader/wall_perch and feed the ESP32 frame via PTY.
+#   2. Set wall_perch + RC params via MAVLink param_set.
+#   3. Send RC override IMMEDIATELY (ch1-4=1500 neutral, ch5=AUX_OFF) so
 #      rc_update (which is callback-driven on input_rc) actually runs,
 #      processes the param_update, and calibrates (_rc_calibrated=true,
 #      RC_MAP_AUX1→channel 5 mapped).
-#   3. Take off with OFFBOARD + MAVLink arm.
-#   4. Raise ch5 to 2000 (AUX_ON) → rc_update publishes
+#   4. Take off with OFFBOARD + MAVLink arm.
+#   5. Raise ch5 to 2000 (AUX_ON) → rc_update publishes
 #      manual_control_input.aux1=1.0 → manual_control_setpoint.aux1=1.0
 #      → wall_perch sees start_req=true and triggers.
-#   5. Watch for |pitch| > 60 deg.
+#   6. Watch for |pitch| > 60 deg, then reduce UP range to confirm contact.
 #
 # Usage:
 #   Terminal 1: make px4_sitl gz_x500
@@ -25,6 +26,8 @@ import time
 import threading
 
 from pymavlink import mavutil
+
+from esp32_dual_range_sitl import DualRangePty, px4_command
 
 PORT = sys.argv[1] if len(sys.argv) > 1 else "14540"
 CONN = f"udp:127.0.0.1:{PORT}"
@@ -49,15 +52,22 @@ state = {
 running = True
 sp_z = TARGET_Z
 aux5 = AUX_OFF  # RC channel 5 value (shared between main and rc_thread)
+cancel7 = 1000  # independent AUX3 cancel channel held explicitly low
+sensor_up_mm = 1000
+range_link = None
 
 
 def main():
-    global running, sp_z, aux5
+    global running, sp_z, aux5, sensor_up_mm, range_link
 
     m = mavutil.mavlink_connection(CONN)
     m.wait_heartbeat(timeout=30)
     sysid, compid = m.target_system, m.target_component
     print(f"[*] heartbeat from sys={sysid} comp={compid}")
+
+    range_link = DualRangePty()
+    print(f"[*] pseudo UART: {range_link.slave_path}")
+    range_link.start_px4_modules(start_wall_perch=True)
 
     # Request telemetry streams
     m.mav.request_data_stream_send(
@@ -100,18 +110,22 @@ def main():
         print(f"[!] no ack for {name}")
 
     # ---- RC override helper ----
-    def set_rc(ch1, ch2, ch3, ch4, ch5, ch6):
-        """Full 18-channel override. Only ch1-ch6 matter; rest ignored."""
+    def set_rc(ch1, ch2, ch3, ch4, ch5, ch6, ch7):
+        """Full 18-channel override. ch5/6/7 map to start/detach/cancel."""
         m.mav.rc_channels_override_send(
             sysid, compid,
             ch1, ch2, ch3, ch4, ch5, ch6,
-            65535, 65535, 65535, 65535, 65535, 65535,
+            ch7, 65535, 65535, 65535, 65535, 65535,
             65535, 65535, 65535, 65535, 65535, 65535)
 
     # ---- Configure params ----
     set_param("WP_ENABLE", 1)
+    set_param("WP_PIN_ENABLE", 0)       # SITL: use the standard attitude-control chain
+    set_param("WP_AUX_CH", 1)
+    set_param("WP_DETACH_AUX_CH", 2)
+    set_param("WP_CANCEL_AUX_CH", 3)
     set_param("WP_FLP_TRD_DIST", 0.5)    # front 0.3 ≤ 0.5 → flip_ready passes
-    set_param("WP_TOP_CT_DIST", 2.0)     # injected top 1.0 ≤ 2.0 → contact detected
+    set_param("WP_TOP_CT_DIST", 0.08)    # UP changes to 0.04m after flip
 
     # RC mapping params — rc_update must be calibrated for
     # manual_control_input.valid to be true AND for aux1 to be mapped.
@@ -122,6 +136,7 @@ def main():
     set_param("RC_MAP_THROTTLE", 4)
     set_param("RC_MAP_AUX1", 5)
     set_param("RC_MAP_AUX2", 6)
+    set_param("RC_MAP_AUX3", 7)
 
     # RC channel calibration: without these, rc_update's interpolateNXY
     # sees min=trim=max=0 for aux channels → output always 0 → aux1=0.
@@ -131,6 +146,9 @@ def main():
     set_param("RC6_MIN", 1000)
     set_param("RC6_TRIM", 1500)
     set_param("RC6_MAX", 2000)
+    set_param("RC7_MIN", 1000)
+    set_param("RC7_TRIM", 1500)
+    set_param("RC7_MAX", 2000)
 
     # ---- RC override sender (runs continuously at ~10 Hz) ----
     # rc_update is callback-driven on input_rc.  We must send override
@@ -138,7 +156,7 @@ def main():
     # stabilises (channel_count_stable, _rc_calibrated).
     def rc_thread():
         while running:
-            set_rc(1500, 1500, 1500, 1500, aux5, 1500)
+            set_rc(1500, 1500, 1500, 1500, aux5, 1500, cancel7)
             time.sleep(0.1)
     threading.Thread(target=rc_thread, daemon=True).start()
 
@@ -232,6 +250,9 @@ def main():
     if not armed:
         print("[!] could not arm.")
         running = False
+        range_link.stop_px4_uart()
+        range_link.close()
+        range_link = None
         return
 
     # --- Takeoff ---
@@ -245,23 +266,17 @@ def main():
     print(f"[*] altitude reached: {-get('z'):.2f} m; hovering 3 s")
     time.sleep(3.0)
 
-    # --- Inject distance sensors AFTER takeoff + hover (not before!) ---
-    # Front sensor (orientation=0): needed for front_ready/flip_ready.
-    # Top sensor (orientation=8): needed for sensors_valid in FLIP_TO_WALL.
-    # Both are sent in one thread.
-    print("[*] injecting front (0.3m) + top (1.0m) distance sensors ...")
+    # --- Feed the dual-range ESP32 frame AFTER takeoff + hover ---
+    # FRONT=0.3m triggers approach. UP stays far until the flip is observed.
+    print("[*] feeding ESP32 frames: FRONT=0.3m, UP=1.0m ...")
     def inject_thread():
         while running:
-            # Front (orientation=0)
-            m.mav.distance_sensor_send(0, 10, 500, 30, 0, 0, 0, 0)
-            time.sleep(0.02)
-            # Top (orientation=8)
-            m.mav.distance_sensor_send(0, 10, 500, 100, 0, 0, 8, 0)
+            range_link.write_frame(sensor_up_mm, 300)
             time.sleep(0.03)
     threading.Thread(target=inject_thread, daemon=True).start()
     time.sleep(0.5)  # let a few samples arrive
 
-    # --- Trigger wall_perch (aux1 hardcoded true in C++, this is for record) ---
+    # --- Trigger wall_perch through the explicitly selected AUX1 channel ---
     print("[*] TRIGGER wall_perch")
     aux5 = AUX_ON
 
@@ -280,8 +295,20 @@ def main():
     if not flipped:
         print("[!] flip not detected within timeout")
 
-    print("[*] done. The vehicle is now expected to fall — acceptable per request.")
+    else:
+        sensor_up_mm = 40
+        print("[*] UP reduced to 0.04m; waiting for WALL_CAPTURE/WALL_HOLD ...")
+        time.sleep(3.0)
+        _, status_output = px4_command(
+            "listener wall_perch_status -n 1", range_link.socket_path, check=False)
+        if status_output:
+            print(status_output)
+
+    print("[*] done")
     running = False
+    range_link.stop_px4_uart()
+    range_link.close()
+    range_link = None
 
 
 if __name__ == "__main__":
@@ -289,4 +316,13 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         running = False
+        if range_link is not None:
+            range_link.stop_px4_uart()
+            range_link.close()
         print("\n[!] interrupted by user")
+    except Exception:
+        running = False
+        if range_link is not None:
+            range_link.stop_px4_uart()
+            range_link.close()
+        raise

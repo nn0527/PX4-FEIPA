@@ -2,4 +2,6 @@ menuconfig MODULES_UART_RX
 	bool "uart_rx"
 	default n
 	---help---
-		Enable the ESP32 UART receiver module for reading distance sensor frames.
+		Enable the ESP32 UART receiver for 9-byte dual-range frames:
+		AA 55 UP_H UP_L FWD_H FWD_L CRC 0D 0A. CRC-8/ATM is calculated
+		over bytes 0 through 5.

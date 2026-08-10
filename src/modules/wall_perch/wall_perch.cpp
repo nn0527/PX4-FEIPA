@@ -69,10 +69,11 @@ bool WallPerch::init()
 {
 	parameters_update(true);
 
-	if (!_distance_sensor_front_sub.advertised()) {
-		PX4_WARN("[wall_perch] front distance_sensor topic not advertised yet");
+	if (!_distance_sensor_subs.advertised()) {
+		PX4_WARN("[wall_perch] distance_sensor topic not advertised yet");
+
 	} else {
-		PX4_INFO("[wall_perch] front distance_sensor topic available");
+		PX4_INFO("[wall_perch] distance_sensor topic available");
 	}
 
 	PX4_INFO("[wall_perch] Started, 10 ms loop");
@@ -102,17 +103,29 @@ const char *WallPerch::state_name(State s) const
 {
 	switch (s) {
 	case State::IDLE:              return "IDLE";
+
 	case State::FRONT_WALL_DETECT: return "FRONT_WALL_DETECT";
+
 	case State::STABILIZE_HOVER:   return "STABILIZE_HOVER";
+
 	case State::SLOW_APPROACH:     return "SLOW_APPROACH";
+
 	case State::FLIP_TO_WALL:      return "FLIP_TO_WALL";
+
 	case State::WALL_CAPTURE:      return "WALL_CAPTURE";
+
 	case State::WALL_HOLD:         return "WALL_HOLD";
+
 	case State::WALL_PIN:          return "WALL_PIN";
+
 	case State::DETACH_ROTATE:     return "DETACH_ROTATE";
+
 	case State::RECOVER:           return "RECOVER";
+
 	case State::EXIT:              return "EXIT";
+
 	case State::ABORT:             return "ABORT";
+
 	default:                       return "UNKNOWN";
 	}
 }
@@ -123,6 +136,12 @@ const char *WallPerch::state_name(State s) const
 
 void WallPerch::Run()
 {
+	if (should_exit()) {
+		ScheduleClear();
+		exit_and_cleanup();
+		return;
+	}
+
 	perf_begin(_loop_perf);
 	perf_count(_loop_interval_perf);
 
@@ -138,6 +157,7 @@ void WallPerch::Run()
 	// --- Read sensor data ---
 	// vehicle_status
 	vehicle_status_s status{};
+
 	if (_vehicle_status_sub.copy(&status)) {
 		_armed = (status.arming_state == vehicle_status_s::ARMING_STATE_ARMED);
 		_nav_state = status.nav_state;
@@ -145,6 +165,7 @@ void WallPerch::Run()
 
 	// vehicle_attitude
 	vehicle_attitude_s att{};
+
 	if (_vehicle_attitude_sub.copy(&att)) {
 		Quatf q(att.q);
 		_attitude_euler = Eulerf(q);
@@ -153,6 +174,7 @@ void WallPerch::Run()
 
 	// vehicle_angular_velocity
 	vehicle_angular_velocity_s ang_vel{};
+
 	if (_vehicle_angular_velocity_sub.copy(&ang_vel)) {
 		_angular_velocity(0) = ang_vel.xyz[0];
 		_angular_velocity(1) = ang_vel.xyz[1];
@@ -161,6 +183,7 @@ void WallPerch::Run()
 
 	// vehicle_local_position
 	vehicle_local_position_s local_pos{};
+
 	if (_vehicle_local_pos_sub.copy(&local_pos)) {
 		_velocity(0) = local_pos.vx;
 		_velocity(1) = local_pos.vy;
@@ -168,12 +191,12 @@ void WallPerch::Run()
 		_current_altitude = -local_pos.z; // NED z-up -> altitude
 	}
 
-	// distance_sensor (front and top)
-	_front_wall_distance_m = read_front_distance();
-	_top_wall_distance_m   = read_top_distance();
+	// distance_sensor (front and upward), selected by orientation across all instances
+	update_distance_sensors();
 
 	// hover_thrust_estimate (for dynamic thrust scaling)
 	hover_thrust_estimate_s hte{};
+
 	if (_hover_thrust_estimate_sub.copy(&hte) && hte.valid) {
 		_hover_thrust_estimate = math::constrain(hte.hover_thrust, 0.1f, 0.9f);
 	}
@@ -181,18 +204,21 @@ void WallPerch::Run()
 	// --- Compute dt ---
 	static hrt_abstime last_run{0};
 	float dt = 0.01f;
+
 	if (last_run != 0) {
 		dt = math::constrain((now - last_run) / 1e6f, 0.001f, 0.05f);
 	}
+
 	last_run = now;
 
 	// --- Update state machine ---
 	update_state_machine(dt);
 
 	// --- Mixer bypass control ---
-	// While pinned (WALL_PIN) disable control allocation so the mixer uses
-	// wall_perch's raw actuator_motors; otherwise keep it enabled.
-	publish_control_mode(_state != State::WALL_PIN);
+	// WALL_PIN is the only state allowed to override Commander's control mode.
+	if (_state == State::WALL_PIN) {
+		publish_control_mode(false);
+	}
 
 	// --- Publish status ---
 	publish_wall_perch_status();
@@ -200,10 +226,10 @@ void WallPerch::Run()
 	// --- Periodic log ---
 	if (hrt_elapsed_time(&_last_status_log_time) > 5_s) {
 		mavlink_log_info(&_mavlink_log_pub,
-			"[wall_perch] st=%s(%d) fdist=%.3f tdist=%.3f armed=%d",
-			state_name(_state), (int)_state,
-			(double)_front_wall_distance_m, (double)_top_wall_distance_m,
-			(int)_armed);
+				 "[wall_perch] st=%s(%d) fdist=%.3f tdist=%.3f armed=%d",
+				 state_name(_state), (int)_state,
+				 (double)_front_wall_distance_m, (double)_top_wall_distance_m,
+				 (int)_armed);
 		_last_status_log_time = now;
 	}
 
@@ -214,60 +240,66 @@ void WallPerch::Run()
 //  Distance sensor helpers
 // ==========================================================================
 
-float WallPerch::read_front_distance()
+void WallPerch::update_distance_sensors()
 {
-	// Front-facing sensor: use the persistent _distance_sensor_front_sub
-	// (instance 0, shared with the injected top sensor on the same uORB
-	// instance).  A fresh Subscription would always grab the latest sample,
-	// which may be the top sensor (orientation 8) → front timestamp never
-	// gets refreshed → sensors_valid() fails.
-	distance_sensor_s msg{};
+	distance_sensor_s newest_front{};
+	distance_sensor_s newest_top{};
+	bool front_updated = false;
+	bool top_updated = false;
 
-	if (_distance_sensor_front_sub.copy(&msg)
-	    && (msg.orientation == 0)) { // FRONT
-		_front_distance_ts = hrt_absolute_time();
-		float raw = msg.current_distance;
+	for (auto &distance_sub : _distance_sensor_subs) {
+		distance_sensor_s msg{};
+
+		if (!distance_sub.update(&msg)
+		    || msg.timestamp == 0
+		    || !PX4_ISFINITE(msg.current_distance)
+		    || msg.current_distance < msg.min_distance
+		    || msg.current_distance > msg.max_distance
+		    || msg.signal_quality == 0) {
+			continue;
+		}
+
+		if (msg.orientation == distance_sensor_s::ROTATION_FORWARD_FACING
+		    && (!front_updated || msg.timestamp > newest_front.timestamp)) {
+			newest_front = msg;
+			front_updated = true;
+
+		} else if (msg.orientation == distance_sensor_s::ROTATION_UPWARD_FACING
+			   && (!top_updated || msg.timestamp > newest_top.timestamp)) {
+			newest_top = msg;
+			top_updated = true;
+		}
+	}
+
+	if (front_updated) {
+		_front_distance_ts = newest_front.timestamp;
+		const float raw = newest_front.current_distance;
 
 		if (!_lpf_front_initialized) {
 			_front_distance_lpf = raw;
 			_lpf_front_initialized = true;
 
 		} else {
-			const float alpha = 0.3f;
-			_front_distance_lpf += alpha * (raw - _front_distance_lpf);
+			_front_distance_lpf += 0.3f * (raw - _front_distance_lpf);
 		}
 
-		return _front_distance_lpf;
+		_front_wall_distance_m = _front_distance_lpf;
 	}
 
-	return _front_distance_lpf;
-}
-
-float WallPerch::read_top_distance()
-{
-	// Same persistent-subscription approach as read_front_distance —
-	// both sensors share uORB instance 0.
-	distance_sensor_s msg{};
-	static constexpr uint8_t kTopOrientation = 8; // ROLL_180 == "top"
-
-	if (_distance_sensor_top_sub.copy(&msg)
-	    && (msg.orientation == kTopOrientation)) {
-		_top_distance_ts = hrt_absolute_time();
-		float raw = msg.current_distance;
+	if (top_updated) {
+		_top_distance_ts = newest_top.timestamp;
+		const float raw = newest_top.current_distance;
 
 		if (!_lpf_top_initialized) {
 			_top_distance_lpf = raw;
 			_lpf_top_initialized = true;
 
 		} else {
-			const float alpha = 0.3f;
-			_top_distance_lpf += alpha * (raw - _top_distance_lpf);
+			_top_distance_lpf += 0.3f * (raw - _top_distance_lpf);
 		}
 
-		return _top_distance_lpf;
+		_top_wall_distance_m = _top_distance_lpf;
 	}
-
-	return _top_distance_lpf;
 }
 
 // ==========================================================================
@@ -279,49 +311,72 @@ bool WallPerch::user_start_requested()
 	if (!_param_wp_enable.get()) { return false; }
 
 	manual_control_setpoint_s manual{};
+
 	if (!_manual_control_setpoint_sub.copy(&manual)) { return false; }
 
 	_aux1_raw = manual.aux1; _aux2_raw = manual.aux2;
 	_aux3_raw = manual.aux3; _aux4_raw = manual.aux4;
 
 	float val = 0.f;
+
 	switch (_param_wp_aux_ch.get()) {
 	case 1:  val = manual.aux1; break;
+
 	case 2:  val = manual.aux2; break;
+
 	case 3:  val = manual.aux3; break;
+
 	case 4:  val = manual.aux4; break;
+
 	default: val = manual.aux1; break;
 	}
+
 	return val > 0.3f;
 }
 
 bool WallPerch::user_detach_requested()
 {
 	manual_control_setpoint_s manual{};
+
 	if (!_manual_control_setpoint_sub.copy(&manual)) { return false; }
+
 	float val = 0.f;
+
 	switch (_param_wp_detach_aux_ch.get()) {
 	case 1:  val = manual.aux1; break;
+
 	case 2:  val = manual.aux2; break;
+
 	case 3:  val = manual.aux3; break;
+
 	case 4:  val = manual.aux4; break;
+
 	default: val = manual.aux2; break;
 	}
+
 	return val > 0.3f;
 }
 
 bool WallPerch::user_cancel_requested()
 {
 	manual_control_setpoint_s manual{};
+
 	if (!_manual_control_setpoint_sub.copy(&manual)) { return false; }
+
 	float val = 0.f;
+
 	switch (_param_wp_cancel_aux_ch.get()) {
 	case 1:  val = manual.aux1; break;
+
 	case 2:  val = manual.aux2; break;
+
 	case 3:  val = manual.aux3; break;
+
 	case 4:  val = manual.aux4; break;
+
 	default: val = manual.aux3; break;
 	}
+
 	return val > 0.3f;
 }
 
@@ -332,16 +387,20 @@ bool WallPerch::user_cancel_requested()
 bool WallPerch::hold_condition(bool condition, hrt_abstime &start_time, float hold_time_s)
 {
 	const hrt_abstime now = hrt_absolute_time();
+
 	if (condition) {
 		if (start_time == 0) {
 			start_time = now;
 		}
+
 		if (hrt_elapsed_time(&start_time) >= (hrt_abstime)(hold_time_s * 1e6f)) {
 			return true;
 		}
+
 	} else {
 		start_time = 0;
 	}
+
 	return false;
 }
 
@@ -352,28 +411,28 @@ bool WallPerch::hold_condition(bool condition, hrt_abstime &start_time, float ho
 bool WallPerch::front_ready()
 {
 	return hold_condition(
-		_front_wall_distance_m < _param_wp_frn_rd_dist.get(),
-		_front_ready_start,
-		_param_wp_frn_rd_hld.get()
-	);
+		       _front_wall_distance_m < _param_wp_frn_rd_dist.get(),
+		       _front_ready_start,
+		       _param_wp_frn_rd_hld.get()
+	       );
 }
 
 bool WallPerch::flip_ready()
 {
 	return hold_condition(
-		_front_wall_distance_m <= _param_wp_flp_trd_dist.get(),
-		_flip_ready_start,
-		_param_wp_flp_trd_hld.get()
-	);
+		       _front_wall_distance_m <= _param_wp_flp_trd_dist.get(),
+		       _flip_ready_start,
+		       _param_wp_flp_trd_hld.get()
+	       );
 }
 
 bool WallPerch::top_contact_ready()
 {
 	return hold_condition(
-		_top_wall_distance_m <= _param_wp_top_ct_dist.get(),
-		_top_contact_start,
-		_param_wp_top_ct_hld.get()
-	);
+		       _top_wall_distance_m <= _param_wp_top_ct_dist.get(),
+		       _top_contact_start,
+		       _param_wp_top_ct_hld.get()
+	       );
 }
 
 // ==========================================================================
@@ -407,6 +466,7 @@ bool WallPerch::sensors_valid()
 bool WallPerch::safety_ok()
 {
 	if (!_armed) { return false; }
+
 	if (!sensors_valid()) { return false; }
 
 	// Rate and velocity limits are relaxed once the flip has started:
@@ -414,8 +474,10 @@ bool WallPerch::safety_ok()
 	// velocity during/after the slerp flip.
 	if (_state < State::FLIP_TO_WALL) {
 		if (!rate_safe()) { return false; }
+
 		if (!vz_safe()) { return false; }
 	}
+
 	return true;
 }
 
@@ -487,6 +549,7 @@ Quatf WallPerch::slerp_quat(const Quatf &q0, const Quatf &q1, float s)
 
 	// Take the shortest path
 	Quatf q1_adj = q1_unit;
+
 	if (cos_omega < 0.f) {
 		q1_adj = q1_unit * -1.f;
 		cos_omega = -cos_omega;
@@ -494,6 +557,7 @@ Quatf WallPerch::slerp_quat(const Quatf &q0, const Quatf &q1, float s)
 
 	// Linear interpolation for small angles (avoid division by zero)
 	const float k_slerp_epsilon = 1e-6f;
+
 	if (cos_omega > 1.f - k_slerp_epsilon) {
 		Quatf result = q0_unit * (1.f - s) + q1_adj * s;
 		result.normalize();
@@ -514,6 +578,7 @@ Quatf WallPerch::slerp_quat(const Quatf &q0, const Quatf &q1, float s)
 float WallPerch::ramp(float from, float to, float duration)
 {
 	if (duration < 1e-6f) { return to; }
+
 	float elapsed = (float)hrt_elapsed_time(&_state_entry_time) * 1e-6f;
 	float tau = math::constrain(elapsed / duration, 0.f, 1.f);
 	return from + (to - from) * tau;
@@ -541,7 +606,8 @@ void WallPerch::publish_wall_perch_status()
 	wall_perch_status_s status{};
 	status.timestamp = hrt_absolute_time();
 	status.state = (uint8_t)_state;
-	status.active = (_state >= State::SLOW_APPROACH && _state < State::EXIT);
+	status.active = (_state >= State::SLOW_APPROACH && _state <= State::RECOVER)
+			|| _state == State::ABORT;
 	status.front_ready = front_ready();
 	status.flip_ready = flip_ready();
 	status.top_contact_ready = top_contact_ready();
@@ -556,6 +622,7 @@ void WallPerch::publish_wall_perch_status()
 bool WallPerch::pin_trigger_reached() const
 {
 	if (!_param_wp_pin_enable.get()) { return false; }
+
 	// Nose-down pitch magnitude (theta) reaching the configured threshold.
 	return fabsf(_attitude_euler.theta()) >= math::radians(_param_wp_pin_pitch.get());
 }
@@ -620,7 +687,7 @@ void WallPerch::enter_state(State new_state)
 
 	PX4_INFO("[wall_perch] %s -> %s", state_name(_state), state_name(new_state));
 	mavlink_log_info(&_mavlink_log_pub, "[wall_perch] %s -> %s",
-		state_name(_state), state_name(new_state));
+			 state_name(_state), state_name(new_state));
 
 	_state = new_state;
 	_state_entry_time = hrt_absolute_time();
@@ -633,11 +700,13 @@ void WallPerch::enter_state(State new_state)
 		// Record actual hover thrust from estimator (with param as fallback)
 		_hover_thrust_recorded = true;
 		_hover_thrust = _hover_thrust_estimate;
+
 		if (_hover_thrust < 0.1f || _hover_thrust > 0.9f) {
 			_hover_thrust = _param_wp_thr_hover.get();
 		}
+
 		mavlink_log_info(&_mavlink_log_pub, "[wall_perch] Hover thrust recorded: %.3f",
-			(double)_hover_thrust);
+				 (double)_hover_thrust);
 		break;
 
 	case State::SLOW_APPROACH:
@@ -655,8 +724,8 @@ void WallPerch::enter_state(State new_state)
 	case State::WALL_PIN:
 		_pin_start_time = hrt_absolute_time();
 		mavlink_log_info(&_mavlink_log_pub,
-			"[wall_perch] WALL_PIN: mixer bypassed, motors at %.2f",
-			(double)_param_wp_pin_thr.get());
+				 "[wall_perch] WALL_PIN: mixer bypassed, motors at %.2f",
+				 (double)_param_wp_pin_thr.get());
 		break;
 
 	case State::EXIT:
@@ -698,25 +767,28 @@ void WallPerch::update_state_machine(float dt)
 	// IDLE
 	// ================================================================
 	case State::IDLE: {
-		if (start_req && _armed && safe &&
-		    _current_altitude > _param_wp_min_alt.get()) {
-			enter_state(State::FRONT_WALL_DETECT);
+			if (start_req && _armed && safe &&
+			    _current_altitude > _param_wp_min_alt.get()) {
+				enter_state(State::FRONT_WALL_DETECT);
+			}
+
+			break;
 		}
-		break;
-	}
 
 	// ================================================================
 	// FRONT_WALL_DETECT — read front distance, check ready
 	// ================================================================
 	case State::FRONT_WALL_DETECT: {
-		if (cancel_req) { enter_state(State::IDLE); break; }
-		if (!safe)    { enter_state(State::ABORT); break; }
+			if (cancel_req) { enter_state(State::IDLE); break; }
 
-		if (front_ready()) {
-			enter_state(State::STABILIZE_HOVER);
+			if (!safe)    { enter_state(State::ABORT); break; }
+
+			if (front_ready()) {
+				enter_state(State::STABILIZE_HOVER);
+			}
+
+			break;
 		}
-		break;
-	}
 
 	// ================================================================
 	// STABILIZE_HOVER — maintain level hover, record yaw
@@ -725,134 +797,147 @@ void WallPerch::update_state_machine(float dt)
 	// later takes over in SLOW_APPROACH.
 	// ================================================================
 	case State::STABILIZE_HOVER: {
-		if (cancel_req) { enter_state(State::ABORT); break; }
-		if (!safe)      { enter_state(State::ABORT); break; }
+			if (cancel_req) { enter_state(State::ABORT); break; }
 
-		// Wait for stabilize time + attitude settled
-		if (hrt_elapsed_time(&_state_entry_time) > (hrt_abstime)(_param_wp_stab_time.get() * 1e6f) &&
-		    attitude_recovered() && rate_safe()) {
-			enter_state(State::SLOW_APPROACH);
+			if (!safe)      { enter_state(State::ABORT); break; }
+
+			// Wait for stabilize time + attitude settled
+			if (hrt_elapsed_time(&_state_entry_time) > (hrt_abstime)(_param_wp_stab_time.get() * 1e6f) &&
+			    attitude_recovered() && rate_safe()) {
+				enter_state(State::SLOW_APPROACH);
+			}
+
+			break;
 		}
-		break;
-	}
 
 	// ================================================================
 	// SLOW_APPROACH — tilt forward slightly, move toward wall
 	// ================================================================
 	case State::SLOW_APPROACH: {
-		if (cancel_req) { enter_state(State::ABORT); break; }
-		if (!safe)      { enter_state(State::ABORT); break; }
+			if (cancel_req) { enter_state(State::ABORT); break; }
 
-		// Timeout check
-		if (hrt_elapsed_time(&_approach_start_time) >
-		    (hrt_abstime)(_param_wp_appr_timeout.get() * 1e6f)) {
-			PX4_WARN("[wall_perch] Approach timeout");
-			enter_state(State::ABORT); break;
+			if (!safe)      { enter_state(State::ABORT); break; }
+
+			// Timeout check
+			if (hrt_elapsed_time(&_approach_start_time) >
+			    (hrt_abstime)(_param_wp_appr_timeout.get() * 1e6f)) {
+				PX4_WARN("[wall_perch] Approach timeout");
+				enter_state(State::ABORT); break;
+			}
+
+			// Small forward tilt
+			// PX4 pitch is negative for nose-forward motion.  WP_APPR_PITCH is
+			// configured as a positive magnitude in the parameter metadata.
+			float approach_pitch = -math::radians(_param_wp_appr_pitch.get());
+			Quatf q_approach = _q_hover * Quatf(Eulerf(0.f, approach_pitch, 0.f));
+			publish_attitude_setpoint(q_approach, _param_wp_thr_approach.get());
+
+			if (flip_ready()) {
+				enter_state(State::FLIP_TO_WALL);
+			}
+
+			break;
 		}
-
-		// Small forward tilt
-		float approach_pitch = math::radians(_param_wp_appr_pitch.get());
-		Quatf q_approach = _q_hover * Quatf(Eulerf(0.f, approach_pitch, 0.f));
-		publish_attitude_setpoint(q_approach, _param_wp_thr_approach.get());
-
-		if (flip_ready()) {
-			enter_state(State::FLIP_TO_WALL);
-		}
-		break;
-	}
 
 	// ================================================================
 	// FLIP_TO_WALL — slerp from hover to wall attitude
 	// ================================================================
 	case State::FLIP_TO_WALL: {
-		if (cancel_req) { enter_state(State::ABORT); break; }
-		if (!safe)      { enter_state(State::ABORT); break; }
+			if (cancel_req) { enter_state(State::ABORT); break; }
 
-		float duration = _param_wp_flip_time.get();
-		float elapsed  = (float)hrt_elapsed_time(&_flip_start_time) * 1e-6f;
-		float tau = math::constrain(elapsed / duration, 0.f, 1.f);
-		float s = smoothstep5(tau);
+			if (!safe)      { enter_state(State::ABORT); break; }
 
-		Quatf q_des = slerp_quat(_q_hover, _q_wall, s);
-		publish_attitude_setpoint(q_des, _hover_thrust * 1.05f); // WP_THR_FLIP = 1.05 * hover
+			float duration = _param_wp_flip_time.get();
+			float elapsed  = (float)hrt_elapsed_time(&_flip_start_time) * 1e-6f;
+			float tau = math::constrain(elapsed / duration, 0.f, 1.f);
+			float s = smoothstep5(tau);
 
-		// Once the nose-down pitch reaches the threshold, bypass the mixer and
-		// pin the aircraft to the wall at full thrust (no attitude recovery).
-		if (pin_trigger_reached()) {
-			enter_state(State::WALL_PIN);
+			Quatf q_des = slerp_quat(_q_hover, _q_wall, s);
+			publish_attitude_setpoint(q_des, _hover_thrust * 1.05f); // WP_THR_FLIP = 1.05 * hover
+
+			// Once the nose-down pitch reaches the threshold, bypass the mixer and
+			// pin the aircraft to the wall at full thrust (no attitude recovery).
+			if (pin_trigger_reached()) {
+				enter_state(State::WALL_PIN);
+				break;
+			}
+
+			// Transition to WALL_CAPTURE when slerp is done or top sensor already sees wall
+			if (tau >= 1.f || top_contact_ready()) {
+				enter_state(State::WALL_CAPTURE);
+			}
+
 			break;
 		}
-
-		// Transition to WALL_CAPTURE when slerp is done or top sensor already sees wall
-		if (tau >= 1.f || top_contact_ready()) {
-			enter_state(State::WALL_CAPTURE);
-		}
-		break;
-	}
 
 	// ================================================================
 	// WALL_CAPTURE — confirm wall contact, ramp thrust
 	// ================================================================
 	case State::WALL_CAPTURE: {
-		if (cancel_req) { enter_state(State::ABORT); break; }
-		if (!safe)      { enter_state(State::ABORT); break; }
+			if (cancel_req) { enter_state(State::ABORT); break; }
 
-		// Ramp thrust from flip (1.05*hover) to hold (1.5*hover) over capture time
-		float thrust = ramp(_hover_thrust * 1.05f,
-				    _hover_thrust * 1.5f,
-				    _param_wp_capture_time.get());
-		publish_attitude_setpoint(_q_wall, thrust);
+			if (!safe)      { enter_state(State::ABORT); break; }
 
-		if (pin_trigger_reached()) {
-			enter_state(State::WALL_PIN);
+			// Ramp thrust from flip (1.05*hover) to hold (1.5*hover) over capture time
+			float thrust = ramp(_hover_thrust * 1.05f,
+					    _hover_thrust * 1.5f,
+					    _param_wp_capture_time.get());
+			publish_attitude_setpoint(_q_wall, thrust);
+
+			if (pin_trigger_reached()) {
+				enter_state(State::WALL_PIN);
+				break;
+			}
+
+			if (top_contact_ready()) {
+				enter_state(State::WALL_HOLD);
+			}
+
+			// Timeout check — if no contact after capture_time * 3
+			if (hrt_elapsed_time(&_state_entry_time) >
+			    (hrt_abstime)(_param_wp_capture_time.get() * 3.f * 1e6f)) {
+				PX4_WARN("[wall_perch] Wall capture timeout");
+				enter_state(State::ABORT);
+			}
+
 			break;
 		}
-
-		if (top_contact_ready()) {
-			enter_state(State::WALL_HOLD);
-		}
-
-		// Timeout check — if no contact after capture_time * 3
-		if (hrt_elapsed_time(&_state_entry_time) >
-		    (hrt_abstime)(_param_wp_capture_time.get() * 3.f * 1e6f)) {
-			PX4_WARN("[wall_perch] Wall capture timeout");
-			enter_state(State::ABORT);
-		}
-		break;
-	}
 
 	// ================================================================
 	// WALL_HOLD — maintain wall attitude and thrust
 	// ================================================================
 	case State::WALL_HOLD: {
-		if (cancel_req) { enter_state(State::ABORT); break; }
-		if (!safe)      { enter_state(State::ABORT); break; }
+			if (cancel_req) { enter_state(State::ABORT); break; }
 
-		publish_attitude_setpoint(_q_wall, _hover_thrust * 1.5f); // WP_THR_HOLD = 1.5 * hover
+			if (!safe)      { enter_state(State::ABORT); break; }
 
-		if (pin_trigger_reached()) {
-			enter_state(State::WALL_PIN);
+			publish_attitude_setpoint(_q_wall, _hover_thrust * 1.5f); // WP_THR_HOLD = 1.5 * hover
+
+			if (pin_trigger_reached()) {
+				enter_state(State::WALL_PIN);
+				break;
+			}
+
+			// Check top contact still valid
+			if (_top_wall_distance_m > _param_wp_top_ct_dist.get() * 3.f) {
+				PX4_WARN("[wall_perch] Lost wall contact");
+				enter_state(State::ABORT); break;
+			}
+
+			// Detach on user request or hold timeout
+			if (detach_req) {
+				enter_state(State::DETACH_ROTATE); break;
+			}
+
+			float hold_time = _param_wp_hold_time.get();
+
+			if (hold_time > 0.f &&
+			    hrt_elapsed_time(&_state_entry_time) > (hrt_abstime)(hold_time * 1e6f)) {
+				enter_state(State::DETACH_ROTATE);
+			}
+
 			break;
 		}
-
-		// Check top contact still valid
-		if (_top_wall_distance_m > _param_wp_top_ct_dist.get() * 3.f) {
-			PX4_WARN("[wall_perch] Lost wall contact");
-			enter_state(State::ABORT); break;
-		}
-
-		// Detach on user request or hold timeout
-		if (detach_req) {
-			enter_state(State::DETACH_ROTATE); break;
-		}
-
-		float hold_time = _param_wp_hold_time.get();
-		if (hold_time > 0.f &&
-		    hrt_elapsed_time(&_state_entry_time) > (hrt_abstime)(hold_time * 1e6f)) {
-			enter_state(State::DETACH_ROTATE);
-		}
-		break;
-	}
 
 	// ================================================================
 	// WALL_PIN — mixer bypassed: command all four motors to raw max,
@@ -861,100 +946,107 @@ void WallPerch::update_state_machine(float dt)
 	// with flag_control_allocation_enabled = false (see publish_control_mode).
 	// ================================================================
 	case State::WALL_PIN: {
-		// Raw max thrust on all four fans.
-		publish_actuator_motors(_param_wp_pin_thr.get());
+			// Raw max thrust on all four fans.
+			publish_actuator_motors(_param_wp_pin_thr.get());
 
-		// Stay pinned until the user cancels (recovers) or the optional
-		// hold timeout elapses.
-		if (cancel_req) {
-			enter_state(State::ABORT); break;
-		}
+			// Stay pinned until the user cancels (recovers) or the optional
+			// hold timeout elapses.
+			if (cancel_req) {
+				enter_state(State::ABORT); break;
+			}
 
-		if (_param_wp_pin_hold.get() > 0.f &&
-		    hrt_elapsed_time(&_pin_start_time) > (hrt_abstime)(_param_wp_pin_hold.get() * 1e6f)) {
-			enter_state(State::ABORT); break;
+			if (_param_wp_pin_hold.get() > 0.f &&
+			    hrt_elapsed_time(&_pin_start_time) > (hrt_abstime)(_param_wp_pin_hold.get() * 1e6f)) {
+				enter_state(State::ABORT); break;
+			}
+
+			break;
 		}
-		break;
-	}
 
 	// ================================================================
 	// DETACH_ROTATE — slerp back to hover, schedule thrust
 	// ================================================================
 	case State::DETACH_ROTATE: {
-		if (cancel_req) { enter_state(State::ABORT); break; }
-		if (!_armed)    { enter_state(State::ABORT); break; }
+			if (cancel_req) { enter_state(State::ABORT); break; }
 
-		float duration = _param_wp_detach_time.get();
-		float elapsed  = (float)hrt_elapsed_time(&_detach_start_time) * 1e-6f;
-		float tau = math::constrain(elapsed / duration, 0.f, 1.f);
-		float s = smoothstep5(tau);
+			if (!_armed)    { enter_state(State::ABORT); break; }
 
-		Quatf q_des = slerp_quat(_q_wall, _q_hover, s);
+			float duration = _param_wp_detach_time.get();
+			float elapsed  = (float)hrt_elapsed_time(&_detach_start_time) * 1e-6f;
+			float tau = math::constrain(elapsed / duration, 0.f, 1.f);
+			float s = smoothstep5(tau);
 
-		// Thrust schedule: interpolate from hold (1.5*hover) to recover (1.1*hover)
-		float thrust = _hover_thrust * 1.5f +
-			       s * (_hover_thrust * 1.1f - _hover_thrust * 1.5f);
+			Quatf q_des = slerp_quat(_q_wall, _q_hover, s);
 
-		publish_attitude_setpoint(q_des, thrust);
+			// Thrust schedule: interpolate from hold (1.5*hover) to recover (1.1*hover)
+			float thrust = _hover_thrust * 1.5f +
+				       s * (_hover_thrust * 1.1f - _hover_thrust * 1.5f);
 
-		if (tau >= 1.f) {
-			enter_state(State::RECOVER);
+			publish_attitude_setpoint(q_des, thrust);
+
+			if (tau >= 1.f) {
+				enter_state(State::RECOVER);
+			}
+
+			break;
 		}
-		break;
-	}
 
 	// ================================================================
 	// RECOVER — hover and wait for stability
 	// ================================================================
 	case State::RECOVER: {
-		if (cancel_req) { enter_state(State::ABORT); break; }
-		if (!_armed)    { enter_state(State::ABORT); break; }
+			if (cancel_req) { enter_state(State::ABORT); break; }
 
-		publish_attitude_setpoint(_q_hover, _hover_thrust * 1.1f); // WP_THR_RECOVER = 1.1 * hover
+			if (!_armed)    { enter_state(State::ABORT); break; }
 
-		if (hrt_elapsed_time(&_state_entry_time) > (hrt_abstime)(_param_wp_recover_time.get() * 1e6f) &&
-		    attitude_recovered() && rate_safe() && vz_safe() &&
-		    !top_contact_ready()) {
-			enter_state(State::EXIT);
+			publish_attitude_setpoint(_q_hover, _hover_thrust * 1.1f); // WP_THR_RECOVER = 1.1 * hover
+
+			if (hrt_elapsed_time(&_state_entry_time) > (hrt_abstime)(_param_wp_recover_time.get() * 1e6f) &&
+			    attitude_recovered() && rate_safe() && vz_safe() &&
+			    !top_contact_ready()) {
+				enter_state(State::EXIT);
+			}
+
+			break;
 		}
-		break;
-	}
 
 	// ================================================================
 	// EXIT — release control
 	// ================================================================
 	case State::EXIT: {
-		// Stop publishing attitude setpoint
-		// Reset all timers
-		_front_ready_start = 0;
-		_flip_ready_start = 0;
-		_top_contact_start = 0;
+			// Stop publishing attitude setpoint
+			// Reset all timers
+			_front_ready_start = 0;
+			_flip_ready_start = 0;
+			_top_contact_start = 0;
 
-		mavlink_log_info(&_mavlink_log_pub, "[wall_perch] EXIT, releasing control");
-		_state = State::IDLE;
-		break;
-	}
+			mavlink_log_info(&_mavlink_log_pub, "[wall_perch] EXIT, releasing control");
+			_state = State::IDLE;
+			break;
+		}
 
 	// ================================================================
 	// ABORT — emergency recovery, don't drop thrust
 	// ================================================================
 	case State::ABORT: {
-		PX4_WARN("[wall_perch] ABORT — recovering to hover");
+			PX4_WARN("[wall_perch] ABORT — recovering to hover");
 
-		// Publish hover attitude with recovery thrust
-		publish_attitude_setpoint(_q_hover, _hover_thrust * 1.1f); // WP_THR_RECOVER = 1.1 * hover
+			// Publish hover attitude with recovery thrust
+			publish_attitude_setpoint(_q_hover, _hover_thrust * 1.1f); // WP_THR_RECOVER = 1.1 * hover
 
-		if (attitude_recovered() && rate_safe() && vz_safe()) {
-			// Hold a bit longer to ensure stability
-			if (hrt_elapsed_time(&_state_entry_time) > (hrt_abstime)(_param_wp_recover_time.get() * 1e6f)) {
-				enter_state(State::EXIT);
-			} else {
-				// keep recovering
+			if (attitude_recovered() && rate_safe() && vz_safe()) {
+				// Hold a bit longer to ensure stability
+				if (hrt_elapsed_time(&_state_entry_time) > (hrt_abstime)(_param_wp_recover_time.get() * 1e6f)) {
+					enter_state(State::EXIT);
+
+				} else {
+					// keep recovering
+				}
 			}
+
+			// NOTE: If never recovers, rely on pilot takeover or PX4 failsafe
+			break;
 		}
-		// NOTE: If never recovers, rely on pilot takeover or PX4 failsafe
-		break;
-	}
 
 	} // end switch
 }
@@ -966,13 +1058,16 @@ void WallPerch::update_state_machine(float dt)
 int WallPerch::task_spawn(int argc, char *argv[])
 {
 	WallPerch *instance = new WallPerch();
+
 	if (instance) {
 		_object.store(instance);
 		_task_id = task_id_is_work_queue;
+
 		if (instance->init()) {
 			return PX4_OK;
 		}
 	}
+
 	delete instance;
 	_object.store(nullptr);
 	_task_id = -1;
@@ -987,6 +1082,7 @@ int WallPerch::custom_command(int, char *[])
 int WallPerch::print_usage(const char *reason)
 {
 	if (reason) { PX4_WARN("%s\n", reason); }
+
 	PRINT_MODULE_USAGE_NAME("wall_perch", "controller");
 	PRINT_MODULE_USAGE_COMMAND("start");
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();

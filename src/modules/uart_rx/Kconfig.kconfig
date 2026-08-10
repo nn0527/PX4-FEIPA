@@ -6,4 +6,5 @@ menuconfig EXAMPLES_UART_RX
 
 		The module defaults to /dev/ttyS4 at 115200 baud, which is TELEM2
 		on the PX4 FMUv6X board. It accepts only complete frames in the format
-		AA 55 payload[3] 0D 0A and publishes the raw 7-byte frame on uORB.
+		AA 55 UP_H UP_L FWD_H FWD_L CRC 0D 0A and publishes the raw
+		9-byte frame on uORB. CRC-8/ATM is calculated over bytes 0 through 5.
