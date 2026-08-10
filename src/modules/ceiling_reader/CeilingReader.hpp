@@ -32,10 +32,9 @@
  ****************************************************************************/
 
 /**
- * @file UartRx.hpp
+ * @file CeilingReader.hpp
  *
- * ESP32 fixed-frame UART receiver for TELEM2 on PX4 FMUv6X boards.
- * Frame byte 4 identifies the sensor (0 = body -Z, 1 = body +X/front).
+ * Example module that consumes ESP32 UART distance frames from uORB.
  */
 
 #pragma once
@@ -44,68 +43,59 @@
 
 #include <px4_platform_common/atomic.h>
 #include <px4_platform_common/module.h>
+#include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
 
-#include <uORB/Publication.hpp>
+#include <uORB/SubscriptionCallback.hpp>
+#include <uORB/PublicationMulti.hpp>
 #include <uORB/topics/esp32_uart_frame.h>
+#include <uORB/topics/distance_sensor.h>
 
-#include <termios.h>
-
-#include <cstddef>
 #include <cstdint>
 
-class UartRx : public ModuleBase<UartRx>
+class CeilingReader : public ModuleBase<CeilingReader>, public px4::ScheduledWorkItem
 {
 public:
-	UartRx(const char *device_path, unsigned baudrate);
-	~UartRx() override;
+	CeilingReader();
+	~CeilingReader() override = default;
 
 	/** @see ModuleBase */
 	static int task_spawn(int argc, char *argv[]);
 
 	/** @see ModuleBase */
-	static UartRx *instantiate(int argc, char *argv[]);
-
-	/** @see ModuleBase */
-	static int custom_command(int argc, char *argv[]) { return print_usage("unknown command"); }
+	static int custom_command(int argc, char *argv[]);
 
 	/** @see ModuleBase */
 	static int print_usage(const char *reason = nullptr);
 
 	/** @see ModuleBase */
-	void run() override;
-
-	/** @see ModuleBase */
 	int print_status() override;
 
+	bool init();
+
 private:
-	static constexpr size_t DEVICE_PATH_LENGTH = 32;
-	static constexpr size_t FRAME_LENGTH = 7;
 	static constexpr uint8_t FRAME_HEADER_0 = 0xAA;
 	static constexpr uint8_t FRAME_HEADER_1 = 0x55;
 	static constexpr uint8_t FRAME_TAIL_0 = 0x0D;
 	static constexpr uint8_t FRAME_TAIL_1 = 0x0A;
+	static constexpr uint8_t SENSOR_ID_Z = 0;
+	static constexpr uint8_t SENSOR_ID_FRONT = 1;
+	static constexpr hrt_abstime LOG_INTERVAL_US = 500000; // 2 Hz dmesg output limit
 
-	static bool baud_to_speed(unsigned baudrate, speed_t &speed);
+	void Run() override;
+	bool validate_frame(const esp32_uart_frame_s &frame) const;
+	uint16_t parse_distance_mm(const esp32_uart_frame_s &frame) const;
 
-	bool configure_uart();
-	void close_uart();
-	void process_byte(uint8_t byte);
-	void publish_frame();
+	uORB::SubscriptionCallbackWorkItem _esp32_frame_sub{this, ORB_ID(esp32_uart_frame)};
+	uORB::PublicationMulti<distance_sensor_s> _z_distance_sensor_pub{ORB_ID(distance_sensor)};
+	uORB::PublicationMulti<distance_sensor_s> _front_distance_sensor_pub{ORB_ID(distance_sensor)};
 
-	int _fd{-1};
-	struct termios _original_uart_config {};
-	bool _uart_configured{false};
-	char _device_path[DEVICE_PATH_LENGTH] {};
-	unsigned _baudrate{0};
-
-	uint8_t _frame[FRAME_LENGTH] {};
-	uint8_t _frame_index{0};
-
-	px4::atomic<uint64_t> _rx_bytes{0};
-	px4::atomic<uint64_t> _valid_frames{0};
+	px4::atomic<uint64_t> _received_frames{0};
 	px4::atomic<uint64_t> _invalid_frames{0};
-	px4::atomic<uint32_t> _read_errors{0};
-	px4::atomic<hrt_abstime> _last_valid_frame_timestamp{0};
-
-	uORB::Publication<esp32_uart_frame_s> _frame_pub{ORB_ID(esp32_uart_frame)};
+	px4::atomic<uint64_t> _z_frames{0};
+	px4::atomic<uint64_t> _front_frames{0};
+	px4::atomic<uint32_t> _last_z_distance_mm{0};
+	px4::atomic<uint32_t> _last_front_distance_mm{0};
+	px4::atomic<hrt_abstime> _last_z_update_timestamp{0};
+	px4::atomic<hrt_abstime> _last_front_update_timestamp{0};
+	hrt_abstime _last_log_timestamp{0};
 };

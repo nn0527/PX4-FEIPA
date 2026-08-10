@@ -187,7 +187,8 @@ void UartRx::publish_frame()
 	_frame_pub.publish(message);
 
 	const uint16_t distance_mm = (static_cast<uint16_t>(message.frame[2]) << 8) | message.frame[3];
-	PX4_INFO("distance: %u mm", static_cast<unsigned>(distance_mm));
+	PX4_INFO("sensor=%u distance=%u mm", static_cast<unsigned>(message.frame[4]),
+		 static_cast<unsigned>(distance_mm));
 
 	_valid_frames.fetch_add(1);
 	_last_valid_frame_timestamp.store(message.timestamp);
@@ -393,7 +394,8 @@ int UartRx::print_usage(const char *reason)
 		"`esp32_uart_frame` uORB topic. The default is TELEM2 (`/dev/ttyS4`) "
 		"at 115200 baud on PX4 FMUv6X boards.\n"
 		"\n"
-		"Expected frame: `AA 55 distance_high distance_low reserved 0D 0A`. "
+		"Expected frame: `AA 55 distance_high distance_low sensor_id 0D 0A`, where "
+		"sensor_id 0 is the body -Z suction/contact sensor and 1 is the body +X/front sensor. "
 		"Distance is printed in millimetres for each valid frame.\n"
 		"The module only reads from the UART and requires exclusive ownership of the port.");
 

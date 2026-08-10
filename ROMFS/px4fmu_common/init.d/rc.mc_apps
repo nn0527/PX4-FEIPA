@@ -30,6 +30,23 @@ fi
 #
 mc_hover_thrust_estimator start
 flight_mode_manager start
+<<<<<<< HEAD
+=======
+
+#
+# Start Ceiling Contact Controller (bridge inspection).
+#
+ceiling_controller start
+
+#
+# Start Wall Perch Controller.
+#
+if param compare -s WP_ENABLE 1
+then
+	wall_perch start
+fi
+
+>>>>>>> c49fcf5256 (add wallperch PX4 code)
 mc_pos_control start
 
 #

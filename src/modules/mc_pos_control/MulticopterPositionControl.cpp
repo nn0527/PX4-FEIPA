@@ -606,6 +606,7 @@ void MulticopterPositionControl::Run()
 			vehicle_attitude_setpoint_s attitude_setpoint{};
 			_control.getAttitudeSetpoint(attitude_setpoint);
 			attitude_setpoint.timestamp = hrt_absolute_time();
+<<<<<<< HEAD
 			_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
 
 		} else {
@@ -613,6 +614,104 @@ void MulticopterPositionControl::Run()
 			_takeoff.updateTakeoffState(_vehicle_control_mode.flag_armed, _vehicle_land_detected.landed, false, 10.f, true,
 						    vehicle_local_position.timestamp_sample);
 			_control.resetIntegral();
+=======
+
+			// Ceiling contact distance control override: directly set body-Z thrust in attach
+			// and detach states. APPROACH is handled via the velocity setpoint above; NORMAL/
+			// ARM/RECOVERY are normal POSCTL. DETACH applies the module's distance-control
+			// thrust (already ramped toward hover by the module) for a smooth peel-off.
+			if (cc_updated && (cc_status.state == ceiling_contact_status_s::ATTACH_CONTROL_MODE
+						   || cc_status.state == ceiling_contact_status_s::SURFACE_MANUAL_MODE
+						   || cc_status.state == ceiling_contact_status_s::DETACH_MODE)) {
+				if (PX4_ISFINITE(cc_status.thrust_body_z_sp)) {
+					attitude_setpoint.thrust_body[2] = cc_status.thrust_body_z_sp;
+				}
+			}
+
+			// wall_perch guard: when wall_perch is active, it publishes vehicle_attitude_setpoint
+			// so mc_pos_control must skip publishing to avoid conflict. Read the
+			// latest sample every cycle instead of relying on update(): control must
+			// not briefly return to the level-flight setpoint between status samples.
+			wall_perch_status_s wp_status{};
+			const bool wp_active = _wall_perch_status_sub.copy(&wp_status)
+				&& wp_status.timestamp <= now
+				&& now - wp_status.timestamp < 100_ms
+				&& wp_status.active;
+
+			if (wp_active) {
+				// wall_perch is in control — skip mc_pos_control attitude setpoint
+			} else {
+				_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
+			}
+
+		} else {
+			// ALTCTL / non-position-control mode.
+			// Normally mc_pos_control does NOT run the position controller here (the flight
+			// mode handles Z directly). But when the ceiling controller is active we must
+			// honor its commands:
+			//  - APPROACH/DETACH: run the position controller with the module's vz_sp.
+			//  - ATTACH/SURFACE: apply the module's thrust override directly.
+			const bool ceiling_velocity_active = cc_updated
+				&& (cc_status.state == ceiling_contact_status_s::APPROACH_MODE
+				    || cc_status.state == ceiling_contact_status_s::DETACH_MODE)
+				&& PX4_ISFINITE(cc_status.approach_vz_sp);
+
+			const bool ceiling_thrust_active = cc_updated
+				&& (cc_status.state == ceiling_contact_status_s::ATTACH_CONTROL_MODE
+				    || cc_status.state == ceiling_contact_status_s::SURFACE_MANUAL_MODE
+				    || cc_status.state == ceiling_contact_status_s::DETACH_MODE)
+				&& PX4_ISFINITE(cc_status.thrust_body_z_sp);
+
+			if (ceiling_velocity_active || ceiling_thrust_active) {
+				if (ceiling_velocity_active) {
+					// Override _setpoint with the ceiling module's velocity command
+					// so that the position controller tracks approach_vz_sp.
+					_setpoint.velocity[0] = 0.f;
+					_setpoint.velocity[1] = 0.f;
+					_setpoint.velocity[2] = cc_status.approach_vz_sp;
+					_setpoint.position[0] = NAN;
+					_setpoint.position[1] = NAN;
+					_setpoint.position[2] = NAN;
+					_setpoint.acceleration[2] = NAN;
+					_control.setInputSetpoint(_setpoint);
+
+					_control.setState(states);
+					_control.setVelocityLimits(_param_mpc_xy_vel_max.get(),
+								   _param_mpc_z_vel_max_up.get(), _param_mpc_z_vel_max_dn.get());
+					_control.update(dt);
+				}
+
+				// Build the attitude setpoint (from the controller if it ran, otherwise neutral)
+				vehicle_attitude_setpoint_s attitude_setpoint{};
+				if (ceiling_velocity_active) {
+					_control.getAttitudeSetpoint(attitude_setpoint);
+				}
+				attitude_setpoint.timestamp = hrt_absolute_time();
+
+				// Apply direct thrust override (ATTACH/SURFACE/DETACH)
+				if (ceiling_thrust_active) {
+					attitude_setpoint.thrust_body[2] = cc_status.thrust_body_z_sp;
+				}
+
+				wall_perch_status_s wp_status{};
+				const hrt_abstime now = hrt_absolute_time();
+				const bool wp_active = _wall_perch_status_sub.copy(&wp_status)
+					&& wp_status.timestamp <= now
+					&& now - wp_status.timestamp < 100_ms
+					&& wp_status.active;
+
+				if (wp_active) {
+					// wall_perch is in control — skip publishing
+				} else {
+					_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
+				}
+			} else {
+				// an update is necessary here because otherwise the takeoff state doesn't get skipped with non-altitude-controlled modes
+				_takeoff.updateTakeoffState(_vehicle_control_mode.flag_armed, _vehicle_land_detected.landed, false, 10.f, true,
+							    vehicle_local_position.timestamp_sample);
+				_control.resetIntegral();
+			}
+>>>>>>> c49fcf5256 (add wallperch PX4 code)
 		}
 
 		// Publish takeoff status

@@ -1,0 +1,304 @@
+module_name: wall_perch
+
+parameters:
+    - group: Wall Perch
+      definitions:
+        WP_ENABLE:
+            description:
+                short: Enable wall_perch module
+            type: boolean
+            default: 0
+        WP_AUX_CH:
+            description:
+                short: Aux channel for wall_perch trigger (1=aux1, 2=aux2, ...)
+            type: int32
+            min: 1
+            max: 32
+            default: 3
+        WP_DETACH_AUX_CH:
+            description:
+                short: Aux channel for detach trigger
+            type: int32
+            min: 1
+            max: 32
+            default: 2
+        WP_CANCEL_AUX_CH:
+            description:
+                short: Aux channel for cancel/abort
+            type: int32
+            min: 1
+            max: 32
+            default: 4
+
+        WP_FRN_RD_DIST:
+            description:
+                short: Front wall distance threshold for ready condition
+            type: float
+            unit: m
+            min: 0.1
+            max: 5.0
+            default: 0.50
+        WP_FRN_RD_HLD:
+            description:
+                short: Hold time for front ready condition
+            type: float
+            unit: s
+            min: 0.05
+            max: 2.0
+            default: 0.30
+
+        WP_FLP_TRD_DIST:
+            description:
+                short: Front distance to trigger flip
+            type: float
+            unit: m
+            min: 0.05
+            max: 2.0
+            default: 0.20
+        WP_FLP_TRD_HLD:
+            description:
+                short: Hold time for flip trigger
+            type: float
+            unit: s
+            min: 0.05
+            max: 1.0
+            default: 0.10
+
+        WP_TOP_CT_DIST:
+            description:
+                short: Top sensor distance for wall contact confirmation
+            type: float
+            unit: m
+            min: 0.01
+            max: 1.0
+            default: 0.05
+        WP_TOP_CT_HLD:
+            description:
+                short: Hold time for top contact confirmation
+            type: float
+            unit: s
+            min: 0.05
+            max: 1.0
+            default: 0.15
+
+        WP_STAB_TIME:
+            description:
+                short: Legacy parameter (start now takes over without a stabilization delay)
+            type: float
+            unit: s
+            min: 0.1
+            max: 5.0
+            default: 0.50
+        WP_APPR_TIMEOUT:
+            description:
+                short: Max time for slow approach before abort
+            type: float
+            unit: s
+            min: 0.5
+            max: 30.0
+            default: 3.00
+        WP_FLIP_TIME:
+            description:
+                short: Duration of the slerp flip rotation
+            type: float
+            unit: s
+            min: 0.1
+            max: 10.0
+            default: 1.00
+        WP_CAPTURE_TIME:
+            description:
+                short: Time to ramp up thrust during wall capture
+            type: float
+            unit: s
+            min: 0.05
+            max: 5.0
+            default: 0.20
+        WP_HOLD_TIME:
+            description:
+                short: Max wall hold duration before auto-detach
+            type: float
+            unit: s
+            min: 0.0
+            max: 600.0
+            default: 1.00
+        WP_DETACH_TIME:
+            description:
+                short: Duration of the detach slerp rotation
+            type: float
+            unit: s
+            min: 0.1
+            max: 10.0
+            default: 1.00
+        WP_RECOVER_TIME:
+            description:
+                short: Recovery hover time before exit
+            type: float
+            unit: s
+            min: 0.1
+            max: 10.0
+            default: 0.50
+
+        WP_WALL_AXIS:
+            description:
+                short: Axis for wall rotation (0=PITCH_FORWARD only supported)
+            type: int32
+            min: 0
+            max: 2
+            default: 0
+        WP_WALL_ANGLE:
+            description:
+                short: Target wall angle (negative = nose-forward pitch)
+            type: float
+            unit: deg
+            min: -120.0
+            max: 120.0
+            default: -90.0
+        WP_APPR_PITCH:
+            description:
+                short: Pitch angle during slow approach
+            type: float
+            unit: deg
+            min: 0.0
+            max: 30.0
+            default: 3.0
+
+        WP_THR_HOVER:
+            description:
+                short: Hover thrust fallback (actual hover thrust is sampled from estimator)
+            type: float
+            min: 0.1
+            max: 1.0
+            default: 0.55
+        WP_THR_APPROACH:
+            description:
+                short: Legacy fixed approach thrust (altitude PID now computes thrust)
+            type: float
+            min: 0.1
+            max: 1.0
+            default: 0.55
+        WP_ALT_KP:
+            description:
+                short: Approach altitude proportional thrust gain
+            type: float
+            min: 0.0
+            max: 2.0
+            decimal: 3
+            default: 0.25
+        WP_ALT_KI:
+            description:
+                short: Approach altitude integral thrust gain
+            type: float
+            min: 0.0
+            max: 1.0
+            decimal: 3
+            default: 0.08
+        WP_ALT_KD:
+            description:
+                short: Approach vertical velocity damping thrust gain
+            type: float
+            min: 0.0
+            max: 2.0
+            decimal: 3
+            default: 0.18
+        WP_ALT_MAX:
+            description:
+                short: Maximum altitude-loop thrust adjustment during approach
+            type: float
+            min: 0.05
+            max: 0.5
+            decimal: 2
+            default: 0.25
+
+        WP_MU_EST:
+            description:
+                short: Estimated friction coefficient for thrust scheduling
+            type: float
+            min: 0.0
+            max: 2.0
+            default: 0.80
+        WP_MARGIN:
+            description:
+                short: Safety margin for thrust scheduling
+            type: float
+            min: 0.0
+            max: 1.0
+            default: 0.30
+
+        WP_MAX_RATE:
+            description:
+                short: Max allowed angular rate
+            type: float
+            unit: rad/s
+            min: 0.5
+            max: 10.0
+            default: 3.0
+        WP_MAX_VZ_DOWN:
+            description:
+                short: Max allowed downward velocity
+            type: float
+            unit: m/s
+            min: 0.1
+            max: 5.0
+            default: 0.8
+        WP_MIN_ALT:
+            description:
+                short: Minimum altitude to start wall_perch
+            type: float
+            unit: m
+            min: 0.1
+            max: 100.0
+            default: 0.3
+        WP_RECOVER_RP:
+            description:
+                short: Max roll/pitch angle for recovery condition
+            type: float
+            unit: deg
+            min: 5.0
+            max: 45.0
+            default: 15.0
+        WP_SENS_TIMEOUT:
+            description:
+                short: Max allowed sensor data age
+            type: float
+            unit: s
+            min: 0.05
+            max: 2.0
+            default: 0.20
+
+        WP_PIN_ENABLE:
+            description:
+                short: Enable mixer-bypass pin-to-wall (raw max thrust, no attitude control)
+            type: boolean
+            default: 1
+        WP_PIN_PITCH:
+            description:
+                short: Measured pitch required before body -Z distance controls motor thrust
+            type: float
+            unit: deg
+            min: 30.0
+            max: 120.0
+            default: 85.0
+        WP_PIN_THR:
+            description:
+                short: Raw motor thrust during pin (0..1, 1 = max RPM)
+            type: float
+            min: 0.0
+            max: 1.0
+            default: 1.0
+        WP_PIN_HOLD:
+            description:
+                short: Max pin duration before auto-exit (0 = stay pinned until cancel)
+            type: float
+            unit: s
+            min: 0.0
+            max: 600.0
+            default: 0.0
+        WP_CONTACT_TMO:
+            description:
+                short: Max time at maximum thrust without reaching the body -Z target distance
+            type: float
+            unit: s
+            min: 0.2
+            max: 10.0
+            decimal: 1
+            default: 2.0
