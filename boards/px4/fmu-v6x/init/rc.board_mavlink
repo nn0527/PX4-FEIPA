@@ -10,4 +10,9 @@ then
 
 	# Ensure nothing else starts on TEL2 (ttyS4)
 	set PRT_TEL2_ 1
+
+else
+	# This custom firmware dedicates TELEM2 to the ESP32 distance bridge.
+	# Reserve it before rc.serial starts any parameter-selected serial driver.
+	set PRT_TEL2_ 1
 fi

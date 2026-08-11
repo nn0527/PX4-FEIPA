@@ -65,6 +65,7 @@ void LoggedTopics::add_default_topics()
 	add_optional_topic("external_ins_local_position");
 	// add_optional_topic("esc_status", 250);
 	add_topic("esc_status");
+	add_optional_topic("esp32_uart_frame", 50);
 	add_topic("failure_detector_status", 100);
 	add_topic("failsafe_flags");
 	add_optional_topic("follow_target", 500);
@@ -149,6 +150,7 @@ void LoggedTopics::add_default_topics()
 	add_topic("vehicle_roi", 1000);
 	add_topic("vehicle_status");
 	add_optional_topic("vtol_vehicle_status", 200);
+	add_optional_topic("wall_perch_status", 100);
 	add_topic("wind", 1000);
 
 	// multi topics
