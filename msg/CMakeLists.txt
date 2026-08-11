@@ -233,6 +233,7 @@ set(msg_files
 	VehicleThrustSetpoint.msg
 	VehicleTorqueSetpoint.msg
 	VelocityLimits.msg
+	WallPerchStatus.msg
 	WheelEncoders.msg
 	Wind.msg
 	YawEstimatorStatus.msg

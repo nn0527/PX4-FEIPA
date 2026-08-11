@@ -369,10 +369,6 @@ ControlAllocator::Run()
 		vehicle_control_mode_s vehicle_control_mode;
 
 		if (_vehicle_control_mode_sub.update(&vehicle_control_mode)) {
-<<<<<<< HEAD
-			_publish_controls = vehicle_control_mode.flag_control_allocation_enabled;
-		}
-=======
 			_control_allocation_enabled = vehicle_control_mode.flag_control_allocation_enabled;
 		}
 
@@ -388,7 +384,6 @@ ControlAllocator::Run()
 			&& wall_perch_status.state == wall_perch_status_s::WALL_PIN;
 
 		_publish_controls = _control_allocation_enabled && !wall_pin_active;
->>>>>>> c49fcf5256 (add wallperch PX4 code)
 	}
 
 	// Guard against too small (< 0.2ms) and too large (> 20ms) dt's.
