@@ -11,7 +11,7 @@
 #      rc_update (which is callback-driven on input_rc) actually runs,
 #      processes the param_update, and calibrates (_rc_calibrated=true,
 #      RC_MAP_AUX1→channel 5 mapped).
-#   4. Take off with OFFBOARD + MAVLink arm.
+#   4. Take off with OFFBOARD + MAVLink arm, then switch to ALTCTL.
 #   5. Raise ch5 to 2000 (AUX_ON) → rc_update publishes
 #      manual_control_input.aux1=1.0 → manual_control_setpoint.aux1=1.0
 #      → wall_perch sees start_req=true and triggers.
@@ -33,10 +33,11 @@ PORT = sys.argv[1] if len(sys.argv) > 1 else "14540"
 CONN = f"udp:127.0.0.1:{PORT}"
 
 PX4_MODE_OFFBOARD = 6
+PX4_MODE_ALTCTL = 2
 
 TARGET_Z = -1.5
 OFFBOARD_RATE = 50
-AUX_OFF = 1500             # neutral → aux1 ≈ 0.0
+AUX_OFF = 1000             # low → aux1 = -1.0; required to clear the re-arm latch
 AUX_ON  = 2000             # high → aux1 ≈ 1.0
 
 # ---- Shared state ----
@@ -47,12 +48,12 @@ state = {
     "armed": False,
     "have_lpos": False,
     "health_bad": None,
+    "main_mode": None,
 }
 
 running = True
 sp_z = TARGET_Z
 aux5 = AUX_OFF  # RC channel 5 value (shared between main and rc_thread)
-cancel7 = 1000  # independent AUX3 cancel channel held explicitly low
 sensor_up_mm = 1000
 range_link = None
 
@@ -110,25 +111,22 @@ def main():
         print(f"[!] no ack for {name}")
 
     # ---- RC override helper ----
-    def set_rc(ch1, ch2, ch3, ch4, ch5, ch6, ch7):
-        """Full 18-channel override. ch5/6/7 map to start/detach/cancel."""
+    def set_rc(ch1, ch2, ch3, ch4, ch5, ch6):
+        """Full 18-channel override. ch5/6 map to start/detach."""
         m.mav.rc_channels_override_send(
             sysid, compid,
             ch1, ch2, ch3, ch4, ch5, ch6,
-            ch7, 65535, 65535, 65535, 65535, 65535,
+            65535, 65535, 65535, 65535, 65535, 65535,
             65535, 65535, 65535, 65535, 65535, 65535)
 
     # ---- Configure params ----
-    set_param("WP_ENABLE", 1)
     set_param("WP_PIN_ENABLE", 0)       # SITL: use the standard attitude-control chain
-    set_param("WP_AUX_CH", 1)
-    set_param("WP_DETACH_AUX_CH", 2)
-    set_param("WP_CANCEL_AUX_CH", 3)
     set_param("WP_FLP_TRD_DIST", 0.5)    # front 0.3 ≤ 0.5 → flip_ready passes
     set_param("WP_TOP_CT_DIST", 0.08)    # UP changes to 0.04m after flip
 
     # RC mapping params — rc_update must be calibrated for
     # manual_control_input.valid to be true AND for aux1 to be mapped.
+    set_param("COM_RC_IN_MODE", 2)  # accept MAVLink RC_CHANNELS_OVERRIDE
     set_param("RC_CHAN_CNT", 8)
     set_param("RC_MAP_ROLL", 1)
     set_param("RC_MAP_PITCH", 2)
@@ -136,7 +134,6 @@ def main():
     set_param("RC_MAP_THROTTLE", 4)
     set_param("RC_MAP_AUX1", 5)
     set_param("RC_MAP_AUX2", 6)
-    set_param("RC_MAP_AUX3", 7)
 
     # RC channel calibration: without these, rc_update's interpolateNXY
     # sees min=trim=max=0 for aux channels → output always 0 → aux1=0.
@@ -146,9 +143,6 @@ def main():
     set_param("RC6_MIN", 1000)
     set_param("RC6_TRIM", 1500)
     set_param("RC6_MAX", 2000)
-    set_param("RC7_MIN", 1000)
-    set_param("RC7_TRIM", 1500)
-    set_param("RC7_MAX", 2000)
 
     # ---- RC override sender (runs continuously at ~10 Hz) ----
     # rc_update is callback-driven on input_rc.  We must send override
@@ -156,7 +150,7 @@ def main():
     # stabilises (channel_count_stable, _rc_calibrated).
     def rc_thread():
         while running:
-            set_rc(1500, 1500, 1500, 1500, aux5, 1500, cancel7)
+            set_rc(1500, 1500, 1500, 1500, aux5, 1500)
             time.sleep(0.1)
     threading.Thread(target=rc_thread, daemon=True).start()
 
@@ -181,6 +175,7 @@ def main():
                 with lock:
                     state["armed"] = bool(
                         msg.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED)
+                    state["main_mode"] = (msg.custom_mode >> 16) & 0xff
             elif t == "SYS_STATUS":
                 bad = msg.onboard_control_sensors_enabled & ~msg.onboard_control_sensors_health
                 with lock:
@@ -209,6 +204,22 @@ def main():
         with lock:
             return state[k]
 
+    def set_main_mode(mode, name):
+        print(f"[*] set mode {name}")
+        m.mav.command_long_send(
+            sysid, compid, mavutil.mavlink.MAV_CMD_DO_SET_MODE, 0,
+            mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
+            mode, 0, 0, 0, 0, 0)
+        deadline = time.time() + 5.0
+
+        while time.time() < deadline:
+            if get("main_mode") == mode:
+                return
+
+            time.sleep(0.1)
+
+        raise RuntimeError(f"PX4 did not enter {name}")
+
     # --- Wait for rc_update to stabilise (channel_count_stable) ---
     print("[*] waiting for rc_update to stabilise (2 s) ...")
     time.sleep(2.0)
@@ -218,12 +229,7 @@ def main():
     time.sleep(2.0)
 
     # --- Switch to OFFBOARD ---
-    print("[*] set mode OFFBOARD")
-    m.mav.command_long_send(
-        sysid, compid, mavutil.mavlink.MAV_CMD_DO_SET_MODE, 0,
-        mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
-        PX4_MODE_OFFBOARD, 0, 0, 0, 0, 0)
-    time.sleep(2.0)
+    set_main_mode(PX4_MODE_OFFBOARD, "OFFBOARD")
 
     # --- Arm ---
     armed = False
@@ -276,7 +282,11 @@ def main():
     threading.Thread(target=inject_thread, daemon=True).start()
     time.sleep(0.5)  # let a few samples arrive
 
-    # --- Trigger wall_perch through the explicitly selected AUX1 channel ---
+    # WALL deliberately accepts starts only in ALTCTL. Neutral throttle keeps
+    # altitude while the fixed AUX1 channel is used for the rising-edge trigger.
+    set_main_mode(PX4_MODE_ALTCTL, "ALTCTL")
+
+    # --- Trigger wall_perch through its fixed AUX1 channel ---
     print("[*] TRIGGER wall_perch")
     aux5 = AUX_ON
 

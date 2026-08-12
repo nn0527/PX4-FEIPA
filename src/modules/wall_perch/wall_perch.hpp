@@ -120,8 +120,8 @@ private:
 	void update_distance_sensors();
 
 	// User input helpers
-	void update_manual_switches();
-	float selected_aux_value(int channel) const;
+	void update_manual_switches(hrt_abstime now);
+	bool manual_control_valid(hrt_abstime now) const;
 	bool user_start_requested();
 	bool user_detach_requested();
 
@@ -178,6 +178,7 @@ private:
 	hrt_abstime _vehicle_angular_velocity_ts{0};
 	hrt_abstime _vehicle_local_position_ts{0};
 	hrt_abstime _manual_control_ts{0};
+	manual_control_setpoint_s _manual_control{};
 	bool _local_position_valid{false};
 	bool _local_velocity_valid{false};
 
@@ -232,14 +233,17 @@ private:
 	// Switch raw values
 	float _aux1_raw{0.f};
 	float _aux2_raw{0.f};
-	float _aux3_raw{0.f};
-	float _aux4_raw{0.f};
 	bool _start_switch_on{false};
 	bool _detach_switch_on{false};
-	bool _rearm_required{false};
+	bool _rearm_required{true};
+	bool _aux1_previous{false};
+	bool _aux1_rising_edge{false};
+	bool _last_start_switch_on{false};
+	bool _last_detach_switch_on{false};
 	bool _failsafe_triggered{false};
 	float _last_thrust_norm{0.f};
 	float _state_progress{0.f};
+	static constexpr hrt_abstime MANUAL_TIMEOUT{500_ms};
 
 	// Mavlink log
 	orb_advert_t _mavlink_log_pub{nullptr};
@@ -250,10 +254,6 @@ private:
 	// Parameters
 	// -----------------------------------------------------------------------
 	DEFINE_PARAMETERS(
-		(ParamBool<px4::params::WP_ENABLE>) _param_wp_enable,
-		(ParamInt<px4::params::WP_AUX_CH>) _param_wp_aux_ch,
-		(ParamInt<px4::params::WP_DETACH_AUX_CH>) _param_wp_detach_aux_ch,
-
 		(ParamFloat<px4::params::WP_FRN_RD_DIST>) _param_wp_frn_rd_dist,
 		(ParamFloat<px4::params::WP_FRN_RD_HLD>) _param_wp_frn_rd_hld,
 

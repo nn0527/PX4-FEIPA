@@ -4,8 +4,8 @@
 Gazebo supplies real UP and FRONT LaserScan measurements.  This program reads
 those Gazebo topics, encodes the measurements with the ESP32 nine-byte UART
 protocol, and feeds PX4 through a pseudo-TTY.  It also maintains Offboard
-position setpoints and RC overrides so AUX1/AUX2/AUX3 can be controlled from
-this terminal.
+position setpoints and RC overrides so AUX1/AUX2 can be controlled from this
+terminal.
 
 Start PX4 first with::
 
@@ -318,7 +318,7 @@ class MavlinkFlight:
             "main_mode": -1,
         }
         self._target = {"x": 0.0, "y": 0.0, "z": 0.0, "yaw": 0.0}
-        self._aux = {1: AUX_OFF, 2: AUX_OFF, 3: AUX_OFF}
+        self._aux = {1: AUX_OFF, 2: AUX_OFF}
 
         self.port.mav.request_data_stream_send(
             self.system_id, self.component_id,
@@ -399,7 +399,7 @@ class MavlinkFlight:
 
         while self._running:
             with self._lock:
-                aux1, aux2, aux3 = self._aux[1], self._aux[2], self._aux[3]
+                aux1, aux2 = self._aux[1], self._aux[2]
 
             with self._send_lock:
                 now = time.monotonic()
@@ -418,7 +418,7 @@ class MavlinkFlight:
                 self.port.mav.rc_channels_override_send(
                     self.system_id, self.component_id,
                     1500, 1500, 1500, 1500,
-                    aux1, aux2, aux3,
+                    aux1, aux2, 65535,
                     65535, 65535, 65535, 65535, 65535,
                     65535, 65535, 65535, 65535, 65535, 65535,
                 )
@@ -598,11 +598,6 @@ class BridgeInteractive:
             "COM_RC_IN_MODE": 2,
             "RC_MAP_AUX1": 5,
             "RC_MAP_AUX2": 6,
-            "RC_MAP_AUX3": 7,
-            "WP_ENABLE": 1,
-            "WP_AUX_CH": 1,
-            "WP_DETACH_AUX_CH": 2,
-            "WP_CANCEL_AUX_CH": 3,
             "WP_PIN_ENABLE": 0,
         }
         warnings = []
@@ -651,7 +646,6 @@ class BridgeInteractive:
 
         self.flight.set_aux(1, False)
         self.flight.set_aux(2, False)
-        self.flight.set_aux(3, False)
         self._px4("ceiling_controller stop", check=False)
         self._px4("wall_perch stop", check=False)
         time.sleep(0.25)
@@ -694,7 +688,6 @@ class BridgeInteractive:
 
         self.flight.set_aux(1, False)
         self.flight.set_aux(2, False)
-        self.flight.set_aux(3, False)
         state = self.flight.wait_for_position()
         hold_x, hold_y = state["x"], state["y"]
         # PX4 yaw=0 is NED north, which maps to Gazebo +Y and the left wall.
@@ -808,16 +801,6 @@ class BridgeInteractive:
         else:
             print(f"AUX{index}={'ON' if enabled else 'OFF'}")
 
-    def abort(self) -> None:
-        assert self.flight is not None
-        if self.mode != "wall":
-            print("abort是Wall模式的AUX3中止命令；当前未处于Wall模式。")
-            return
-        self.flight.set_aux(3, True)
-        print("AUX3中止脉冲已发送。")
-        time.sleep(1.0)
-        self.flight.set_aux(3, False)
-
     @staticmethod
     def _format_range(value: Optional[float]) -> str:
         return "INVALID" if value is None else f"{value:.3f} m"
@@ -844,7 +827,7 @@ class BridgeInteractive:
         print(
             f"UART sent frames={self.range_bridge.frames_sent}，"
             f"LaserScan UP={up_messages}/{up_errors}err FRONT={front_messages}/{front_errors}err，"
-            f"AUX1/2/3={aux[1]}/{aux[2]}/{aux[3]}")
+            f"AUX1/2={aux[1]}/{aux[2]}")
 
         topic = "ceiling_contact_status" if self.mode == "ceiling" else "wall_perch_status"
         output = self._px4(f"listener {topic} -n 1", check=False) if self.mode else ""
@@ -879,7 +862,6 @@ class BridgeInteractive:
         assert self.flight is not None
         self.flight.set_aux(1, False)
         self.flight.set_aux(2, False)
-        self.flight.set_aux(3, False)
         self.flight.land()
 
     @staticmethod
@@ -891,7 +873,6 @@ class BridgeInteractive:
   prepare       Ceiling升到6.0±0.05m；Wall升到1.5m并自动靠墙至0.45m
   aux1 on|off   吸顶/贴墙开始开关
   aux2 on|off   脱离开关
-  abort         Wall AUX3中止脉冲
   status        显示高度、真实测距、UART和控制状态
   params        重新检查QGC/PX4参数（不会改参）
   land          关闭AUX并降落、上锁
@@ -924,8 +905,6 @@ class BridgeInteractive:
                     self.prepare()
                 elif command == "land":
                     self.land()
-                elif command == "abort":
-                    self.abort()
                 elif command.startswith("mode "):
                     self.set_mode(command.split(maxsplit=1)[1])
                 elif re.fullmatch(r"aux[12] (on|off)", command):
@@ -940,7 +919,6 @@ class BridgeInteractive:
         if self.flight is not None:
             self.flight.set_aux(1, False)
             self.flight.set_aux(2, False)
-            self.flight.set_aux(3, False)
 
             for command in ("ceiling_controller stop", "wall_perch stop"):
                 try:

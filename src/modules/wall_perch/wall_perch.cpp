@@ -210,7 +210,7 @@ void WallPerch::Run()
 		_vehicle_local_position_ts = local_pos.timestamp;
 	}
 
-	update_manual_switches();
+	update_manual_switches(now);
 
 	// distance_sensor (front and upward), selected by orientation across all instances
 	update_distance_sensors();
@@ -240,11 +240,19 @@ void WallPerch::Run()
 	// --- Publish status ---
 	publish_wall_perch_status();
 
+	if (_start_switch_on != _last_start_switch_on || _detach_switch_on != _last_detach_switch_on) {
+		mavlink_log_info(&_mavlink_log_pub, "[wall_perch] AUX1=%d AUX2=%d st=%d",
+				 (int)_start_switch_on, (int)_detach_switch_on, (int)_state);
+		_last_start_switch_on = _start_switch_on;
+		_last_detach_switch_on = _detach_switch_on;
+	}
+
 	// --- Periodic log ---
 	if (hrt_elapsed_time(&_last_status_log_time) > 5_s) {
 		mavlink_log_info(&_mavlink_log_pub,
-				 "[wall_perch] st=%s(%d) fdist=%.3f tdist=%.3f armed=%d",
+				 "[wall_perch] st=%s(%d) AUX1=%d AUX2=%d fdist=%.3f tdist=%.3f armed=%d",
 				 state_name(_state), (int)_state,
+				 (int)_start_switch_on, (int)_detach_switch_on,
 				 (double)_front_wall_distance_m, (double)_top_wall_distance_m,
 				 (int)_armed);
 		_last_status_log_time = now;
@@ -323,41 +331,46 @@ void WallPerch::update_distance_sensors()
 //  User input helpers
 // ==========================================================================
 
-void WallPerch::update_manual_switches()
+bool WallPerch::manual_control_valid(hrt_abstime now) const
 {
-	manual_control_setpoint_s manual{};
-
-	if (!_manual_control_setpoint_sub.copy(&manual)) {
-		_start_switch_on = false;
-		_detach_switch_on = false;
-		return;
-	}
-
-	_aux1_raw = manual.aux1; _aux2_raw = manual.aux2;
-	_aux3_raw = manual.aux3; _aux4_raw = manual.aux4;
-	_manual_control_ts = manual.timestamp;
-	_start_switch_on = selected_aux_value(_param_wp_aux_ch.get()) > 0.3f;
-	_detach_switch_on = selected_aux_value(_param_wp_detach_aux_ch.get()) > 0.3f;
+	return _manual_control.valid && _manual_control_ts != 0 && now >= _manual_control_ts
+	       && (now - _manual_control_ts) <= MANUAL_TIMEOUT;
 }
 
-float WallPerch::selected_aux_value(int channel) const
+void WallPerch::update_manual_switches(hrt_abstime now)
 {
-	switch (channel) {
-	case 1: return _aux1_raw;
+	_aux1_rising_edge = false;
+	manual_control_setpoint_s manual{};
 
-	case 2: return _aux2_raw;
+	if (_manual_control_setpoint_sub.update(&manual)) {
+		_manual_control = manual;
+		_manual_control_ts = manual.timestamp_sample != 0 ? manual.timestamp_sample : manual.timestamp;
+	}
 
-	case 3: return _aux3_raw;
+	if (manual_control_valid(now) && PX4_ISFINITE(_manual_control.aux1) && PX4_ISFINITE(_manual_control.aux2)) {
+		_aux1_raw = _manual_control.aux1;
+		_aux2_raw = _manual_control.aux2;
+		_start_switch_on = _aux1_raw > 0.3f;
+		_detach_switch_on = _aux2_raw > 0.3f;
 
-	case 4: return _aux4_raw;
+		if (!_start_switch_on && !_detach_switch_on) {
+			_rearm_required = false;
+		}
 
-	default: return -1.f;
+		_aux1_rising_edge = _start_switch_on && !_aux1_previous && !_rearm_required;
+		_aux1_previous = _start_switch_on;
+
+	} else {
+		_start_switch_on = false;
+		_detach_switch_on = false;
+		_aux1_previous = false;
+		_rearm_required = true;
 	}
 }
 
 bool WallPerch::user_start_requested()
 {
-	return _param_wp_enable.get() && _start_switch_on;
+	return _aux1_rising_edge;
 }
 
 bool WallPerch::user_detach_requested()
@@ -506,8 +519,7 @@ bool WallPerch::start_conditions_valid() const
 					&& (now - _vehicle_angular_velocity_ts) <= input_timeout
 					&& _vehicle_local_position_ts != 0 && now >= _vehicle_local_position_ts
 					&& (now - _vehicle_local_position_ts) <= input_timeout
-					&& _manual_control_ts != 0 && now >= _manual_control_ts
-					&& (now - _manual_control_ts) <= input_timeout;
+					&& manual_control_valid(now);
 	const bool both_ranges_fresh = _front_distance_ts != 0 && now >= _front_distance_ts
 				       && (float)(now - _front_distance_ts) <= distance_timeout_us
 				       && _top_distance_ts != 0 && now >= _top_distance_ts
@@ -818,14 +830,16 @@ void WallPerch::update_state_machine(float dt)
 	// IDLE
 	// ================================================================
 	case State::IDLE: {
-			// A completed maneuver is latched out until AUX1 has first been
-			// observed low. AUX2 also blocks every new start while held high.
-			if (_rearm_required && !_start_switch_on) {
-				_rearm_required = false;
-			}
+			// Match ceiling_controller startup semantics: both switches must first
+			// be low, then only an AUX1 rising edge can request a new maneuver.
+			if (start_req) {
+				if (!detach_req && start_conditions_valid()) {
+					enter_state(State::FRONT_WALL_DETECT);
 
-			if (start_req && !detach_req && !_rearm_required && start_conditions_valid()) {
-				enter_state(State::FRONT_WALL_DETECT);
+				} else {
+					// Consume a rejected edge. Both switches must return low before retrying.
+					_rearm_required = true;
+				}
 			}
 
 			break;

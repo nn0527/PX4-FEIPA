@@ -3,26 +3,6 @@ module_name: wall_perch
 parameters:
     - group: Wall Perch
       definitions:
-        WP_ENABLE:
-            description:
-                short: Enable wall_perch module
-            type: boolean
-            default: 0
-        WP_AUX_CH:
-            description:
-                short: AUX channel for wall_perch start (1=AUX1, 2=AUX2, ...)
-            type: int32
-            min: 1
-            max: 4
-            default: 1
-        WP_DETACH_AUX_CH:
-            description:
-                short: Aux channel for detach trigger
-            type: int32
-            min: 1
-            max: 4
-            default: 2
-
         WP_FRN_RD_DIST:
             description:
                 short: Front wall distance threshold for ready condition

@@ -95,6 +95,7 @@ bool UartRx::baud_to_speed(unsigned baudrate, speed_t &speed)
 		speed = B38400;
 		return true;
 
+
 	case 57600:
 		speed = B57600;
 		return true;
