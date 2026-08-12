@@ -612,13 +612,30 @@ class BridgeInteractive:
             if actual is None or int(round(actual)) != expected:
                 warnings.append(f"{name}={actual!r}（建议{expected}）")
 
-        approach_start = self._param("CEIL_APPR_START")
-        detach_threshold = self._param("CEIL_DIST_THR")
-        if approach_start is None:
-            warnings.append("CEIL_APPR_START不存在；需要重新编译PX4")
-        elif detach_threshold is not None and approach_start <= detach_threshold:
+        ceiling_params = {
+            name: self._param(name)
+            for name in (
+                "CEIL_D0", "CEIL_DIST_THR", "CEIL_DET_THR", "CEIL_DET_DIST",
+                "CEIL_DETACH_VZ", "CEIL_DETACH_TO")
+        }
+
+        for name, value in ceiling_params.items():
+            if value is None:
+                warnings.append(f"{name}不存在；需要使用0810 Ceiling参数接口重新编译PX4")
+
+        contact_distance = ceiling_params["CEIL_D0"]
+        approach_threshold = ceiling_params["CEIL_DIST_THR"]
+        detach_distance = ceiling_params["CEIL_DET_DIST"]
+
+        if contact_distance is not None and approach_threshold is not None \
+                and approach_threshold <= contact_distance:
             warnings.append(
-                f"CEIL_APPR_START={approach_start:g}应大于CEIL_DIST_THR={detach_threshold:g}")
+                f"CEIL_DIST_THR={approach_threshold:g}应大于CEIL_D0={contact_distance:g}")
+
+        if contact_distance is not None and detach_distance is not None \
+                and detach_distance <= contact_distance:
+            warnings.append(
+                f"CEIL_DET_DIST={detach_distance:g}应大于CEIL_D0={contact_distance:g}")
 
         if warnings:
             print("\n参数检查警告（工具不会自动改参，请在QGC中修改）：")
@@ -843,10 +860,13 @@ class BridgeInteractive:
                     f"distance={self._field(output, 'ceiling_distance')} m，"
                     f"target={self._field(output, 'target_distance')} m，"
                     f"thrust_z={self._field(output, 'thrust_body_z_sp')}，"
+                    f"z_mode={self._field(output, 'z_control_mode')}，"
+                    f"detach_phase={self._field(output, 'detach_phase')}，"
                     f"detach={self._field(output, 'detach_switch_on')}，"
                     f"sensor_valid={self._field(output, 'distance_sensor_valid')}，"
+                    f"input_valid={self._field(output, 'input_valid')}，"
                     f"rearm={self._field(output, 'rearm_required')}，"
-                    f"timeout={self._field(output, 'detach_timed_out')}")
+                    f"fault=0x{int(self._field(output, 'fault_reason') or 0):x}")
         elif self.mode:
             print(f"{topic}: 暂无状态消息")
 

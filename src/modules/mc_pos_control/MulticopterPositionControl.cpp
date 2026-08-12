@@ -408,17 +408,48 @@ void MulticopterPositionControl::Run()
 				} else if (previous_position_control_enabled && !_vehicle_control_mode.flag_multicopter_position_control_enabled) {
 					// clear existing setpoint when controller is no longer active
 					_setpoint = PositionControl::empty_trajectory_setpoint;
+					_ceiling_last_valid_mode = ceiling_contact_status_s::Z_CONTROL_MODE_NONE;
+					_ceiling_applied_mode = ceiling_contact_status_s::Z_CONTROL_MODE_NONE;
+					_ceiling_status_lost_since = 0;
+					_last_flight_task_xy_setpoint_time = 0;
 				}
 			}
 		}
 
 		_vehicle_land_detected_sub.update(&_vehicle_land_detected);
+		_ceiling_contact_status_sub.update(&_ceiling_contact_status);
+		_wall_perch_status_sub.update(&_wall_perch_status);
+
+		const hrt_abstime control_now = hrt_absolute_time();
+		const bool wall_status_fresh = _wall_perch_status.timestamp != 0
+					       && control_now >= _wall_perch_status.timestamp
+					       && (control_now - _wall_perch_status.timestamp) <= WALL_STATUS_TIMEOUT;
+		const bool wall_active = wall_status_fresh && _wall_perch_status.active;
+
+		if (wall_active != _wall_active_prev) {
+			// Clear the old ALTCTL vertical integral at both ownership boundaries.
+			// FlightModeManager re-seeds the corresponding Z target to the current
+			// altitude while wall control is active.
+			_control.resetIntegralZ();
+			_wall_active_prev = wall_active;
+		}
+
+		const bool ceiling_status_fresh = _ceiling_contact_status.timestamp != 0
+						  && control_now >= _ceiling_contact_status.timestamp
+						  && (control_now - _ceiling_contact_status.timestamp) <= CEILING_STATUS_TIMEOUT;
+		const bool ceiling_hte_frozen = (ceiling_status_fresh
+						 && (_ceiling_contact_status.contact_active
+						     || _ceiling_contact_status.z_control_mode == ceiling_contact_status_s::Z_CONTROL_MODE_DIRECT_THRUST
+						     || (_ceiling_contact_status.state >= ceiling_contact_status_s::ATTACH_CONTROL_MODE
+								     && _ceiling_contact_status.state <= ceiling_contact_status_s::RECOVERY_HOVER_MODE)))
+						|| (!ceiling_status_fresh
+						    && _ceiling_last_valid_mode != ceiling_contact_status_s::Z_CONTROL_MODE_NONE);
 
 		if (_param_mpc_use_hte.get()) {
 			hover_thrust_estimate_s hte;
 
 			if (_hover_thrust_estimate_sub.update(&hte)) {
-				if (hte.valid) {
+				if (hte.valid && !ceiling_hte_frozen && !wall_active) {
 					_control.updateHoverThrust(hte.hover_thrust);
 				}
 			}
@@ -541,51 +572,190 @@ void MulticopterPositionControl::Run()
 				math::min(speed_up, _param_mpc_z_vel_max_up.get()), // takeoff ramp starts with negative velocity limit
 				math::max(speed_down, 0.f));
 
-			// Ceiling contact controller integration
-			_ceiling_contact_status_sub.update(&_ceiling_contact_status);
-			const bool cc_status_valid = _ceiling_contact_status.timestamp != 0
-						     && hrt_elapsed_time(&_ceiling_contact_status.timestamp) <= CEILING_STATUS_TIMEOUT;
-			const ceiling_contact_status_s &cc_status = _ceiling_contact_status;
+			// Ceiling control is an axis-selective overlay. The flight task remains the
+			// sole owner of XY and yaw; ceiling control may only replace the Z channel.
+			uint8_t ceiling_control_mode = ceiling_contact_status_s::Z_CONTROL_MODE_NONE;
+			float ceiling_velocity_sp = NAN;
+			float ceiling_direct_thrust_sp = NAN;
+			bool ceiling_command_valid = false;
 
-			if (cc_status_valid && cc_status.state == ceiling_contact_status_s::APPROACH_MODE) {
-				// Lock XY motion, only allow slow upward Z motion
-				_setpoint.velocity[0] = 0.f;
-				_setpoint.velocity[1] = 0.f;
-				_setpoint.position[0] = NAN;
-				_setpoint.position[1] = NAN;
+			if (ceiling_status_fresh) {
+				if (_ceiling_contact_status.z_control_mode == ceiling_contact_status_s::Z_CONTROL_MODE_VELOCITY
+				    && PX4_ISFINITE(_ceiling_contact_status.vertical_velocity_sp)) {
+					ceiling_control_mode = ceiling_contact_status_s::Z_CONTROL_MODE_VELOCITY;
+					ceiling_velocity_sp = _ceiling_contact_status.vertical_velocity_sp;
+					ceiling_command_valid = true;
 
-				if (PX4_ISFINITE(cc_status.approach_vz_sp)) {
-					_setpoint.velocity[2] = cc_status.approach_vz_sp;
-					_setpoint.position[2] = NAN;
-					_setpoint.acceleration[2] = NAN;
+				} else if (_ceiling_contact_status.z_control_mode
+					   == ceiling_contact_status_s::Z_CONTROL_MODE_DIRECT_THRUST
+					   && PX4_ISFINITE(_ceiling_contact_status.thrust_body_z_sp)) {
+					ceiling_control_mode = ceiling_contact_status_s::Z_CONTROL_MODE_DIRECT_THRUST;
+					ceiling_direct_thrust_sp = _ceiling_contact_status.thrust_body_z_sp;
+					ceiling_command_valid = true;
 				}
 			}
 
-			if (cc_status_valid && cc_status.integral_reset_request) {
-				// Only reset the vertical integrator: the ceiling controller takes over
-				// the thrust in Z, but the pilot still commands XY via the sticks. Clearing
-				// the full integral (resetIntegral) would wipe the XY integrator every cycle
-				// and degrade manual horizontal control.
-				_control.resetIntegralZ();
+			if (ceiling_command_valid) {
+				_ceiling_status_lost_since = 0;
+				_ceiling_last_valid_mode = ceiling_control_mode;
+
+				if (ceiling_control_mode == ceiling_contact_status_s::Z_CONTROL_MODE_DIRECT_THRUST) {
+					_ceiling_last_direct_thrust = ceiling_direct_thrust_sp;
+				}
+
+			} else if (ceiling_status_fresh
+				   && _ceiling_contact_status.z_control_mode == ceiling_contact_status_s::Z_CONTROL_MODE_NONE) {
+				// A fresh pass-through command is the only normal way to release a
+				// previously active ceiling overlay.
+				_ceiling_status_lost_since = 0;
+				_ceiling_last_valid_mode = ceiling_contact_status_s::Z_CONTROL_MODE_NONE;
+
+			} else if (_ceiling_last_valid_mode != ceiling_contact_status_s::Z_CONTROL_MODE_NONE) {
+				// Never jump back to a stale altitude target if the ceiling controller
+				// disappears. Ramp direct thrust to the frozen hover baseline, then
+				// hold zero vertical speed while preserving manual XY control.
+				if (_ceiling_status_lost_since == 0) {
+					_ceiling_status_lost_since = control_now;
+					PX4_ERR("ceiling status lost, holding altitude");
+				}
+
+				const hrt_abstime lost_elapsed = control_now - _ceiling_status_lost_since;
+
+				const bool vertical_velocity_available = vehicle_local_position.v_z_valid
+						&& PX4_ISFINITE(states.velocity(2)) && PX4_ISFINITE(states.acceleration(2));
+
+				if (lost_elapsed >= CEILING_STATUS_LOSS_HOLD_TIME && vertical_velocity_available) {
+					// FlightModeManager has continuously re-seeded the ALTCTL Z target
+					// throughout this hold. Release only after a finite stabilization
+					// window, so a dead publisher cannot permanently take the Z stick.
+					ceiling_control_mode = ceiling_contact_status_s::Z_CONTROL_MODE_NONE;
+					_ceiling_last_valid_mode = ceiling_contact_status_s::Z_CONTROL_MODE_NONE;
+					_ceiling_status_lost_since = 0;
+					PX4_WARN("ceiling status timeout, returning Z to flight task");
+
+				} else if (_ceiling_last_valid_mode == ceiling_contact_status_s::Z_CONTROL_MODE_DIRECT_THRUST
+					   && lost_elapsed < CEILING_STATUS_LOSS_THRUST_RAMP_TIME) {
+					const float hover_baseline = PX4_ISFINITE(_ceiling_contact_status.hover_thrust_baseline)
+								     ? math::constrain(_ceiling_contact_status.hover_thrust_baseline,
+										     _param_mpc_thr_min.get(), _param_mpc_thr_max.get())
+								     : _param_mpc_thr_hover.get();
+					const float start_thrust = PX4_ISFINITE(_ceiling_last_direct_thrust)
+								   ? _ceiling_last_direct_thrust : -hover_baseline;
+					const float progress = static_cast<float>(lost_elapsed)
+							       / static_cast<float>(CEILING_STATUS_LOSS_THRUST_RAMP_TIME);
+					ceiling_control_mode = ceiling_contact_status_s::Z_CONTROL_MODE_DIRECT_THRUST;
+					ceiling_direct_thrust_sp = math::lerp(start_thrust, -hover_baseline, progress);
+
+				} else if (vertical_velocity_available) {
+					ceiling_control_mode = ceiling_contact_status_s::Z_CONTROL_MODE_VELOCITY;
+					ceiling_velocity_sp = 0.f;
+
+				} else {
+					// A finite velocity setpoint is illegal when the vertical velocity
+					// estimate is invalid. Keep a bounded hover-thrust fallback instead
+					// of turning the status-loss path into another invalid-setpoint event.
+					const float hover_baseline = PX4_ISFINITE(_ceiling_contact_status.hover_thrust_baseline)
+								     ? math::constrain(_ceiling_contact_status.hover_thrust_baseline,
+										     _param_mpc_thr_min.get(), _param_mpc_thr_max.get())
+								     : _param_mpc_thr_hover.get();
+					ceiling_control_mode = ceiling_contact_status_s::Z_CONTROL_MODE_DIRECT_THRUST;
+					ceiling_direct_thrust_sp = -hover_baseline;
+				}
 			}
 
-			_control.setInputSetpoint(_setpoint);
+			if (ceiling_control_mode != _ceiling_applied_mode) {
+				const bool direct_control_boundary =
+					(_ceiling_applied_mode == ceiling_contact_status_s::Z_CONTROL_MODE_DIRECT_THRUST)
+					!= (ceiling_control_mode == ceiling_contact_status_s::Z_CONTROL_MODE_DIRECT_THRUST);
+
+				if (direct_control_boundary) {
+					// Clear only the vertical integral at ownership boundaries. Resetting
+					// it every direct-thrust cycle would prevent a smooth return to ALTCTL.
+					_control.resetIntegralZ();
+				}
+
+				_ceiling_applied_mode = ceiling_control_mode;
+			}
+
+			trajectory_setpoint_s effective_setpoint = _setpoint;
+
+			if (ceiling_control_mode == ceiling_contact_status_s::Z_CONTROL_MODE_VELOCITY) {
+				effective_setpoint.position[2] = NAN;
+				effective_setpoint.velocity[2] = math::constrain(ceiling_velocity_sp,
+								 -math::min(speed_up, _param_mpc_z_vel_max_up.get()),
+								 math::max(speed_down, 0.f));
+				effective_setpoint.acceleration[2] = NAN;
+
+			} else if (ceiling_control_mode == ceiling_contact_status_s::Z_CONTROL_MODE_DIRECT_THRUST) {
+				effective_setpoint.position[2] = NAN;
+				effective_setpoint.velocity[2] = NAN;
+				effective_setpoint.acceleration[2] = 0.f;
+			}
+
+			// A temporary FlightTask update failure (for example at an RC-loss
+			// transition) must not erase a still-valid manual XY command in the
+			// same cycle as a ceiling Z overlay. Reuse only the recent FlightTask
+			// XY/yaw values; never synthesize an XY velocity target here.
+			const bool xy_setpoint_executable =
+				(PX4_ISFINITE(effective_setpoint.position[0]) || PX4_ISFINITE(effective_setpoint.velocity[0])
+				 || PX4_ISFINITE(effective_setpoint.acceleration[0]))
+				&& (PX4_ISFINITE(effective_setpoint.position[1]) || PX4_ISFINITE(effective_setpoint.velocity[1])
+				    || PX4_ISFINITE(effective_setpoint.acceleration[1]))
+				&& (PX4_ISFINITE(effective_setpoint.position[0]) == PX4_ISFINITE(effective_setpoint.position[1]))
+				&& (PX4_ISFINITE(effective_setpoint.velocity[0]) == PX4_ISFINITE(effective_setpoint.velocity[1]))
+				&& (PX4_ISFINITE(effective_setpoint.acceleration[0]) == PX4_ISFINITE(effective_setpoint.acceleration[1]));
+
+			if (xy_setpoint_executable) {
+				for (int axis = 0; axis < 2; ++axis) {
+					_last_flight_task_xy_setpoint.position[axis] = effective_setpoint.position[axis];
+					_last_flight_task_xy_setpoint.velocity[axis] = effective_setpoint.velocity[axis];
+					_last_flight_task_xy_setpoint.acceleration[axis] = effective_setpoint.acceleration[axis];
+				}
+
+				_last_flight_task_xy_setpoint.yaw = effective_setpoint.yaw;
+				_last_flight_task_xy_setpoint.yawspeed = effective_setpoint.yawspeed;
+				_last_flight_task_xy_setpoint.timestamp = effective_setpoint.timestamp;
+				_last_flight_task_xy_setpoint_time = control_now;
+			}
+
+			if (ceiling_control_mode != ceiling_contact_status_s::Z_CONTROL_MODE_NONE
+			    && !xy_setpoint_executable
+			    && _last_flight_task_xy_setpoint_time != 0
+			    && control_now < _last_flight_task_xy_setpoint_time + 200_ms) {
+				for (int axis = 0; axis < 2; ++axis) {
+					effective_setpoint.position[axis] = _last_flight_task_xy_setpoint.position[axis];
+					effective_setpoint.velocity[axis] = _last_flight_task_xy_setpoint.velocity[axis];
+					effective_setpoint.acceleration[axis] = _last_flight_task_xy_setpoint.acceleration[axis];
+				}
+
+				effective_setpoint.yaw = _last_flight_task_xy_setpoint.yaw;
+				effective_setpoint.yawspeed = _last_flight_task_xy_setpoint.yawspeed;
+				effective_setpoint.timestamp = _last_flight_task_xy_setpoint.timestamp;
+			}
+
+			// Ceiling operation deliberately decouples horizontal attitude from
+			// vertical acceleration. Thus a direct-thrust/velocity handoff cannot
+			// introduce a roll/pitch step even if MPC_ACC_DECOUPLE is disabled.
+			_control.decoupleHorizontalAndVecticalAcceleration(_param_mpc_acc_decouple.get()
+					|| ceiling_control_mode != ceiling_contact_status_s::Z_CONTROL_MODE_NONE);
+
+			_control.setInputSetpoint(effective_setpoint);
 
 			// update states
-			if (!PX4_ISFINITE(_setpoint.position[2])
-			    && PX4_ISFINITE(_setpoint.velocity[2]) && (fabsf(_setpoint.velocity[2]) > FLT_EPSILON)
+			if (!PX4_ISFINITE(effective_setpoint.position[2])
+			    && PX4_ISFINITE(effective_setpoint.velocity[2]) && (fabsf(effective_setpoint.velocity[2]) > FLT_EPSILON)
 			    && PX4_ISFINITE(vehicle_local_position.z_deriv) && vehicle_local_position.z_valid && vehicle_local_position.v_z_valid) {
 				// A change in velocity is demanded and the altitude is not controlled.
 				// Set velocity to the derivative of position
 				// because it has less bias but blend it in across the landing speed range
 				//  <  MPC_LAND_SPEED: ramp up using altitude derivative without a step
 				//  >= MPC_LAND_SPEED: use altitude derivative
-				float weighting = fminf(fabsf(_setpoint.velocity[2]) / _param_mpc_land_speed.get(), 1.f);
+				float weighting = fminf(fabsf(effective_setpoint.velocity[2]) / _param_mpc_land_speed.get(), 1.f);
 				states.velocity(2) = vehicle_local_position.z_deriv * weighting + vehicle_local_position.vz * (1.f - weighting);
 			}
 
-			if ((!PX4_ISFINITE(_setpoint.velocity[0]) || !PX4_ISFINITE(_setpoint.velocity[1]))
-			    && (!PX4_ISFINITE(_setpoint.position[0]) || !PX4_ISFINITE(_setpoint.position[1]))) {
+			if ((!PX4_ISFINITE(effective_setpoint.velocity[0]) || !PX4_ISFINITE(effective_setpoint.velocity[1]))
+			    && (!PX4_ISFINITE(effective_setpoint.position[0]) || !PX4_ISFINITE(effective_setpoint.position[1]))) {
 				// Horizontal velocity is not controlled, reset the integrators to avoid
 				// over-corrections when starting again.
 				_control.resetIntegralXY();
@@ -593,18 +763,16 @@ void MulticopterPositionControl::Run()
 
 			_control.setState(states);
 
-			const hrt_abstime now = hrt_absolute_time();
-
 			// Run position control
 			if (_control.update(dt)) {
 
 				// Valid control update - store for fallback
-				_last_valid_setpoint = _setpoint;
+				_last_valid_setpoint = effective_setpoint;
 
 			} else {
 
 				// Initial update failed - Try fallback if within timeout
-				if (now < _last_valid_setpoint.timestamp + 200_ms) {
+				if (control_now < _last_valid_setpoint.timestamp + 200_ms) {
 					// Use last valid setpoint
 					adjustSetpointForEKFResets(vehicle_local_position, _last_valid_setpoint);
 					_control.setInputSetpoint(_last_valid_setpoint);
@@ -622,6 +790,12 @@ void MulticopterPositionControl::Run()
 				}
 			}
 
+			if (wall_active) {
+				// Do not let the suppressed standard Z controller accumulate an
+				// integral while wall_perch supplies attitude and thrust.
+				_control.resetIntegralZ();
+			}
+
 			// Publish internal position control setpoints
 			// on top of the input/feed-forward setpoints these containt the PID corrections
 			// This message is used by other modules (such as Landdetector) to determine vehicle intention.
@@ -635,22 +809,17 @@ void MulticopterPositionControl::Run()
 			_control.getAttitudeSetpoint(attitude_setpoint);
 			attitude_setpoint.timestamp = hrt_absolute_time();
 
-			// The ceiling controller owns body-Z thrust while attached and during
-			// distance-controlled detach. XY attitude remains under position control.
-			if (cc_status_valid && (cc_status.state == ceiling_contact_status_s::ATTACH_CONTROL_MODE
-						|| cc_status.state == ceiling_contact_status_s::SURFACE_MANUAL_MODE
-						|| cc_status.state == ceiling_contact_status_s::DETACH_MODE)) {
-				if (PX4_ISFINITE(cc_status.thrust_body_z_sp)) {
-					attitude_setpoint.thrust_body[2] = cc_status.thrust_body_z_sp;
-				}
+			// Direct ceiling thrust owns body-Z only. Attitude (and therefore pilot XY
+			// acceleration and yaw) remains the output of the regular controller.
+			if (ceiling_control_mode == ceiling_contact_status_s::Z_CONTROL_MODE_DIRECT_THRUST
+			    && PX4_ISFINITE(ceiling_direct_thrust_sp)) {
+				attitude_setpoint.thrust_body[2] = math::constrain(ceiling_direct_thrust_sp,
+								   -_param_mpc_thr_max.get(), -_param_mpc_thr_min.get());
 			}
 
-			// wall_perch guard: when wall_perch is active, it publishes vehicle_attitude_setpoint
-			// so mc_pos_control must skip publishing to avoid conflict
-			wall_perch_status_s wp_status{};
-			bool wp_updated = _wall_perch_status_sub.update(&wp_status);
-
-			if (wp_updated && wp_status.active) {
+			// Use the cached status with a timeout. Checking only the update bit
+			// would allow mc_pos_control to publish between 100 Hz Wall updates.
+			if (wall_active) {
 				// wall_perch is in control — skip mc_pos_control attitude setpoint
 			} else {
 				_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);

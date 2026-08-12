@@ -149,10 +149,13 @@ def ceiling_status():
         "distance": scalar_field(output, "ceiling_distance", float("nan")),
         "target": scalar_field(output, "target_distance", float("nan")),
         "thrust_z": scalar_field(output, "thrust_body_z_sp", float("nan")),
+        "z_control_mode": scalar_field(output, "z_control_mode", 0),
+        "detach_phase": scalar_field(output, "detach_phase", 0),
         "sensor_valid": scalar_field(output, "distance_sensor_valid", False),
+        "input_valid": scalar_field(output, "input_valid", False),
         "rearm_required": scalar_field(output, "rearm_required", False),
-        "detach_timed_out": scalar_field(output, "detach_timed_out", False),
         "fault_detected": scalar_field(output, "fault_detected", False),
+        "fault_reason": scalar_field(output, "fault_reason", 0),
     }
 
 
@@ -336,11 +339,20 @@ def main():
     for name, value in (
             ("CEIL_D0", 0.22),
             ("CEIL_DIST_THR", 0.60),
-            ("CEIL_APPR_START", 0.80),
             ("CEIL_COMP_TGT", 0.02),
             ("CEIL_RAMP_DIST", 0.10),
-            ("CEIL_DET_THR_MIN", 0.25),
-            ("CEIL_DET_TO", 1.0 if args.detach_case == "distance-timeout" else 8.0)):
+            ("CEIL_ENTRY_T", 0.10),
+            ("CEIL_CONT_T", 0.10),
+            ("CEIL_APPR_HOVER", 0.20),
+            ("CEIL_ATTACH_TO", 10000),
+            ("CEIL_DETACH_VZ", 0.20),
+            ("CEIL_DET_THR", 0.25),
+            ("CEIL_DET_DIST", 0.50),
+            ("CEIL_UNLOAD_TO", 500),
+            ("CEIL_DETACH_TO", 1000 if args.detach_case == "distance-timeout" else 8000),
+            ("CEIL_RECOV_T", 1.0),
+            ("CEIL_SENSOR_TO", 300),
+            ("CEIL_RAMP_T", 0.30)):
         px4_command(f"param set {name} {value}", range_link.socket_path)
 
     inject_dist_cm = DETACH_DIST_CM
@@ -437,7 +449,7 @@ def main():
         fault_case_passed = (recovery_seen
                              and not recovery_status["sensor_valid"]
                              and recovery_status["fault_detected"]
-                             and not recovery_status["detach_timed_out"])
+                             and (int(recovery_status["fault_reason"]) & 2) != 0)
         inject_up_valid = True
 
     elif args.detach_case == "distance-timeout":
@@ -445,8 +457,8 @@ def main():
         recovery_status = wait_ceiling_state({6}, 1.5, "detach timeout recovery")
         recovery_seen = recovery_status is not None
         fault_case_passed = (recovery_seen
-                             and recovery_status["detach_timed_out"]
-                             and recovery_status["fault_detected"])
+                             and recovery_status["fault_detected"]
+                             and (int(recovery_status["fault_reason"]) & 128) != 0)
 
     else:
         # Emulate physical separation using UP while continuing to vary FRONT.

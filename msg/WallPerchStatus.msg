@@ -17,6 +17,11 @@ uint8 ABORT = 11
 uint8 state
 
 bool active                  # true when wall_perch owns attitude or direct-motor output
+bool start_switch_on         # configured AUX1 start switch is high
+bool detach_switch_on        # configured AUX2 detach switch is high
+bool rearm_required          # AUX1 must be cycled low before another start
+bool control_mode_valid      # armed rotary-wing ALTCTL inputs are fresh and valid
+bool direct_motor_control    # wall_perch owns actuator_motors; Control Allocator must yield
 bool front_ready             # front wall distance condition met
 bool flip_ready              # flip trigger distance met
 bool top_contact_ready       # top sensor confirms wall contact

@@ -19,9 +19,9 @@ mc_att_control start vtol
 flight_mode_manager start
 
 #
-# Start Ceiling Contact Controller (bridge inspection).
+# Ceiling controller is intentionally excluded from the Wall-only firmware.
 #
-ceiling_controller start
+#ceiling_controller start
 
 mc_pos_control start vtol
 mc_hover_thrust_estimator start

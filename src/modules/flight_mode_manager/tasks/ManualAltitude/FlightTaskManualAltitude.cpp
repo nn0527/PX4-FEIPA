@@ -72,6 +72,14 @@ bool FlightTaskManualAltitude::activate(const trajectory_setpoint_s &last_setpoi
 	return ret;
 }
 
+void FlightTaskManualAltitude::resetZSetpointToCurrent()
+{
+	FlightTask::resetZSetpointToCurrent();
+	_terrain_hold = false;
+	_dist_to_ground_lock = NAN;
+	_reset_counter = _sub_vehicle_local_position.get().z_reset_counter;
+}
+
 void FlightTaskManualAltitude::_updateConstraintsFromEstimator()
 {
 	if (PX4_ISFINITE(_sub_vehicle_local_position.get().hagl_min)) {

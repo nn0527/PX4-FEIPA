@@ -341,6 +341,58 @@ TEST_F(PositionControlBasicTest, InvalidState)
 	EXPECT_FALSE(runController());
 }
 
+TEST_F(PositionControlBasicTest, AltitudeModeWithoutHorizontalEstimate)
+{
+	// ALTCTL without GPS/flow/VIO controls XY through acceleration/tilt and Z
+	// through velocity. Horizontal state estimates are deliberately unavailable.
+	PositionControlStates states{};
+	states.position(0) = states.position(1) = NAN;
+	states.velocity(0) = states.velocity(1) = NAN;
+	states.acceleration(0) = states.acceleration(1) = NAN;
+	_position_control.setState(states);
+
+	_input_setpoint.acceleration[0] = 0.1f;
+	_input_setpoint.acceleration[1] = -0.2f;
+	_input_setpoint.velocity[2] = -0.15f;
+
+	EXPECT_TRUE(runController());
+}
+
+TEST_F(PositionControlBasicTest, HorizontalVelocityRequiresHorizontalEstimate)
+{
+	// This is the old ceiling APPROACH input shape. A finite XY velocity
+	// setpoint must remain invalid when no corresponding estimate exists.
+	PositionControlStates states{};
+	states.position(0) = states.position(1) = NAN;
+	states.velocity(0) = states.velocity(1) = NAN;
+	states.acceleration(0) = states.acceleration(1) = NAN;
+	_position_control.setState(states);
+
+	_input_setpoint.velocity[0] = 0.f;
+	_input_setpoint.velocity[1] = 0.f;
+	_input_setpoint.velocity[2] = -0.15f;
+
+	EXPECT_FALSE(runController());
+}
+
+TEST_F(PositionControlBasicTest, DirectVerticalThrustInputShape)
+{
+	// During direct body-Z thrust control, acceleration.z=0 keeps the regular
+	// controller input valid while XY acceleration still produces tilt.
+	PositionControlStates states{};
+	states.position.setAll(NAN);
+	states.velocity.setAll(NAN);
+	states.acceleration.setAll(NAN);
+	states.yaw = 0.f;
+	_position_control.setState(states);
+
+	_input_setpoint.acceleration[0] = 0.1f;
+	_input_setpoint.acceleration[1] = -0.2f;
+	_input_setpoint.acceleration[2] = 0.f;
+
+	EXPECT_TRUE(runController());
+}
+
 
 TEST_F(PositionControlBasicTest, UpdateHoverThrust)
 {

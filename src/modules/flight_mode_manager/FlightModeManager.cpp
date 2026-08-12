@@ -106,6 +106,8 @@ void FlightModeManager::Run()
 		_vehicle_control_mode_sub.update();
 		_vehicle_land_detected_sub.update();
 		_vehicle_status_sub.update();
+		_ceiling_contact_status_sub.update();
+		_wall_perch_status_sub.update();
 
 		start_flight_task();
 
@@ -326,7 +328,84 @@ void FlightModeManager::generateTrajectorySetpoint(const float dt,
 	trajectory_setpoint_s setpoint = FlightTask::empty_trajectory_setpoint;
 	vehicle_constraints_s constraints = FlightTask::empty_constraints;
 
-	if (_current_task.task->updateInitialize() && _current_task.task->update()) {
+	const bool task_initialized = _current_task.task->updateInitialize();
+	const hrt_abstime now = hrt_absolute_time();
+	const ceiling_contact_status_s &ceiling_status = _ceiling_contact_status_sub.get();
+	const bool ceiling_status_fresh = ceiling_status.timestamp != 0 && ceiling_status.timestamp <= now
+					  && (now - ceiling_status.timestamp) <= CEILING_STATUS_TIMEOUT_US;
+	const bool ceiling_override_active = ceiling_status_fresh
+					     && ceiling_status.z_control_mode != ceiling_contact_status_s::Z_CONTROL_MODE_NONE;
+	const wall_perch_status_s &wall_status = _wall_perch_status_sub.get();
+	const bool wall_status_fresh = wall_status.timestamp != 0 && wall_status.timestamp <= now
+				       && (now - wall_status.timestamp) <= WALL_STATUS_TIMEOUT_US;
+	const bool wall_override_active = wall_status_fresh && wall_status.active;
+
+	if (ceiling_override_active) {
+		_ceiling_z_override_seen = true;
+		_ceiling_status_lost_since = 0;
+
+	} else if (_ceiling_z_override_seen && !ceiling_status_fresh && _ceiling_status_lost_since == 0) {
+		_ceiling_status_lost_since = now;
+	}
+
+	if (wall_override_active) {
+		_wall_override_seen = true;
+		_wall_status_lost_since = 0;
+
+	} else if (_wall_override_seen && !wall_status_fresh && _wall_status_lost_since == 0) {
+		_wall_status_lost_since = now;
+	}
+
+	const bool ceiling_fresh_clear = ceiling_status_fresh
+					 && ceiling_status.z_control_mode == ceiling_contact_status_s::Z_CONTROL_MODE_NONE
+					 && ceiling_status.state <= ceiling_contact_status_s::CEILING_ARM_MODE;
+	const bool altitude_mode_active = _vehicle_status_sub.get().nav_state == vehicle_status_s::NAVIGATION_STATE_ALTCTL;
+	const bool wall_fresh_clear = wall_status_fresh && !wall_status.active;
+	const bool ceiling_recovery_active = ceiling_status_fresh
+					     && ceiling_status.state == ceiling_contact_status_s::RECOVERY_HOVER_MODE;
+	const bool ceiling_release_pending = _ceiling_z_override_seen && (!ceiling_status_fresh || ceiling_fresh_clear);
+	const bool ceiling_z_reset_required = altitude_mode_active && (ceiling_recovery_active || ceiling_release_pending);
+	const bool wall_z_reset_required = altitude_mode_active
+					   && (wall_override_active
+					       || (_wall_override_seen && (!wall_status_fresh || wall_fresh_clear)));
+
+	if (task_initialized && _current_task.task->update()) {
+		// Keep the inactive ALTCTL trajectory synchronized with the real vehicle
+		// throughout recovery. This prevents throttle input or the pre-contact
+		// altitude lock from accumulating a hidden Z target before handover.
+		if (ceiling_z_reset_required || wall_z_reset_required) {
+			_current_task.task->resetZSetpointToCurrent();
+		}
+
+		if (ceiling_z_reset_required) {
+
+			if (ceiling_fresh_clear) {
+				_ceiling_z_override_seen = false;
+				_ceiling_status_lost_since = 0;
+
+			} else if (!ceiling_status_fresh && _ceiling_status_lost_since != 0
+				   && now >= _ceiling_status_lost_since
+				   && (now - _ceiling_status_lost_since) >= CEILING_STATUS_LOSS_HOLD_US) {
+				// This synchronization window intentionally outlives the mc_pos
+				// stale-overlay hold. The final pass-through target is therefore current.
+				_ceiling_z_override_seen = false;
+				_ceiling_status_lost_since = 0;
+			}
+		}
+
+		if (wall_z_reset_required) {
+			if (wall_fresh_clear) {
+				_wall_override_seen = false;
+				_wall_status_lost_since = 0;
+
+			} else if (!wall_status_fresh && _wall_status_lost_since != 0
+				   && now >= _wall_status_lost_since
+				   && (now - _wall_status_lost_since) >= WALL_STATUS_LOSS_HOLD_US) {
+				_wall_override_seen = false;
+				_wall_status_lost_since = 0;
+			}
+		}
+
 		// setpoints and constraints for the position controller from flighttask
 		setpoint = _current_task.task->getTrajectorySetpoint();
 		constraints = _current_task.task->getConstraints();

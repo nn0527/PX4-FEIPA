@@ -79,6 +79,12 @@ public:
 	 */
 	virtual void reActivate();
 
+	/**
+	 * Reset only the vertical setpoints to hold the current altitude.
+	 * Horizontal and yaw setpoints are intentionally left unchanged.
+	 */
+	virtual void resetZSetpointToCurrent();
+
 	virtual void initEkfResetCounters();
 
 	/**

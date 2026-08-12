@@ -72,6 +72,8 @@ void MulticopterHoverThrustEstimator::reset()
 	_hover_thrust_ekf.setHoverThrust(_param_mpc_thr_hover.get());
 	_hover_thrust_ekf.setHoverThrustStdDev(_param_hte_ht_err_init.get());
 	_hover_thrust_ekf.resetAccelNoise();
+	_ceiling_fusion_frozen = false;
+	_ceiling_clear_since = 0;
 }
 
 void MulticopterHoverThrustEstimator::updateParams()
@@ -91,6 +93,62 @@ void MulticopterHoverThrustEstimator::updateParams()
 					    0.8f));
 	_hover_thrust_ekf.setMaxHoverThrust(math::constrain(_param_mpc_thr_hover.get() + _param_hte_thr_range.get(), 0.2f,
 					    0.9f));
+}
+
+bool MulticopterHoverThrustEstimator::updateCeilingFusionFreezeState(const hrt_abstime now, bool vertically_stable)
+{
+	_ceiling_contact_status_sub.update(&_ceiling_contact_status);
+
+	const bool status_fresh = (_ceiling_contact_status.timestamp != 0)
+				  && (now >= _ceiling_contact_status.timestamp)
+				  && ((now - _ceiling_contact_status.timestamp) <= CEILING_STATUS_TIMEOUT);
+
+	const bool externally_constrained = status_fresh
+					    && (_ceiling_contact_status.contact_active
+						|| (_ceiling_contact_status.z_control_mode
+								== ceiling_contact_status_s::Z_CONTROL_MODE_DIRECT_THRUST)
+						|| (_ceiling_contact_status.state == ceiling_contact_status_s::ATTACH_CONTROL_MODE)
+						|| (_ceiling_contact_status.state == ceiling_contact_status_s::SURFACE_MANUAL_MODE)
+						|| (_ceiling_contact_status.state == ceiling_contact_status_s::DETACH_MODE)
+						|| (_ceiling_contact_status.state == ceiling_contact_status_s::RECOVERY_HOVER_MODE));
+	const bool fresh_normal = status_fresh && !_ceiling_contact_status.contact_active
+				  && _ceiling_contact_status.state == ceiling_contact_status_s::NORMAL_FLIGHT
+				  && _ceiling_contact_status.z_control_mode == ceiling_contact_status_s::Z_CONTROL_MODE_NONE;
+
+	const bool was_frozen = _ceiling_fusion_frozen;
+
+	if (externally_constrained) {
+		_ceiling_clear_since = 0;
+		_ceiling_fusion_frozen = true;
+
+	} else if (_ceiling_fusion_frozen) {
+		// A missing publisher is not proof that the external ceiling force has
+		// disappeared. Resume only after a fresh clear status and a stable
+		// vertical state have both persisted for the recovery window.
+		if (fresh_normal && vertically_stable) {
+			if (_ceiling_clear_since == 0) {
+				_ceiling_clear_since = now;
+			}
+
+			if (now >= _ceiling_clear_since
+			    && (now - _ceiling_clear_since) >= CEILING_FUSION_RECOVERY_TIME) {
+				_ceiling_fusion_frozen = false;
+				_ceiling_clear_since = 0;
+			}
+
+		} else {
+			_ceiling_clear_since = 0;
+		}
+	}
+
+	if (!was_frozen && _ceiling_fusion_frozen) {
+		// Preserve the validity state as it was on entry. In particular, an estimate
+		// that was still becoming valid must not finish its hysteresis delay while
+		// acceleration fusion is suspended.
+		_valid_hysteresis.set_state_and_update(_valid, now);
+	}
+
+	return _ceiling_fusion_frozen;
 }
 
 void MulticopterHoverThrustEstimator::Run()
@@ -156,8 +214,20 @@ void MulticopterHoverThrustEstimator::Run()
 
 	const float dt = (local_pos.timestamp - _timestamp_last) * 1e-6f;
 	_timestamp_last = local_pos.timestamp;
+	const hrt_abstime now = hrt_absolute_time();
+	const bool vertically_stable = local_pos.v_z_valid && PX4_ISFINITE(local_pos.vz) && PX4_ISFINITE(local_pos.az)
+				       && fabsf(local_pos.vz) < 0.3f && fabsf(local_pos.az) < 2.f;
+	const bool ceiling_fusion_frozen = updateCeilingFusionFreezeState(now, vertically_stable);
 
-	if (_armed && _in_air && (dt > 0.001f) && (dt < 1.f) && PX4_ISFINITE(local_pos.az)) {
+	if (_armed && _in_air && ceiling_fusion_frozen) {
+		// The hover-thrust measurement model assumes that rotor thrust is the
+		// only vertical force. A ceiling reaction force violates that model, so
+		// keep both the estimate and its covariance frozen until the vehicle has
+		// been clear and stable for the recovery interval. Keep the pre-contact
+		// validity semantics even if acceleration is temporarily unavailable.
+		publishStatus(local_pos.timestamp_sample);
+
+	} else if (_armed && _in_air && (dt > 0.001f) && (dt < 1.f) && PX4_ISFINITE(local_pos.az)) {
 
 		_hover_thrust_ekf.predict(dt);
 

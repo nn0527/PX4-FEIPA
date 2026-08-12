@@ -113,15 +113,23 @@ private:
 	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 
-	static constexpr hrt_abstime CEILING_STATUS_TIMEOUT{200_ms};
-	ceiling_contact_status_s _ceiling_contact_status{};
-
 	hrt_abstime _time_stamp_last_loop{0};		/**< time stamp of last loop iteration */
 	hrt_abstime _time_position_control_enabled{0};
 
 	trajectory_setpoint_s _setpoint{PositionControl::empty_trajectory_setpoint};
 	trajectory_setpoint_s _last_valid_setpoint{PositionControl::empty_trajectory_setpoint};
+	trajectory_setpoint_s _last_flight_task_xy_setpoint{PositionControl::empty_trajectory_setpoint};
+	ceiling_contact_status_s _ceiling_contact_status{};
+	wall_perch_status_s _wall_perch_status{};
 	vehicle_control_mode_s _vehicle_control_mode{};
+
+	uint8_t _ceiling_last_valid_mode{ceiling_contact_status_s::Z_CONTROL_MODE_NONE};
+	uint8_t _ceiling_applied_mode{ceiling_contact_status_s::Z_CONTROL_MODE_NONE};
+	hrt_abstime _ceiling_status_lost_since{0};
+	hrt_abstime _last_flight_task_xy_setpoint_time{0};
+	float _ceiling_last_direct_thrust{NAN};
+	bool _wall_active_prev{false};
+	static constexpr hrt_abstime WALL_STATUS_TIMEOUT{200_ms};
 
 	vehicle_constraints_s _vehicle_constraints {
 		.timestamp = 0,
@@ -219,6 +227,9 @@ private:
 
 	/** Timeout in us for trajectory data to get considered invalid */
 	static constexpr uint64_t TRAJECTORY_STREAM_TIMEOUT_US = 500_ms;
+	static constexpr hrt_abstime CEILING_STATUS_TIMEOUT = 200_ms;
+	static constexpr hrt_abstime CEILING_STATUS_LOSS_THRUST_RAMP_TIME = 500_ms;
+	static constexpr hrt_abstime CEILING_STATUS_LOSS_HOLD_TIME = 2500_ms;
 
 	/** During smooth-takeoff, below ALTITUDE_THRESHOLD the yaw-control is turned off and tilt is limited */
 	static constexpr float ALTITUDE_THRESHOLD = 0.3f;

@@ -84,8 +84,23 @@ MulticopterLandDetector::MulticopterLandDetector()
 	_minimum_thrust_8s_hysteresis.set_hysteresis_time_from(false, 8_s);
 }
 
+void MulticopterLandDetector::_update_ceiling_contact_state(const hrt_abstime now)
+{
+	_ceiling_contact_status_sub.update(&_ceiling_contact_status);
+
+	const bool status_fresh = (_ceiling_contact_status.timestamp != 0)
+				  && (now >= _ceiling_contact_status.timestamp)
+				  && ((now - _ceiling_contact_status.timestamp) <= CEILING_STATUS_TIMEOUT);
+
+	// Only a positively confirmed and fresh top contact inhibits land detection.
+	// If the publisher stops, the timeout restores the normal ground detector.
+	_ceiling_contact_active = status_fresh && _ceiling_contact_status.contact_active;
+}
+
 void MulticopterLandDetector::_update_topics()
 {
+	_update_ceiling_contact_state(hrt_absolute_time());
+
 	vehicle_thrust_setpoint_s vehicle_thrust_setpoint;
 
 	if (_vehicle_thrust_setpoint_sub.update(&vehicle_thrust_setpoint)) {
@@ -247,13 +262,22 @@ bool MulticopterLandDetector::_get_ground_contact_state()
 
 	// TODO: we need an accelerometer based check for vertical movement for flying without GPS
 	return !_armed ||
-	       (_close_to_ground_or_skipped_check && ground_contact
+	       (!_ceiling_contact_active
+		&& _close_to_ground_or_skipped_check && ground_contact
 		&& !_horizontal_movement && !_vertical_movement);
 }
 
 bool MulticopterLandDetector::_get_maybe_landed_state()
 {
 	hrt_abstime now = hrt_absolute_time();
+
+	if (_armed && _ceiling_contact_active) {
+		// Do not let the fallback minimum-thrust timer accumulate while the
+		// vehicle is constrained by the ceiling. Otherwise a long attachment
+		// could make maybe_landed assert immediately after contact is released.
+		_minimum_thrust_8s_hysteresis.set_state_and_update(false, now);
+		return false;
+	}
 
 	float minimum_thrust_threshold{0.f};
 
@@ -293,7 +317,7 @@ bool MulticopterLandDetector::_get_maybe_landed_state()
 bool MulticopterLandDetector::_get_landed_state()
 {
 	// all maybe_landed conditions need to hold longer
-	return !_armed || _maybe_landed_hysteresis.get_state();
+	return !_armed || (!_ceiling_contact_active && _maybe_landed_hysteresis.get_state());
 }
 
 bool MulticopterLandDetector::_get_ground_effect_state()

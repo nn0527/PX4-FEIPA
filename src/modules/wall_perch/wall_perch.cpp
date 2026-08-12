@@ -161,6 +161,15 @@ void WallPerch::Run()
 	if (_vehicle_status_sub.copy(&status)) {
 		_armed = (status.arming_state == vehicle_status_s::ARMING_STATE_ARMED);
 		_nav_state = status.nav_state;
+		_rotary_wing = status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING;
+		_vehicle_status_ts = status.timestamp;
+	}
+
+	vehicle_control_mode_s control_mode{};
+
+	if (_vehicle_control_mode_sub.copy(&control_mode)) {
+		_vehicle_control_mode = control_mode;
+		_vehicle_control_mode_ts = control_mode.timestamp;
 	}
 
 	// vehicle_attitude
@@ -168,8 +177,10 @@ void WallPerch::Run()
 
 	if (_vehicle_attitude_sub.copy(&att)) {
 		Quatf q(att.q);
+		_q_current = q;
 		_attitude_euler = Eulerf(q);
 		_current_yaw = _attitude_euler.psi();
+		_vehicle_attitude_ts = att.timestamp;
 	}
 
 	// vehicle_angular_velocity
@@ -179,6 +190,7 @@ void WallPerch::Run()
 		_angular_velocity(0) = ang_vel.xyz[0];
 		_angular_velocity(1) = ang_vel.xyz[1];
 		_angular_velocity(2) = ang_vel.xyz[2];
+		_vehicle_angular_velocity_ts = ang_vel.timestamp;
 	}
 
 	// vehicle_local_position
@@ -188,8 +200,17 @@ void WallPerch::Run()
 		_velocity(0) = local_pos.vx;
 		_velocity(1) = local_pos.vy;
 		_velocity(2) = local_pos.vz;
-		_current_altitude = -local_pos.z; // NED z-up -> altitude
+		_local_position_valid = local_pos.z_valid && PX4_ISFINITE(local_pos.z);
+		_local_velocity_valid = local_pos.v_z_valid && PX4_ISFINITE(local_pos.vz);
+
+		if (_local_position_valid) {
+			_current_altitude = -local_pos.z; // NED z-up -> altitude
+		}
+
+		_vehicle_local_position_ts = local_pos.timestamp;
 	}
+
+	update_manual_switches();
 
 	// distance_sensor (front and upward), selected by orientation across all instances
 	update_distance_sensors();
@@ -212,13 +233,9 @@ void WallPerch::Run()
 	last_run = now;
 
 	// --- Update state machine ---
+	_last_thrust_norm = 0.f;
+	_state_progress = 0.f;
 	update_state_machine(dt);
-
-	// --- Mixer bypass control ---
-	// WALL_PIN is the only state allowed to override Commander's control mode.
-	if (_state == State::WALL_PIN) {
-		publish_control_mode(false);
-	}
 
 	// --- Publish status ---
 	publish_wall_perch_status();
@@ -306,78 +323,46 @@ void WallPerch::update_distance_sensors()
 //  User input helpers
 // ==========================================================================
 
-bool WallPerch::user_start_requested()
+void WallPerch::update_manual_switches()
 {
-	if (!_param_wp_enable.get()) { return false; }
-
 	manual_control_setpoint_s manual{};
 
-	if (!_manual_control_setpoint_sub.copy(&manual)) { return false; }
+	if (!_manual_control_setpoint_sub.copy(&manual)) {
+		_start_switch_on = false;
+		_detach_switch_on = false;
+		return;
+	}
 
 	_aux1_raw = manual.aux1; _aux2_raw = manual.aux2;
 	_aux3_raw = manual.aux3; _aux4_raw = manual.aux4;
+	_manual_control_ts = manual.timestamp;
+	_start_switch_on = selected_aux_value(_param_wp_aux_ch.get()) > 0.3f;
+	_detach_switch_on = selected_aux_value(_param_wp_detach_aux_ch.get()) > 0.3f;
+}
 
-	float val = 0.f;
+float WallPerch::selected_aux_value(int channel) const
+{
+	switch (channel) {
+	case 1: return _aux1_raw;
 
-	switch (_param_wp_aux_ch.get()) {
-	case 1:  val = manual.aux1; break;
+	case 2: return _aux2_raw;
 
-	case 2:  val = manual.aux2; break;
+	case 3: return _aux3_raw;
 
-	case 3:  val = manual.aux3; break;
+	case 4: return _aux4_raw;
 
-	case 4:  val = manual.aux4; break;
-
-	default: val = manual.aux1; break;
+	default: return -1.f;
 	}
+}
 
-	return val > 0.3f;
+bool WallPerch::user_start_requested()
+{
+	return _param_wp_enable.get() && _start_switch_on;
 }
 
 bool WallPerch::user_detach_requested()
 {
-	manual_control_setpoint_s manual{};
-
-	if (!_manual_control_setpoint_sub.copy(&manual)) { return false; }
-
-	float val = 0.f;
-
-	switch (_param_wp_detach_aux_ch.get()) {
-	case 1:  val = manual.aux1; break;
-
-	case 2:  val = manual.aux2; break;
-
-	case 3:  val = manual.aux3; break;
-
-	case 4:  val = manual.aux4; break;
-
-	default: val = manual.aux2; break;
-	}
-
-	return val > 0.3f;
-}
-
-bool WallPerch::user_cancel_requested()
-{
-	manual_control_setpoint_s manual{};
-
-	if (!_manual_control_setpoint_sub.copy(&manual)) { return false; }
-
-	float val = 0.f;
-
-	switch (_param_wp_cancel_aux_ch.get()) {
-	case 1:  val = manual.aux1; break;
-
-	case 2:  val = manual.aux2; break;
-
-	case 3:  val = manual.aux3; break;
-
-	case 4:  val = manual.aux4; break;
-
-	default: val = manual.aux3; break;
-	}
-
-	return val > 0.3f;
+	return _detach_switch_on;
 }
 
 // ==========================================================================
@@ -443,17 +428,24 @@ bool WallPerch::sensors_valid()
 {
 	const hrt_abstime now = hrt_absolute_time();
 	const float timeout_us = _param_wp_sens_timeout.get() * 1e6f;
+	const bool front_fresh = _front_distance_ts != 0 && now >= _front_distance_ts
+				 && (float)(now - _front_distance_ts) <= timeout_us;
+	const bool top_fresh = _top_distance_ts != 0 && now >= _top_distance_ts
+			       && (float)(now - _top_distance_ts) <= timeout_us;
 
-	// Front distance sensor valid — always required.
-	if (_front_distance_ts == 0 || (float)(now - _front_distance_ts) > timeout_us) {
+	// FRONT is needed until the flip starts. UP is needed while rotating toward
+	// and attached to the wall. Recovery deliberately does not depend on either
+	// rangefinder, otherwise a sensor fault could prevent a safe detach.
+	if (_state <= State::SLOW_APPROACH && !front_fresh) {
 		return false;
 	}
 
-	// Top sensor required from FLIP_TO_WALL onward (wall contact/capture/hold).
-	if (_state >= State::FLIP_TO_WALL && _state < State::EXIT) {
-		if (_top_distance_ts == 0 || (float)(now - _top_distance_ts) > timeout_us) {
-			return false;
-		}
+	if (_state >= State::FLIP_TO_WALL && _state <= State::WALL_PIN && !top_fresh) {
+		return false;
+	}
+
+	if (_state == State::WALL_PIN && !front_fresh) {
+		return false;
 	}
 
 	return true;
@@ -481,7 +473,54 @@ bool WallPerch::safety_ok()
 	return true;
 }
 
-bool WallPerch::rate_safe()
+bool WallPerch::control_mode_valid() const
+{
+	const hrt_abstime now = hrt_absolute_time();
+	constexpr hrt_abstime input_timeout = 500_ms;
+	const bool status_fresh = _vehicle_status_ts != 0 && now >= _vehicle_status_ts
+				  && (now - _vehicle_status_ts) <= input_timeout;
+	const bool mode_fresh = _vehicle_control_mode_ts != 0 && now >= _vehicle_control_mode_ts
+				&& (now - _vehicle_control_mode_ts) <= input_timeout;
+
+	return status_fresh && mode_fresh && _armed && _rotary_wing
+	       && _nav_state == vehicle_status_s::NAVIGATION_STATE_ALTCTL
+	       && _vehicle_control_mode.flag_armed
+	       && _vehicle_control_mode.flag_control_manual_enabled
+	       && _vehicle_control_mode.flag_control_altitude_enabled
+	       && _vehicle_control_mode.flag_control_climb_rate_enabled
+	       && _vehicle_control_mode.flag_control_attitude_enabled
+	       && _vehicle_control_mode.flag_control_rates_enabled
+	       && _vehicle_control_mode.flag_control_allocation_enabled
+	       && !_vehicle_control_mode.flag_control_auto_enabled
+	       && !_vehicle_control_mode.flag_control_offboard_enabled;
+}
+
+bool WallPerch::start_conditions_valid() const
+{
+	const hrt_abstime now = hrt_absolute_time();
+	constexpr hrt_abstime input_timeout = 500_ms;
+	const float distance_timeout_us = _param_wp_sens_timeout.get() * 1e6f;
+	const bool state_inputs_fresh = _vehicle_attitude_ts != 0 && now >= _vehicle_attitude_ts
+					&& (now - _vehicle_attitude_ts) <= input_timeout
+					&& _vehicle_angular_velocity_ts != 0 && now >= _vehicle_angular_velocity_ts
+					&& (now - _vehicle_angular_velocity_ts) <= input_timeout
+					&& _vehicle_local_position_ts != 0 && now >= _vehicle_local_position_ts
+					&& (now - _vehicle_local_position_ts) <= input_timeout
+					&& _manual_control_ts != 0 && now >= _manual_control_ts
+					&& (now - _manual_control_ts) <= input_timeout;
+	const bool both_ranges_fresh = _front_distance_ts != 0 && now >= _front_distance_ts
+				       && (float)(now - _front_distance_ts) <= distance_timeout_us
+				       && _top_distance_ts != 0 && now >= _top_distance_ts
+				       && (float)(now - _top_distance_ts) <= distance_timeout_us;
+
+	return control_mode_valid() && state_inputs_fresh && both_ranges_fresh
+	       && _local_position_valid && _local_velocity_valid
+	       && PX4_ISFINITE(_current_altitude) && PX4_ISFINITE(_velocity(2))
+	       && _current_altitude > _param_wp_min_alt.get()
+	       && rate_safe() && vz_safe();
+}
+
+bool WallPerch::rate_safe() const
 {
 	float max_rate = _param_wp_max_rate.get();
 	return (fabsf(_angular_velocity(0)) <= max_rate &&
@@ -489,13 +528,32 @@ bool WallPerch::rate_safe()
 		fabsf(_angular_velocity(2)) <= max_rate);
 }
 
-bool WallPerch::vz_safe()
+bool WallPerch::vz_safe() const
 {
 	// vz is NED: positive = down
 	return _velocity(2) <= _param_wp_max_vz_down.get();
 }
 
-bool WallPerch::attitude_recovered()
+bool WallPerch::vz_stable() const
+{
+	return fabsf(_velocity(2)) <= _param_wp_max_vz_down.get();
+}
+
+bool WallPerch::wall_owns_attitude() const
+{
+	return (_state >= State::SLOW_APPROACH && _state <= State::RECOVER)
+	       || _state == State::ABORT;
+}
+
+float WallPerch::tilt_compensated_thrust(const Quatf &q_des, float minimum_thrust) const
+{
+	const float cos_tilt = fabsf(Dcmf(q_des)(2, 2));
+	const float max_thrust = math::constrain(_param_wp_flip_thr_max.get(), 0.1f, 1.f);
+	const float compensated = cos_tilt > 0.05f ? _hover_thrust / cos_tilt : max_thrust;
+	return math::constrain(math::max(compensated, minimum_thrust), 0.f, max_thrust);
+}
+
+bool WallPerch::attitude_recovered() const
 {
 	float limit = math::radians(_param_wp_recover_rp.get());
 	return (fabsf(_attitude_euler.phi()) < limit &&
@@ -590,15 +648,17 @@ float WallPerch::ramp(float from, float to, float duration)
 
 void WallPerch::publish_attitude_setpoint(const Quatf &q_des, float thrust_norm)
 {
+	const float thrust = math::constrain(thrust_norm, 0.f, 1.f);
 	vehicle_attitude_setpoint_s sp{};
 	sp.timestamp = hrt_absolute_time();
 	q_des.copyTo(sp.q_d);
 
 	sp.thrust_body[0] = 0.0f;
 	sp.thrust_body[1] = 0.0f;
-	sp.thrust_body[2] = -thrust_norm; // thrust UP in body frame
+	sp.thrust_body[2] = -thrust; // thrust UP in body frame
 
 	_att_sp_pub.publish(sp);
+	_last_thrust_norm = thrust;
 }
 
 void WallPerch::publish_wall_perch_status()
@@ -606,16 +666,20 @@ void WallPerch::publish_wall_perch_status()
 	wall_perch_status_s status{};
 	status.timestamp = hrt_absolute_time();
 	status.state = (uint8_t)_state;
-	status.active = (_state >= State::SLOW_APPROACH && _state <= State::RECOVER)
-			|| _state == State::ABORT;
-	status.front_ready = front_ready();
-	status.flip_ready = flip_ready();
-	status.top_contact_ready = top_contact_ready();
+	status.active = wall_owns_attitude();
+	status.start_switch_on = _start_switch_on;
+	status.detach_switch_on = _detach_switch_on;
+	status.rearm_required = _rearm_required;
+	status.control_mode_valid = control_mode_valid();
+	status.direct_motor_control = _state == State::WALL_PIN;
+	status.front_ready = _front_wall_distance_m < _param_wp_frn_rd_dist.get();
+	status.flip_ready = _front_wall_distance_m <= _param_wp_flp_trd_dist.get();
+	status.top_contact_ready = _top_wall_distance_m <= _param_wp_top_ct_dist.get();
 	status.front_wall_distance_m = _front_wall_distance_m;
 	status.top_wall_distance_m = _top_wall_distance_m;
-	status.progress = 0.f;
-	status.thrust_norm = 0.f;
-	status.failsafe_triggered = !safety_ok();
+	status.progress = _state_progress;
+	status.thrust_norm = _last_thrust_norm;
+	status.failsafe_triggered = _failsafe_triggered;
 	_status_pub.publish(status);
 }
 
@@ -649,32 +713,7 @@ void WallPerch::publish_actuator_motors(float thrust)
 	}
 
 	_actuator_motors_pub.publish(motors);
-}
-
-void WallPerch::publish_control_mode(bool enable_allocation)
-{
-	// Override the control-mode topic while pinning so the ControlAllocator
-	// stops publishing actuator_motors (flag_control_allocation_enabled).
-	// The mixer then uses wall_perch's directly-published actuator_motors.
-	// Attitude/rate flags are left enabled to avoid spurious failsafes; with
-	// allocation disabled the standard controllers cannot reach the motors.
-	vehicle_control_mode_s mode{};
-	mode.timestamp = hrt_absolute_time();
-	mode.flag_armed = _armed;
-	mode.flag_multicopter_position_control_enabled = true;
-	mode.flag_control_manual_enabled = true;
-	mode.flag_control_auto_enabled = true;
-	mode.flag_control_offboard_enabled = true;
-	mode.flag_control_position_enabled = true;
-	mode.flag_control_velocity_enabled = true;
-	mode.flag_control_altitude_enabled = true;
-	mode.flag_control_climb_rate_enabled = true;
-	mode.flag_control_acceleration_enabled = true;
-	mode.flag_control_attitude_enabled = true;
-	mode.flag_control_rates_enabled = true;
-	mode.flag_control_allocation_enabled = enable_allocation;
-	mode.flag_control_termination_enabled = false;
-	_control_mode_pub.publish(mode);
+	_last_thrust_norm = t;
 }
 
 // ==========================================================================
@@ -693,11 +732,17 @@ void WallPerch::enter_state(State new_state)
 	_state_entry_time = hrt_absolute_time();
 
 	switch (_state) {
-	case State::STABILIZE_HOVER:
+	case State::FRONT_WALL_DETECT:
+		// Snapshot the ALTCTL entry state. The entry altitude is diagnostic only:
+		// recovery hands back at the actual altitude reached after detaching.
+		_entry_altitude = _current_altitude;
+		_entry_vertical_velocity = _velocity(2);
+		_q_entry = _q_current;
 		_yaw_hold = _current_yaw;
 		_q_hover = compute_hover_attitude(_yaw_hold);
 		_q_wall = compute_wall_attitude(_q_hover);
-		// Record actual hover thrust from estimator (with param as fallback)
+		_rearm_required = true;
+		_failsafe_triggered = false;
 		_hover_thrust_recorded = true;
 		_hover_thrust = _hover_thrust_estimate;
 
@@ -705,8 +750,9 @@ void WallPerch::enter_state(State new_state)
 			_hover_thrust = _param_wp_thr_hover.get();
 		}
 
-		mavlink_log_info(&_mavlink_log_pub, "[wall_perch] Hover thrust recorded: %.3f",
-				 (double)_hover_thrust);
+		mavlink_log_info(&_mavlink_log_pub,
+				 "[wall_perch] ALTCTL start alt=%.2f vz=%.2f hover=%.3f",
+				 (double)_entry_altitude, (double)_entry_vertical_velocity, (double)_hover_thrust);
 		break;
 
 	case State::SLOW_APPROACH:
@@ -719,21 +765,32 @@ void WallPerch::enter_state(State new_state)
 
 	case State::DETACH_ROTATE:
 		_detach_start_time = hrt_absolute_time();
+		_q_detach_start = _q_current;
+		break;
+
+	case State::ABORT:
+		_detach_start_time = hrt_absolute_time();
+		_q_detach_start = _q_current;
+		_failsafe_triggered = true;
 		break;
 
 	case State::WALL_PIN:
 		_pin_start_time = hrt_absolute_time();
 		mavlink_log_info(&_mavlink_log_pub,
-				 "[wall_perch] WALL_PIN: mixer bypassed, motors at %.2f",
+				 "[wall_perch] WALL_PIN: Control Allocator yielded, motors at %.2f",
 				 (double)_param_wp_pin_thr.get());
 		break;
 
 	case State::EXIT:
+		_handoff_altitude = _current_altitude;
 		// Clear all timers
 		_front_ready_start = 0;
 		_flip_ready_start = 0;
 		_top_contact_start = 0;
 		_hover_thrust_recorded = false;
+		mavlink_log_info(&_mavlink_log_pub,
+				 "[wall_perch] ALTCTL handoff at current alt=%.2f (entry %.2f)",
+				 (double)_handoff_altitude, (double)_entry_altitude);
 		break;
 
 	default:
@@ -749,16 +806,10 @@ void WallPerch::update_state_machine(float dt)
 {
 	(void)dt;
 
-	bool start_req  = user_start_requested();
-	bool detach_req = user_detach_requested();
-	bool cancel_req = user_cancel_requested();
-	bool safe = safety_ok();
-
-	// --- Global cancel / abort triggers ---
-	if (cancel_req && _state > State::IDLE && _state < State::EXIT) {
-		PX4_WARN("[wall_perch] User cancel requested");
-		enter_state(State::ABORT);
-	}
+	const bool start_req = user_start_requested();
+	const bool detach_req = user_detach_requested();
+	const bool mode_valid = control_mode_valid();
+	const bool safe = safety_ok();
 
 	// --- State behaviors ---
 	switch (_state) {
@@ -767,8 +818,13 @@ void WallPerch::update_state_machine(float dt)
 	// IDLE
 	// ================================================================
 	case State::IDLE: {
-			if (start_req && _armed && safe &&
-			    _current_altitude > _param_wp_min_alt.get()) {
+			// A completed maneuver is latched out until AUX1 has first been
+			// observed low. AUX2 also blocks every new start while held high.
+			if (_rearm_required && !_start_switch_on) {
+				_rearm_required = false;
+			}
+
+			if (start_req && !detach_req && !_rearm_required && start_conditions_valid()) {
 				enter_state(State::FRONT_WALL_DETECT);
 			}
 
@@ -779,9 +835,13 @@ void WallPerch::update_state_machine(float dt)
 	// FRONT_WALL_DETECT — read front distance, check ready
 	// ================================================================
 	case State::FRONT_WALL_DETECT: {
-			if (cancel_req) { enter_state(State::IDLE); break; }
+			if (detach_req) { enter_state(State::EXIT); break; }
 
-			if (!safe)    { enter_state(State::ABORT); break; }
+			if (!safe || !mode_valid) {
+				_failsafe_triggered = true;
+				enter_state(State::EXIT);
+				break;
+			}
 
 			if (front_ready()) {
 				enter_state(State::STABILIZE_HOVER);
@@ -797,11 +857,18 @@ void WallPerch::update_state_machine(float dt)
 	// later takes over in SLOW_APPROACH.
 	// ================================================================
 	case State::STABILIZE_HOVER: {
-			if (cancel_req) { enter_state(State::ABORT); break; }
+			if (detach_req) { enter_state(State::EXIT); break; }
 
-			if (!safe)      { enter_state(State::ABORT); break; }
+			if (!safe || !mode_valid) {
+				_failsafe_triggered = true;
+				enter_state(State::EXIT);
+				break;
+			}
 
 			// Wait for stabilize time + attitude settled
+			_state_progress = math::constrain((float)hrt_elapsed_time(&_state_entry_time) * 1e-6f
+							  / _param_wp_stab_time.get(), 0.f, 1.f);
+
 			if (hrt_elapsed_time(&_state_entry_time) > (hrt_abstime)(_param_wp_stab_time.get() * 1e6f) &&
 			    attitude_recovered() && rate_safe()) {
 				enter_state(State::SLOW_APPROACH);
@@ -814,15 +881,25 @@ void WallPerch::update_state_machine(float dt)
 	// SLOW_APPROACH — tilt forward slightly, move toward wall
 	// ================================================================
 	case State::SLOW_APPROACH: {
-			if (cancel_req) { enter_state(State::ABORT); break; }
+			if (!_armed) { enter_state(State::EXIT); break; }
 
-			if (!safe)      { enter_state(State::ABORT); break; }
+			if (detach_req) { enter_state(State::DETACH_ROTATE); break; }
+
+			if (!safe || !mode_valid) {
+				_failsafe_triggered = true;
+				enter_state(State::DETACH_ROTATE);
+				break;
+			}
 
 			// Timeout check
+			_state_progress = math::constrain((float)hrt_elapsed_time(&_approach_start_time) * 1e-6f
+							  / _param_wp_appr_timeout.get(), 0.f, 1.f);
+
 			if (hrt_elapsed_time(&_approach_start_time) >
 			    (hrt_abstime)(_param_wp_appr_timeout.get() * 1e6f)) {
 				PX4_WARN("[wall_perch] Approach timeout");
-				enter_state(State::ABORT); break;
+				_failsafe_triggered = true;
+				enter_state(State::DETACH_ROTATE); break;
 			}
 
 			// Small forward tilt
@@ -830,7 +907,8 @@ void WallPerch::update_state_machine(float dt)
 			// configured as a positive magnitude in the parameter metadata.
 			float approach_pitch = -math::radians(_param_wp_appr_pitch.get());
 			Quatf q_approach = _q_hover * Quatf(Eulerf(0.f, approach_pitch, 0.f));
-			publish_attitude_setpoint(q_approach, _param_wp_thr_approach.get());
+			publish_attitude_setpoint(q_approach,
+						  tilt_compensated_thrust(q_approach, _param_wp_thr_approach.get()));
 
 			if (flip_ready()) {
 				enter_state(State::FLIP_TO_WALL);
@@ -843,17 +921,24 @@ void WallPerch::update_state_machine(float dt)
 	// FLIP_TO_WALL — slerp from hover to wall attitude
 	// ================================================================
 	case State::FLIP_TO_WALL: {
-			if (cancel_req) { enter_state(State::ABORT); break; }
+			if (!_armed) { enter_state(State::EXIT); break; }
 
-			if (!safe)      { enter_state(State::ABORT); break; }
+			if (detach_req) { enter_state(State::DETACH_ROTATE); break; }
+
+			if (!safe || !mode_valid) {
+				_failsafe_triggered = true;
+				enter_state(State::DETACH_ROTATE);
+				break;
+			}
 
 			float duration = _param_wp_flip_time.get();
 			float elapsed  = (float)hrt_elapsed_time(&_flip_start_time) * 1e-6f;
 			float tau = math::constrain(elapsed / duration, 0.f, 1.f);
 			float s = smoothstep5(tau);
+			_state_progress = tau;
 
 			Quatf q_des = slerp_quat(_q_hover, _q_wall, s);
-			publish_attitude_setpoint(q_des, _hover_thrust * 1.05f); // WP_THR_FLIP = 1.05 * hover
+			publish_attitude_setpoint(q_des, tilt_compensated_thrust(q_des, _hover_thrust));
 
 			// Once the nose-down pitch reaches the threshold, bypass the mixer and
 			// pin the aircraft to the wall at full thrust (no attitude recovery).
@@ -874,15 +959,19 @@ void WallPerch::update_state_machine(float dt)
 	// WALL_CAPTURE — confirm wall contact, ramp thrust
 	// ================================================================
 	case State::WALL_CAPTURE: {
-			if (cancel_req) { enter_state(State::ABORT); break; }
+			if (!_armed) { enter_state(State::EXIT); break; }
 
-			if (!safe)      { enter_state(State::ABORT); break; }
+			if (detach_req) { enter_state(State::DETACH_ROTATE); break; }
 
-			// Ramp thrust from flip (1.05*hover) to hold (1.5*hover) over capture time
-			float thrust = ramp(_hover_thrust * 1.05f,
-					    _hover_thrust * 1.5f,
-					    _param_wp_capture_time.get());
-			publish_attitude_setpoint(_q_wall, thrust);
+			if (!safe || !mode_valid) {
+				_failsafe_triggered = true;
+				enter_state(State::DETACH_ROTATE);
+				break;
+			}
+
+			_state_progress = math::constrain((float)hrt_elapsed_time(&_state_entry_time) * 1e-6f
+							  / _param_wp_capture_time.get(), 0.f, 1.f);
+			publish_attitude_setpoint(_q_wall, tilt_compensated_thrust(_q_wall, _hover_thrust));
 
 			if (pin_trigger_reached()) {
 				enter_state(State::WALL_PIN);
@@ -897,7 +986,8 @@ void WallPerch::update_state_machine(float dt)
 			if (hrt_elapsed_time(&_state_entry_time) >
 			    (hrt_abstime)(_param_wp_capture_time.get() * 3.f * 1e6f)) {
 				PX4_WARN("[wall_perch] Wall capture timeout");
-				enter_state(State::ABORT);
+				_failsafe_triggered = true;
+				enter_state(State::DETACH_ROTATE);
 			}
 
 			break;
@@ -907,11 +997,17 @@ void WallPerch::update_state_machine(float dt)
 	// WALL_HOLD — maintain wall attitude and thrust
 	// ================================================================
 	case State::WALL_HOLD: {
-			if (cancel_req) { enter_state(State::ABORT); break; }
+			if (!_armed) { enter_state(State::EXIT); break; }
 
-			if (!safe)      { enter_state(State::ABORT); break; }
+			if (detach_req) { enter_state(State::DETACH_ROTATE); break; }
 
-			publish_attitude_setpoint(_q_wall, _hover_thrust * 1.5f); // WP_THR_HOLD = 1.5 * hover
+			if (!safe || !mode_valid) {
+				_failsafe_triggered = true;
+				enter_state(State::DETACH_ROTATE);
+				break;
+			}
+
+			publish_attitude_setpoint(_q_wall, tilt_compensated_thrust(_q_wall, _hover_thrust));
 
 			if (pin_trigger_reached()) {
 				enter_state(State::WALL_PIN);
@@ -921,11 +1017,7 @@ void WallPerch::update_state_machine(float dt)
 			// Check top contact still valid
 			if (_top_wall_distance_m > _param_wp_top_ct_dist.get() * 3.f) {
 				PX4_WARN("[wall_perch] Lost wall contact");
-				enter_state(State::ABORT); break;
-			}
-
-			// Detach on user request or hold timeout
-			if (detach_req) {
+				_failsafe_triggered = true;
 				enter_state(State::DETACH_ROTATE); break;
 			}
 
@@ -940,25 +1032,33 @@ void WallPerch::update_state_machine(float dt)
 		}
 
 	// ================================================================
-	// WALL_PIN — mixer bypassed: command all four motors to raw max,
-	// do NOT publish an attitude setpoint (no attitude recovery).
-	// The standard pipeline is silenced by publishing vehicle_control_mode
-	// with flag_control_allocation_enabled = false (see publish_control_mode).
+	// WALL_PIN — Control Allocator yields via WallPerchStatus and this module
+	// directly commands all four motors. Altitude is recorded only.
 	// ================================================================
 	case State::WALL_PIN: {
-			// Raw max thrust on all four fans.
-			publish_actuator_motors(_param_wp_pin_thr.get());
+			if (!_armed) {
+				enter_state(State::EXIT);
+				break;
+			}
 
-			// Stay pinned until the user cancels (recovers) or the optional
-			// hold timeout elapses.
-			if (cancel_req) {
-				enter_state(State::ABORT); break;
+			if (detach_req || !mode_valid || !sensors_valid()) {
+				if (!mode_valid || !sensors_valid()) {
+					_failsafe_triggered = true;
+				}
+
+				// Publishing direct_motor_control=false at the end of this cycle
+				// re-enables Control Allocator before the first recovery setpoint.
+				enter_state(State::DETACH_ROTATE);
+				break;
 			}
 
 			if (_param_wp_pin_hold.get() > 0.f &&
 			    hrt_elapsed_time(&_pin_start_time) > (hrt_abstime)(_param_wp_pin_hold.get() * 1e6f)) {
-				enter_state(State::ABORT); break;
+				_failsafe_triggered = true;
+				enter_state(State::DETACH_ROTATE); break;
 			}
+
+			publish_actuator_motors(_param_wp_pin_thr.get());
 
 			break;
 		}
@@ -967,22 +1067,16 @@ void WallPerch::update_state_machine(float dt)
 	// DETACH_ROTATE — slerp back to hover, schedule thrust
 	// ================================================================
 	case State::DETACH_ROTATE: {
-			if (cancel_req) { enter_state(State::ABORT); break; }
-
-			if (!_armed)    { enter_state(State::ABORT); break; }
+			if (!_armed) { enter_state(State::EXIT); break; }
 
 			float duration = _param_wp_detach_time.get();
 			float elapsed  = (float)hrt_elapsed_time(&_detach_start_time) * 1e-6f;
 			float tau = math::constrain(elapsed / duration, 0.f, 1.f);
 			float s = smoothstep5(tau);
+			_state_progress = tau;
 
-			Quatf q_des = slerp_quat(_q_wall, _q_hover, s);
-
-			// Thrust schedule: interpolate from hold (1.5*hover) to recover (1.1*hover)
-			float thrust = _hover_thrust * 1.5f +
-				       s * (_hover_thrust * 1.1f - _hover_thrust * 1.5f);
-
-			publish_attitude_setpoint(q_des, thrust);
+			Quatf q_des = slerp_quat(_q_detach_start, _q_hover, s);
+			publish_attitude_setpoint(q_des, tilt_compensated_thrust(q_des, _hover_thrust));
 
 			if (tau >= 1.f) {
 				enter_state(State::RECOVER);
@@ -995,15 +1089,14 @@ void WallPerch::update_state_machine(float dt)
 	// RECOVER — hover and wait for stability
 	// ================================================================
 	case State::RECOVER: {
-			if (cancel_req) { enter_state(State::ABORT); break; }
+			if (!_armed) { enter_state(State::EXIT); break; }
 
-			if (!_armed)    { enter_state(State::ABORT); break; }
-
-			publish_attitude_setpoint(_q_hover, _hover_thrust * 1.1f); // WP_THR_RECOVER = 1.1 * hover
+			_state_progress = math::constrain((float)hrt_elapsed_time(&_state_entry_time) * 1e-6f
+							  / _param_wp_recover_time.get(), 0.f, 1.f);
+			publish_attitude_setpoint(_q_hover, tilt_compensated_thrust(_q_hover, _hover_thrust));
 
 			if (hrt_elapsed_time(&_state_entry_time) > (hrt_abstime)(_param_wp_recover_time.get() * 1e6f) &&
-			    attitude_recovered() && rate_safe() && vz_safe() &&
-			    !top_contact_ready()) {
+			    attitude_recovered() && rate_safe() && vz_stable()) {
 				enter_state(State::EXIT);
 			}
 
@@ -1014,14 +1107,8 @@ void WallPerch::update_state_machine(float dt)
 	// EXIT — release control
 	// ================================================================
 	case State::EXIT: {
-			// Stop publishing attitude setpoint
-			// Reset all timers
-			_front_ready_start = 0;
-			_flip_ready_start = 0;
-			_top_contact_start = 0;
-
 			mavlink_log_info(&_mavlink_log_pub, "[wall_perch] EXIT, releasing control");
-			_state = State::IDLE;
+			enter_state(State::IDLE);
 			break;
 		}
 
@@ -1029,22 +1116,19 @@ void WallPerch::update_state_machine(float dt)
 	// ABORT — emergency recovery, don't drop thrust
 	// ================================================================
 	case State::ABORT: {
-			PX4_WARN("[wall_perch] ABORT — recovering to hover");
+			if (!_armed) { enter_state(State::EXIT); break; }
 
-			// Publish hover attitude with recovery thrust
-			publish_attitude_setpoint(_q_hover, _hover_thrust * 1.1f); // WP_THR_RECOVER = 1.1 * hover
+			const float elapsed = (float)hrt_elapsed_time(&_detach_start_time) * 1e-6f;
+			const float tau = math::constrain(elapsed / _param_wp_detach_time.get(), 0.f, 1.f);
+			const float s = smoothstep5(tau);
+			const Quatf q_des = slerp_quat(_q_detach_start, _q_hover, s);
+			_state_progress = tau;
+			publish_attitude_setpoint(q_des, tilt_compensated_thrust(q_des, _hover_thrust));
 
-			if (attitude_recovered() && rate_safe() && vz_safe()) {
-				// Hold a bit longer to ensure stability
-				if (hrt_elapsed_time(&_state_entry_time) > (hrt_abstime)(_param_wp_recover_time.get() * 1e6f)) {
-					enter_state(State::EXIT);
-
-				} else {
-					// keep recovering
-				}
+			if (tau >= 1.f && attitude_recovered() && rate_safe() && vz_stable()) {
+				enter_state(State::EXIT);
 			}
 
-			// NOTE: If never recovers, rely on pilot takeover or PX4 failsafe
 			break;
 		}
 

@@ -333,6 +333,8 @@ ControlAllocator::Run()
 		return;
 	}
 
+	const hrt_abstime now = hrt_absolute_time();
+
 	{
 		vehicle_status_s vehicle_status;
 
@@ -368,13 +370,19 @@ ControlAllocator::Run()
 	{
 		vehicle_control_mode_s vehicle_control_mode;
 
-	if (_vehicle_control_mode_sub.update(&vehicle_control_mode)) {
-		_publish_controls = vehicle_control_mode.flag_control_allocation_enabled;
-	}
+		if (_vehicle_control_mode_sub.update(&vehicle_control_mode)) {
+			_commander_publish_controls = vehicle_control_mode.flag_control_allocation_enabled;
+		}
 	}
 
+	_wall_perch_status_sub.update(&_wall_perch_status);
+	const bool wall_status_fresh = _wall_perch_status.timestamp != 0
+				       && now >= _wall_perch_status.timestamp
+				       && (now - _wall_perch_status.timestamp) <= WALL_STATUS_TIMEOUT_US;
+	const bool wall_direct_motor_control = wall_status_fresh && _wall_perch_status.direct_motor_control;
+	_publish_controls = _commander_publish_controls && !wall_direct_motor_control;
+
 	// Guard against too small (< 0.2ms) and too large (> 20ms) dt's.
-	const hrt_abstime now = hrt_absolute_time();
 	const float dt = math::constrain(((now - _last_run) / 1e6f), 0.0002f, 0.02f);
 
 	bool do_update = false;

@@ -61,6 +61,16 @@ bool FlightTaskManualAltitudeSmoothVel::activate(const trajectory_setpoint_s &la
 	return ret;
 }
 
+void FlightTaskManualAltitudeSmoothVel::resetZSetpointToCurrent()
+{
+	FlightTaskManualAltitude::resetZSetpointToCurrent();
+
+	if (PX4_ISFINITE(_position(2))) {
+		_smoothing.reset(0.f, 0.f, _position(2));
+		_terrain_hold_previous = false;
+	}
+}
+
 void FlightTaskManualAltitudeSmoothVel::_ekfResetHandlerPositionZ(float delta_z)
 {
 	_smoothing.setCurrentPosition(_position(2));

@@ -44,6 +44,7 @@
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionCallback.hpp>
 #include <uORB/Publication.hpp>
+#include <uORB/topics/ceiling_contact_status.h>
 #include <uORB/topics/landing_gear.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/takeoff_status.h>
@@ -56,6 +57,7 @@
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_local_position_setpoint.h>
 #include <uORB/topics/vehicle_status.h>
+#include <uORB/topics/wall_perch_status.h>
 
 #include <new>
 
@@ -131,6 +133,14 @@ private:
 	uint8_t _takeoff_state{takeoff_status_s::TAKEOFF_STATE_UNINITIALIZED};
 
 	bool _no_matching_task_error_printed{false};
+	bool _ceiling_z_override_seen{false};
+	hrt_abstime _ceiling_status_lost_since{0};
+	bool _wall_override_seen{false};
+	hrt_abstime _wall_status_lost_since{0};
+	static constexpr hrt_abstime CEILING_STATUS_TIMEOUT_US{200000};
+	static constexpr hrt_abstime CEILING_STATUS_LOSS_HOLD_US{2700000};
+	static constexpr hrt_abstime WALL_STATUS_TIMEOUT_US{200000};
+	static constexpr hrt_abstime WALL_STATUS_LOSS_HOLD_US{400000};
 
 	perf_counter_t _loop_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": cycle")}; ///< loop duration performance counter
 	hrt_abstime _time_stamp_last_loop{0}; ///< time stamp of last loop iteration
@@ -143,6 +153,8 @@ private:
 	uORB::Subscription _takeoff_status_sub{ORB_ID(takeoff_status)};
 	uORB::Subscription _vehicle_attitude_setpoint_sub{ORB_ID(vehicle_attitude_setpoint)};
 	uORB::Subscription _vehicle_command_sub{ORB_ID(vehicle_command)};
+	uORB::SubscriptionData<ceiling_contact_status_s> _ceiling_contact_status_sub{ORB_ID(ceiling_contact_status)};
+	uORB::SubscriptionData<wall_perch_status_s> _wall_perch_status_sub{ORB_ID(wall_perch_status)};
 	uORB::SubscriptionData<vehicle_control_mode_s> _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::SubscriptionData<vehicle_land_detected_s> _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 	uORB::SubscriptionCallbackWorkItem _vehicle_local_position_sub{this, ORB_ID(vehicle_local_position)};

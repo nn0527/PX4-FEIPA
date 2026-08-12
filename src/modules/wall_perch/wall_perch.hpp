@@ -120,9 +120,10 @@ private:
 	void update_distance_sensors();
 
 	// User input helpers
+	void update_manual_switches();
+	float selected_aux_value(int channel) const;
 	bool user_start_requested();
 	bool user_detach_requested();
-	bool user_cancel_requested();
 
 	// Distance condition checks
 	bool front_ready();
@@ -140,14 +141,18 @@ private:
 
 	// Safety checks
 	bool safety_ok();
-	bool attitude_recovered();
-	bool rate_safe();
-	bool vz_safe();
+	bool control_mode_valid() const;
+	bool start_conditions_valid() const;
+	bool attitude_recovered() const;
+	bool rate_safe() const;
+	bool vz_safe() const;
+	bool vz_stable() const;
+	bool wall_owns_attitude() const;
+	float tilt_compensated_thrust(const Quatf &q_des, float minimum_thrust) const;
 
 	// Output
 	void publish_attitude_setpoint(const Quatf &q_des, float thrust_norm);
 	void publish_actuator_motors(float thrust);
-	void publish_control_mode(bool enable_allocation);
 	void publish_wall_perch_status();
 
 	// Pin trigger
@@ -164,8 +169,17 @@ private:
 	matrix::Vector3f _velocity{};
 	matrix::Vector3f _angular_velocity{};
 	matrix::Eulerf _attitude_euler{};
+	Quatf _q_current{};
 	float _current_yaw{0.f};
 	float _current_altitude{0.f};
+	hrt_abstime _vehicle_status_ts{0};
+	hrt_abstime _vehicle_control_mode_ts{0};
+	hrt_abstime _vehicle_attitude_ts{0};
+	hrt_abstime _vehicle_angular_velocity_ts{0};
+	hrt_abstime _vehicle_local_position_ts{0};
+	hrt_abstime _manual_control_ts{0};
+	bool _local_position_valid{false};
+	bool _local_velocity_valid{false};
 
 	// -----------------------------------------------------------------------
 	// State machine
@@ -182,6 +196,11 @@ private:
 	float _yaw_hold{0.f};
 	Quatf _q_hover{};
 	Quatf _q_wall{};
+	Quatf _q_entry{};
+	Quatf _q_detach_start{};
+	float _entry_altitude{0.f};
+	float _entry_vertical_velocity{0.f};
+	float _handoff_altitude{0.f};
 
 	// Slerp tracking
 	hrt_abstime _flip_start_time{0};
@@ -206,13 +225,21 @@ private:
 
 	// Vehicle armed status
 	bool _armed{false};
+	bool _rotary_wing{false};
 	uint8_t _nav_state{0};
+	vehicle_control_mode_s _vehicle_control_mode{};
 
 	// Switch raw values
 	float _aux1_raw{0.f};
 	float _aux2_raw{0.f};
 	float _aux3_raw{0.f};
 	float _aux4_raw{0.f};
+	bool _start_switch_on{false};
+	bool _detach_switch_on{false};
+	bool _rearm_required{false};
+	bool _failsafe_triggered{false};
+	float _last_thrust_norm{0.f};
+	float _state_progress{0.f};
 
 	// Mavlink log
 	orb_advert_t _mavlink_log_pub{nullptr};
@@ -226,7 +253,6 @@ private:
 		(ParamBool<px4::params::WP_ENABLE>) _param_wp_enable,
 		(ParamInt<px4::params::WP_AUX_CH>) _param_wp_aux_ch,
 		(ParamInt<px4::params::WP_DETACH_AUX_CH>) _param_wp_detach_aux_ch,
-		(ParamInt<px4::params::WP_CANCEL_AUX_CH>) _param_wp_cancel_aux_ch,
 
 		(ParamFloat<px4::params::WP_FRN_RD_DIST>) _param_wp_frn_rd_dist,
 		(ParamFloat<px4::params::WP_FRN_RD_HLD>) _param_wp_frn_rd_hld,
@@ -251,6 +277,7 @@ private:
 
 		(ParamFloat<px4::params::WP_THR_HOVER>) _param_wp_thr_hover,
 		(ParamFloat<px4::params::WP_THR_APPROACH>) _param_wp_thr_approach,
+		(ParamFloat<px4::params::WP_FLIP_THR_MAX>) _param_wp_flip_thr_max,
 
 		(ParamFloat<px4::params::WP_MU_EST>) _param_wp_mu_est,
 		(ParamFloat<px4::params::WP_MARGIN>) _param_wp_margin,
@@ -276,6 +303,7 @@ private:
 	uORB::Subscription _vehicle_angular_velocity_sub{ORB_ID(vehicle_angular_velocity)};
 	uORB::Subscription _vehicle_local_pos_sub{ORB_ID(vehicle_local_position)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
+	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::Subscription _hover_thrust_estimate_sub{ORB_ID(hover_thrust_estimate)};
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
@@ -285,7 +313,6 @@ private:
 	uORB::Publication<wall_perch_status_s> _status_pub{ORB_ID(wall_perch_status)};
 	uORB::Publication<vehicle_attitude_setpoint_s> _att_sp_pub{ORB_ID(vehicle_attitude_setpoint)};
 	uORB::Publication<actuator_motors_s> _actuator_motors_pub{ORB_ID(actuator_motors)};
-	uORB::Publication<vehicle_control_mode_s> _control_mode_pub{ORB_ID(vehicle_control_mode)};
 
 	// -----------------------------------------------------------------------
 	// Performance counters

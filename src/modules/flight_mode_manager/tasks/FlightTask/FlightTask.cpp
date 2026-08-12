@@ -25,6 +25,16 @@ void FlightTask::reActivate()
 	activate(setpoint_preserve_vertical);
 }
 
+void FlightTask::resetZSetpointToCurrent()
+{
+	if (PX4_ISFINITE(_position(2))) {
+		_position_setpoint(2) = _position(2);
+		_velocity_setpoint(2) = 0.f;
+		_acceleration_setpoint(2) = NAN;
+		_jerk_setpoint(2) = NAN;
+	}
+}
+
 void FlightTask::initEkfResetCounters()
 {
 	_reset_counters.xy = _sub_vehicle_local_position.get().xy_reset_counter;

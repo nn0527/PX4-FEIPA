@@ -10,25 +10,18 @@ parameters:
             default: 0
         WP_AUX_CH:
             description:
-                short: Aux channel for wall_perch trigger (1=aux1, 2=aux2, ...)
+                short: AUX channel for wall_perch start (1=AUX1, 2=AUX2, ...)
             type: int32
             min: 1
-            max: 32
-            default: 3
+            max: 4
+            default: 1
         WP_DETACH_AUX_CH:
             description:
                 short: Aux channel for detach trigger
             type: int32
             min: 1
-            max: 32
+            max: 4
             default: 2
-        WP_CANCEL_AUX_CH:
-            description:
-                short: Aux channel for cancel/abort
-            type: int32
-            min: 1
-            max: 32
-            default: 3
 
         WP_FRN_RD_DIST:
             description:
@@ -176,6 +169,14 @@ parameters:
             min: 0.1
             max: 1.0
             default: 0.55
+        WP_FLIP_THR_MAX:
+            description:
+                short: Maximum normalized thrust during flip, detach and recovery
+                long: Limits hover-thrust tilt compensation. Once saturated the maneuver continues and altitude loss is accepted.
+            type: float
+            min: 0.1
+            max: 1.0
+            default: 1.0
 
         WP_MU_EST:
             description:
@@ -255,7 +256,7 @@ parameters:
             default: 1.0
         WP_PIN_HOLD:
             description:
-                short: Max pin duration before auto-exit (0 = stay pinned until cancel)
+                short: Max pin duration before controlled detach (0 = wait for AUX2)
             type: float
             unit: s
             min: 0.0

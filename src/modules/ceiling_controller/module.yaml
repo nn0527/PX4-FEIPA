@@ -21,20 +21,12 @@ parameters:
             default: 0.02
         CEIL_DIST_THR:
             description:
-                short: Distance threshold confirming ceiling detach
+                short: Distance threshold to trigger approach
             type: float
             unit: m
             min: 0.1
             max: 2.0
             default: 0.6
-        CEIL_APPR_START:
-            description:
-                short: UP distance threshold to start ceiling approach
-            type: float
-            unit: m
-            min: 0.1
-            max: 5.0
-            default: 1.2
         CEIL_VEL_THR:
             description:
                 short: Max vertical speed to allow approach
@@ -126,32 +118,17 @@ parameters:
             unit: m/s
             min: 0.001
             max: 0.5
-            default: 0.1
-        CEIL_DET_THR_MIN:
-            description:
-                short: Minimum normalized upward thrust allowed during detach
-            type: float
-            min: 0.05
-            max: 0.8
-            default: 0.25
-        CEIL_DET_TO:
-            description:
-                short: Maximum detach duration before recovery
-            type: float
-            unit: s
-            min: 1.0
-            max: 30.0
-            default: 8.0
+            default: 0.02
         CEIL_ATTACH_MULT:
             description:
-                short: Attach thrust multiplier of hover (approach climb / attach lock)
+                short: Attach-state thrust ceiling as a hover-thrust multiplier
             type: float
             min: 1.0
             max: 3.0
             default: 1.5
         CEIL_SURF_MULT:
             description:
-                short: Surface (state 4) thrust multiplier of hover
+                short: Surface-state thrust ceiling as a hover-thrust multiplier
             type: float
             min: 1.0
             max: 3.0
@@ -164,3 +141,129 @@ parameters:
             min: 0.0
             max: 1.0
             default: 0.05
+        CEIL_ENTRY_T:
+            description:
+                short: Continuous approach-entry confirmation time
+            type: float
+            unit: s
+            min: 0.0
+            max: 2.0
+            default: 0.2
+        CEIL_CONT_COMP:
+            description:
+                short: Compression required to confirm ceiling contact
+            type: float
+            unit: m
+            min: 0.001
+            max: 0.05
+            default: 0.005
+        CEIL_CONT_T:
+            description:
+                short: Continuous ceiling-contact confirmation time
+            type: float
+            unit: s
+            min: 0.02
+            max: 1.0
+            default: 0.1
+        CEIL_CONT_HYST:
+            description:
+                short: Distance hysteresis used to confirm contact release
+            type: float
+            unit: m
+            min: 0.001
+            max: 0.2
+            default: 0.02
+        CEIL_ATTACH_TO:
+            description:
+                short: Attach-control timeout before controlled detach
+            type: int32
+            unit: ms
+            min: 500
+            max: 30000
+            default: 5000
+        CEIL_DETACH_VZ:
+            description:
+                short: Downward clearance speed after unloading contact
+            type: float
+            unit: m/s
+            min: 0.05
+            max: 1.0
+            default: 0.5
+        CEIL_DET_THR:
+            description:
+                short: Minimum normalized upward thrust during contact unload
+            type: float
+            min: 0.05
+            max: 0.8
+            default: 0.25
+        CEIL_DET_DIST:
+            description:
+                short: Upward range required before altitude-control handover
+            type: float
+            unit: m
+            min: 0.1
+            max: 5.0
+            default: 0.5
+        CEIL_UNLOAD_TO:
+            description:
+                short: Maximum contact-unload phase duration
+            type: int32
+            unit: ms
+            min: 200
+            max: 10000
+            default: 2000
+        CEIL_DETACH_TO:
+            description:
+                short: Overall controlled-detach timeout
+            type: int32
+            unit: ms
+            min: 500
+            max: 30000
+            default: 3000
+        CEIL_RECOV_T:
+            description:
+                short: Vertical hover time after reaching clearance
+            type: float
+            unit: s
+            min: 0.5
+            max: 10.0
+            default: 2.0
+        CEIL_SENSOR_TO:
+            description:
+                short: Upward distance and vehicle-state data timeout
+            type: int32
+            unit: ms
+            min: 50
+            max: 2000
+            default: 200
+        CEIL_SENS_ID:
+            description:
+                short: Upward distance sensor device ID (zero selects automatically)
+            type: int32
+            min: 0
+            max: 2147483647
+            default: 0
+        CEIL_RAMP_T:
+            description:
+                short: Minimum time for a full-scale thrust transition
+            type: float
+            unit: s
+            min: 0.1
+            max: 5.0
+            default: 0.5
+        CEIL_HANDOFF_T:
+            description:
+                short: Direct-thrust recovery time before velocity handoff
+            type: float
+            unit: s
+            min: 0.2
+            max: 1.0
+            default: 0.4
+        CEIL_Z_ACC:
+            description:
+                short: Vertical setpoint slew acceleration
+            type: float
+            unit: m/s^2
+            min: 0.05
+            max: 3.0
+            default: 0.3

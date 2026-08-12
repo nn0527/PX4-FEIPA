@@ -42,6 +42,7 @@
 
 #pragma once
 
+#include <uORB/topics/ceiling_contact_status.h>
 #include <uORB/topics/hover_thrust_estimate.h>
 #include <uORB/topics/trajectory_setpoint.h>
 #include <uORB/topics/vehicle_control_mode.h>
@@ -80,12 +81,16 @@ protected:
 	void _set_hysteresis_factor(const int factor) override;
 private:
 	bool _is_close_to_ground();
+	void _update_ceiling_contact_state(const hrt_abstime now);
 
 	/** Time in us that freefall has to hold before triggering freefall */
 	static constexpr hrt_abstime FREEFALL_TRIGGER_TIME_US = 300_ms;
 
 	/** Distance above ground below which entering ground contact state is possible when distance to ground is available. */
 	static constexpr float DIST_FROM_GROUND_THRESHOLD = 1.0f;
+
+	/** Maximum age of a ceiling contact status used to inhibit ground land detection. */
+	static constexpr hrt_abstime CEILING_STATUS_TIMEOUT = 200_ms;
 
 	struct {
 		param_t minThrottle;
@@ -106,6 +111,7 @@ private:
 	} _params{};
 
 	uORB::Subscription _vehicle_thrust_setpoint_sub{ORB_ID(vehicle_thrust_setpoint)};
+	uORB::Subscription _ceiling_contact_status_sub{ORB_ID(ceiling_contact_status)};
 	uORB::Subscription _hover_thrust_estimate_sub{ORB_ID(hover_thrust_estimate)};
 	uORB::Subscription _trajectory_setpoint_sub{ORB_ID(trajectory_setpoint)};
 
@@ -113,7 +119,9 @@ private:
 	uORB::Subscription _takeoff_status_sub{ORB_ID(takeoff_status)};
 
 	hrt_abstime _hover_thrust_estimate_last_valid{0};
+	ceiling_contact_status_s _ceiling_contact_status{};
 	bool _hover_thrust_estimate_valid{false};
+	bool _ceiling_contact_active{false};
 
 	bool _flag_control_climb_rate_enabled{false};
 	bool _hover_thrust_initialized{false};

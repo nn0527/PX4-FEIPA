@@ -176,8 +176,8 @@ Ceiling和Wall模式互斥；`mode ceiling`会停止`wall_perch`，`mode wall`�
 
 控制参数仍在QGC的Parameters页面修改和保存。重点参数包括：
 
-- Ceiling：`CEIL_APPR_START`、`CEIL_DIST_THR`、`CEIL_D0`、`CEIL_APPR_VZ`、
-  `CEIL_DET_THR_MIN`和`CEIL_DET_TO`。
+- Ceiling：`CEIL_DIST_THR`、`CEIL_D0`、`CEIL_APPR_VZ`、`CEIL_DET_THR`、
+  `CEIL_DET_DIST`、`CEIL_DETACH_VZ`和`CEIL_DETACH_TO`。
 - Wall：`WP_FRN_RD_DIST`、`WP_FLP_TRD_DIST`、`WP_TOP_CT_DIST`、
   `WP_THR_APPROACH`、`WP_SENS_TIMEOUT`和各阶段时间参数。
 

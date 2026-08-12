@@ -52,6 +52,8 @@
 #include <uORB/Publication.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionCallback.hpp>
+#include <uORB/topics/ceiling_contact_status.h>
+#include <uORB/topics/control_allocator_status.h>
 #include <uORB/topics/hover_thrust_estimate.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/vehicle_attitude.h>
@@ -59,7 +61,6 @@
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/vehicle_thrust_setpoint.h>
-#include <uORB/topics/control_allocator_status.h>
 
 #include "zero_order_hover_thrust_ekf.hpp"
 
@@ -91,6 +92,7 @@ private:
 	void updateParams() override;
 
 	void reset();
+	bool updateCeilingFusionFreezeState(const hrt_abstime now, bool vertically_stable);
 
 	void publishStatus(const hrt_abstime &timestamp_sample);
 	void publishInvalidStatus();
@@ -103,6 +105,7 @@ private:
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
+	uORB::Subscription _ceiling_contact_status_sub{ORB_ID(ceiling_contact_status)};
 	uORB::Subscription _hover_thrust_estimate_sub{ORB_ID(hover_thrust_estimate)};
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
@@ -111,14 +114,21 @@ private:
 	uORB::Subscription _control_allocator_status_sub{ORB_ID(control_allocator_status)};
 
 	hrt_abstime _timestamp_last{0};
+	hrt_abstime _ceiling_clear_since{0};
+
+	ceiling_contact_status_s _ceiling_contact_status{};
 
 	bool _armed{false};
 	bool _landed{false};
 	bool _in_air{false};
+	bool _ceiling_fusion_frozen{false};
 
 	bool _valid{false};
 
 	systemlib::Hysteresis _valid_hysteresis{false};
+
+	static constexpr hrt_abstime CEILING_STATUS_TIMEOUT = 200_ms;
+	static constexpr hrt_abstime CEILING_FUSION_RECOVERY_TIME = 2_s;
 
 	perf_counter_t _cycle_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": cycle time")};
 
