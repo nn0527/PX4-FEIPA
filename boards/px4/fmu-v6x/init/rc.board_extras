@@ -1,0 +1,28 @@
+#!/bin/sh
+#
+# Start the ESP32 UART receiver only when TELEM2 is not assigned to MAVLink.
+# This script runs after the generated serial configuration script.
+#------------------------------------------------------------------------------
+
+# Skynode base boards use TELEM2 (/dev/ttyS4) for their onboard MAVLink link.
+if ver hwbasecmp 009 010 011
+then
+	echo "INFO [uart_rx] TELEM2 reserved on Skynode"
+else
+	if param compare MAV_0_CONFIG 102
+	then
+		echo "WARN [uart_rx] TELEM2 is assigned to MAVLink; not starting"
+	else
+		if param compare MAV_1_CONFIG 102
+		then
+			echo "WARN [uart_rx] TELEM2 is assigned to MAVLink; not starting"
+		else
+			if param compare MAV_2_CONFIG 102
+			then
+				echo "WARN [uart_rx] TELEM2 is assigned to MAVLink; not starting"
+			else
+				uart_rx start
+			fi
+		fi
+	fi
+fi
