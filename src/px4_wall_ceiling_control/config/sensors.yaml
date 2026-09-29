@@ -1,0 +1,37 @@
+# Physical range sensors and the mode-independent two-channel manager.
+ceiling_lidar_node:
+  serial_port: "/dev/serial/by-path/pci-0000:02:00.0-usb-0:2.1:1.0-port0"
+  range_topic: /sensor/ceiling/raw
+  frame_id: ceiling_lidar_link
+  baudrate: 38400
+  input_format: l1_ascii
+  startup_command: iACM
+  # Closing the ROS node only stops receiving; leave the powered L1 measuring.
+  halt_on_shutdown: false
+  serial_timeout_s: 0.2
+  input_scale_to_m: 1.0
+  min_range_m: 0.03
+  max_range_m: 40.0
+
+front_lidar_node:
+  # Set the actual front L1 device path with front_serial_port at launch.
+  serial_port: ""
+  range_topic: /sensor/front/raw
+  frame_id: front_lidar_link
+  baudrate: 38400
+  input_format: l1_ascii
+  startup_command: iACM
+  halt_on_shutdown: false
+  serial_timeout_s: 0.2
+  input_scale_to_m: 1.0
+  min_range_m: 0.03
+  max_range_m: 40.0
+
+sensor_range_manager_node:
+  ceiling_input_topic: /sensor/ceiling/raw
+  front_input_topic: /sensor/front/raw
+  ceiling_output_topic: /sensor/ceiling/range
+  front_output_topic: /sensor/front/range
+  health_topic: /sensor/health
+  input_timeout_s: 0.60
+  health_publish_rate_hz: 10.0

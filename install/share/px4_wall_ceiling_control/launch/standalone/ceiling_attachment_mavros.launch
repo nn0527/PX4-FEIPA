@@ -1,0 +1,71 @@
+<launch>
+  <!--
+    Ceiling-only attachment chain. MAVROS itself must be started separately.
+    output_enabled defaults to false and must only be enabled after SITL/HITL.
+    Use system/attachment_system_mavros.launch for combined ceiling/wall operation.
+  -->
+  <arg name="ceiling_serial_port"
+       default="/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0" />
+  <arg name="front_serial_port" default="" />
+  <arg name="output_enabled" default="false" />
+  <arg name="mechanism_output_enabled" default="false" />
+
+  <rosparam command="load"
+            file="$(find px4_wall_ceiling_control)/config/sensors.yaml" />
+  <rosparam command="load"
+            file="$(find px4_wall_ceiling_control)/config/operator.yaml" />
+  <rosparam command="load"
+            file="$(find px4_wall_ceiling_control)/config/ceiling_attachment.yaml" />
+  <rosparam command="load"
+            file="$(find px4_wall_ceiling_control)/config/attachment_output.yaml" />
+
+  <node pkg="px4_wall_ceiling_control" type="lidar_distance_node.py"
+        name="ceiling_lidar_node" output="screen">
+    <param name="serial_port" value="$(arg ceiling_serial_port)" />
+    <param name="baudrate" value="38400" />
+    <param name="input_format" value="l1_ascii" />
+    <param name="startup_command" value="iACM" />
+    <param name="range_topic" value="/sensor/ceiling/raw" />
+    <param name="frame_id" value="ceiling_lidar_link" />
+    <param name="min_range_m" value="0.03" />
+    <param name="max_range_m" value="40.0" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="lidar_distance_node.py"
+        name="front_lidar_node" output="screen">
+    <param name="serial_port" value="$(arg front_serial_port)" />
+    <param name="baudrate" value="38400" />
+    <param name="input_format" value="l1_ascii" />
+    <param name="startup_command" value="iACM" />
+    <param name="range_topic" value="/sensor/front/raw" />
+    <param name="frame_id" value="front_lidar_link" />
+    <param name="min_range_m" value="0.03" />
+    <param name="max_range_m" value="40.0" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="operator_gate_node.py"
+        name="operator_gate_node" output="screen" />
+
+  <node pkg="px4_wall_ceiling_control" type="sensor_range_manager_node.py"
+        name="sensor_range_manager_node" output="screen" />
+
+  <node pkg="px4_wall_ceiling_control"
+        type="ceiling_attachment_decision_node.py"
+        name="ceiling_attachment_decision_node" output="screen">
+    <param name="odom_topic" value="/mavros/local_position/odom" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control"
+        type="ceiling_attachment_output_node.py"
+        name="ceiling_attachment_output_node" output="screen">
+    <param name="output_enabled" value="$(arg output_enabled)" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control"
+        type="attachment_mechanism_output_node.py"
+        name="attachment_mechanism_output_node" output="screen">
+    <param name="output_enabled" value="$(arg mechanism_output_enabled)" />
+    <!-- The ceiling-only legacy path has no combined output owner. -->
+    <param name="require_ceiling_owner" value="false" />
+  </node>
+</launch>

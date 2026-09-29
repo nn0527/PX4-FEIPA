@@ -1,0 +1,187 @@
+纸板 → 顶部 L1 → ROS 吸顶决策 → PX4 OFFBOARD → 全部电机：无桨固定台架流程
+==========================================================================
+
+适用范围：仅用于全部桨叶已拆下、机架已固定的台架；电机由 PX4 正常混控，
+不逐个试转。纸板模拟顶距，不代表真实吸附力或飞行稳定性。机构释放确认由
+/bench/ 模拟节点提供，因此“程序完成”是状态机完成，不是真实吸顶机构完成。
+第 8 通道映射不改；吸顶请求由终端发给 /bench/operator/command。
+
+当前设备：
+  PX4 USB  /dev/serial/by-id/usb-Auterion_PX4_FMU_v6X.x_0-if00
+  顶部 L1 /dev/serial/by-id/usb-1a86_USB_Serial-if00-port0
+前向 L1 不接。传感器路径末尾必须是 port0；传感器熄灭时先查是否有重复
+launch 或串口占用。同一 USB 口不能由 QGC 和 MAVROS 分别直接打开。
+
+本入口的受限输出：/mavros/setpoint_raw/attitude 为唯一真实设定值出口。
+启动后先以 30 Hz 发送零推力；仅在 ATTACH_CONTROL 和 SURFACE_HOLD 且
+PX4 已连接、已解锁、处于 OFFBOARD，里程计/测距/操作请求/候选全部有效时，
+分别发送 0.18 和 0.12 归一化推力。最大值 0.20，连续有动力最多 4 秒，
+到时锁定零推力；须停止请求并解除解锁才可复位。APPROACH 仅观察纸板
+测距触发，不向固定机架发送上升速度。零推力命令下 PX4 的电机怠速设置
+仍可能使电机旋转；转速以真实遥测/ULog 为准。
+
+0. 断电检查与环境
+----------------
+断开 ESC 动力电；确认全部桨叶拆除，机架固定，电机、DShot 信号线、
+信号地和供电接线符合该飞控和 ESC 的接线图。纸板初始放在顶部 L1 正前方
+约 0.6～0.8 m，避免碰到电机。先给 PX4、L1 供电，保持未解锁。
+
+每个新终端先执行：
+  source /opt/ros/noetic/setup.bash
+  source /home/cry/catkin_ws/devel/setup.bash
+
+检查设备：
+  readlink -f /dev/serial/by-id/usb-Auterion_PX4_FMU_v6X.x_0-if00
+  readlink -f /dev/serial/by-id/usb-1a86_USB_Serial-if00-port0
+  pgrep -af 'roslaunch mavros px4.launch|ceiling_attachment_px4_observe.launch|ceiling_motor_bench.launch'
+  fuser -v /dev/ttyUSB0
+
+预期 PX4 是 ttyACM0，L1 是 ttyUSB0。若旧的 observe.launch 正运行，
+先在其终端 Ctrl+C；只保留一个读取 L1 的 launch。重复启动同名雷达节点
+可能让退出的节点发送 iHALT，使另一份节点也停止测距。若 MAVROS 已运行
+且 /mavros/state 更新，可复用，不再启动第二份。
+
+1. 启动 MAVROS、专用台架链路
+----------------------------
+终端 A（仅在 MAVROS 尚未运行时）：
+  source /opt/ros/noetic/setup.bash
+  source /home/cry/catkin_ws/devel/setup.bash
+  roslaunch mavros px4.launch \
+    fcu_url:=/dev/serial/by-id/usb-Auterion_PX4_FMU_v6X.x_0-if00:57600
+
+终端 B。第一次先让 output_enabled 和 motor_enabled 保持默认 false，
+确认传感器与节点正常。此时不会发布真实设定值：
+source /opt/ros/noetic/setup.bash
+  source /home/cry/catkin_ws/devel/setup.bash
+  roslaunch px4_wall_ceiling_control ceiling_motor_bench.launch \
+    ceiling_serial_port:=/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0
+
+终端 C 检查：·
+  rostopic echo -n 1 /mavros/state
+  rostopic echo -n 1 /mavros/local_position/odom
+  rostopic echo -n 1 /bench/sensor/health
+  rostopic echo -n 1 /bench/sensor/ceiling/range
+  rostopic hz /bench/sensor/ceiling/range
+  rostopic info /mavros/setpoint_raw/attitude
+
+应看到 connected=true、armed=false、有效且随纸板移动变化的顶距、连续
+odom；attitude 设定值在此阶段没有本台架节点的发布。若 L1 不亮或没有
+测距，先停止终端 B，确认没有另一份 launch 占 ttyUSB0，再重启终端 B。
+不要在传感器无有效数据时继续。若 odom 没有更新，后续 OFFBOARD 和
+吸顶决策均不能通过，先处理 PX4 定位来源。
+
+2. 启动零推力预发送，检查唯一发布者
+----------------------------------
+在终端 B 按 Ctrl+C 停止默认关闭的 launch；确认其全部子节点退出。
+给 ESC 接上动力电，保持 PX4 未解锁。然后在终端 B 启动同一入口：
+  source /opt/ros/noetic/setup.bash
+  source /home/cry/catkin_ws/devel/setup.bash
+  roslaunch px4_wall_ceiling_control ceiling_motor_bench.launch \
+    ceiling_serial_port:=/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0 \
+    output_enabled:=true motor_enabled:=true
+
+马上在终端 C 检查，至少连续观察 2 秒：
+  rostopic info /mavros/setpoint_raw/attitude
+  rostopic hz /mavros/setpoint_raw/attitude
+  rostopic echo -n 1 /mavros/setpoint_raw/attitude/thrust
+  rostopic echo -n 1 /bench/motor_thrust_command
+  rostopic echo -n 1 /bench/motor_output_mode
+
+预期 attitude 话题只有 /ceiling_motor_bench_output_node 一个发布者；频率
+约 30 Hz；thrust=0.0，mode.data=1。若还有别的发布者，先停掉它，
+不要进入 OFFBOARD。若电机在未解锁时转动、线束发热或 PX4 断连，
+立即断开 ESC 动力电并检查接线及 PX4 Actuator Outputs 配置。
+
+3. 记录、进入 OFFBOARD 并解锁
+-----------------------------
+终端 D 记录 ROS 数据（结束时 Ctrl+C）：
+  rosbag record -O /home/cry/catkin_ws/ceiling_motor_bench_$(date +%Y%m%d_%H%M%S).bag \
+    /mavros/state /mavros/local_position/odom \
+    /bench/sensor/ceiling/range /bench/sensor/health \
+    /bench/operator/command /bench/ceiling_attachment/status \
+    /bench/ceiling_attachment/control_candidate \
+    /bench/attachment/mechanism_command /bench/attachment/mechanism_status \
+    /bench/motor_output_mode /bench/motor_thrust_command \
+    /mavros/setpoint_raw/attitude /mavros/esc_status /mavros/esc_telemetry
+
+PX4 有 ULog/ESC RPM 时，在 QGC 中确认日志记录已启动；测试后可下载 ULog
+并对齐 ROS bag 的时间。/mavros/rc/out 是输出通道值，不是实际 RPM。
+/mavros/esc_status 和 /mavros/esc_telemetry 若无消息，ROS 无法直接显示 RPM；
+本次以 PX4 ULog 中的 ESC RPM 字段核实所有电机。
+
+零推力流已稳定超过 1 秒、/mavros/state 连接且 odom 连续之后，终端 C：
+  source /opt/ros/noetic/setup.bash
+  source /home/cry/catkin_ws/devel/setup.bash
+  rosservice call /mavros/set_mode "{base_mode: 0, custom_mode: 'OFFBOARD'}"
+  rostopic echo -n 1 /mavros/state
+
+必须实际读到 mode: "OFFBOARD"；服务的 mode_sent 不等于模式已切换。
+然后用遥控器解锁，或在终端执行：
+   source /opt/ros/noetic/setup.bash
+  source /home/cry/catkin_ws/devel/setup.bash
+  rosservice call /mavros/cmd/arming "value: true"
+  rostopic echo -n 1 /mavros/state
+
+必须实际读到 armed: true、mode: "OFFBOARD"。此时零推力设定值仍在持续
+发布，PX4 可能按照怠速参数让无桨电机低速转动。若无法进入 OFFBOARD、
+不能解锁、模式自动退出，停止本次测试并处理 PX4 的拒绝原因；不要用
+rostopic pub 另开一条设定值流。
+
+4. 纸板触发一次完整程序，并比较所有电机转速
+------------------------------------------
+终端 E 看状态变化：
+  rostopic echo /bench/ceiling_attachment/status
+另一个终端可看输出：
+  rostopic echo /bench/motor_thrust_command
+有 ROS ESC 遥测时另开终端：
+  rostopic echo /mavros/esc_status
+
+纸板保持 0.6～0.8 m，在终端 F 持续发布吸顶请求（结束时 Ctrl+C）：
+  rostopic pub -r 10 /bench/operator/command \
+    px4_wall_ceiling_control/OperatorCommand \
+    "{mode: 2, enable_control: true, source: 'bench', reason: 'cardboard_test'}"
+
+按 /bench/ceiling_attachment/status 的 ceiling_distance_filtered_m 判断：
+  NORMAL_FLIGHT → CEILING_ARMED：请求、PX4 状态及输入有效。
+  将纸板移到 <0.50 m：应进入 APPROACH，电机推力仍为 0。
+  进入 APPROACH 后 8 秒内，将纸板移到 <=0.12 m，至少等 0.50 秒：
+      进入 ATTACH_CONTROL，/bench/motor_thrust_command 应为 0.18。
+  尽快将纸板稳定在约 0.06～0.08 m（滤波值 <=0.085 m），
+      持续至少 0.30 秒：进入 SURFACE_HOLD，推力应变为 0.12。
+  立即在终端 F 按 Ctrl+C 撤销请求，并把纸板移到 >=0.30 m，
+      保持至少 0.20 秒；应经过 DETACH、RECOVERY_HOVER，约 2 秒后
+      回 NORMAL_FLIGHT。模拟机构应给出 released=true 的确认。
+
+在 ATTACH_CONTROL 与 SURFACE_HOLD 阶段，可比较 ULog 中所有 ESC 的 RPM
+与之前零推力/怠速阶段：每台应有对应的有效 RPM 样本，且随设定值阶段
+发生可解释的变化。不要用 /mavros/setpoint_raw/attitude/thrust 或
+/mavros/rc/out 代替真实 RPM。0.18/0.12 可能低于 ESC 可分辨区间，
+若 RPM 没有明显变化，记录为“未观察到转速响应”，不要调高上限继续试。
+
+若 4 秒有动力时限先到，mode.data 回 1、thrust=0；本轮记为未完整验证。
+若出现 FAULT、测距/odom 失效、PX4 退出 OFFBOARD、电机声音异常，
+立即撤销终端 F 请求并解除解锁；检查 status.reason 和 bag 后再决定重试。
+
+5. 结束与通过判据
+----------------
+先确认终端 F 已 Ctrl+C。终端 C：
+  rosservice call /mavros/cmd/arming "value: false"
+  rostopic echo -n 1 /mavros/state
+确认 armed=false，断开 ESC 动力电，然后停止终端 D、B、A（仅停止本次
+启动的进程）。检查无遗留设定值发布者：
+  rostopic info /mavros/setpoint_raw/attitude
+  pgrep -af 'ceiling_motor_bench.launch|ceiling_attachment_px4_observe.launch|rostopic pub'
+
+本轮“程序完成”：状态依次到 SURFACE_HOLD、DETACH、RECOVERY_HOVER、
+NORMAL_FLIGHT，fault_count 不增加，模拟机构 released=true。
+本轮“PX4/电机链路可见”：设定值话题只有一个发布者，OFFBOARD/armed
+状态真实成立，所有电机在 ULog 或 ESC 遥测中有对应 RPM，并能与
+0 → 0.18 → 0.12 → 0 的命令阶段对齐。任一项缺失，按实际现象记录，
+不得称为完整联动成功。
+
+PX4 OFFBOARD 需持续高于 2 Hz 的设定值：
+  https://docs.px4.io/main/en/flight_modes/offboard
+PX4 DShot/ESC 遥测：
+  https://docs.px4.io/main/en/peripherals/dshot
+PX4 Actuator Outputs 核对：
+  https://docs.px4.io/main/en/config/actuators

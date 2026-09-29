@@ -1,0 +1,117 @@
+# 接触式吸顶决策参数
+# 单位约定：距离=m，时间=s，速度=m/s，角度=deg，推力=0~1归一化值。
+# 当前数值是台架测试初值，不是可直接用于真机的最终参数。
+
+ceiling_attachment_decision_node:
+  # ===========================================================================
+  # 1. ROS接口
+  # 台架测试使用 /mock_mavros/local_position/odom；连接飞控后再改成
+  # /mavros/local_position/odom。
+  # ===========================================================================
+  range_topic: /sensor/ceiling/range
+  odom_topic: /mock_mavros/local_position/odom
+  state_topic: /mavros/state
+  operator_topic: /operator/command
+  detach_topic: /ceiling_attachment/detach
+  status_topic: /ceiling_attachment/status
+  control_candidate_topic: /ceiling_attachment/control_candidate
+  publish_rate_hz: 50.0
+
+  # ===========================================================================
+  # 2. 机械结构与距离标定（最先修改）
+  # contact_distance_m：机构刚接触天花板时，雷达实际读数 d0。
+  # target_compression_m：期望压缩量；目标顶距=d0-target_compression_m。
+  # activation_distance_m：小于该距离，且竖直速度足够低，才开始自动接近。
+  # contact_margin_m：允许从 APPROACH 进入接触控制的额外距离裕量。
+  # lost_contact_margin_m：贴顶时顶距大于 d0+该值，判定接触丢失并脱离。
+  # 必须满足：0 < target_compression_m < contact_distance_m
+  #           contact_distance_m + contact_margin_m < activation_distance_m
+  # ===========================================================================
+  contact_distance_m: 0.10
+  target_compression_m: 0.02
+  activation_distance_m: 0.50
+  contact_margin_m: 0.02
+  lost_contact_margin_m: 0.08
+
+  # ===========================================================================
+  # 3. 传感器滤波与输入超时
+  # 一阶低通：filtered += alpha * (raw-filtered)。alpha越小越平滑但延迟越大。
+  # L1普通连续测量约5~8Hz，当前0.60s允许短暂丢帧；真机应按实测频率调整。
+  # ===========================================================================
+  range_filter_alpha: 0.20
+  range_timeout_s: 0.60
+  odom_timeout_s: 0.50
+  # nav_msgs/Odometry.twist is expressed in child_frame_id by convention.
+  odom_twist_in_child_frame: true
+  state_timeout_s: 0.50
+  operator_timeout_s: 0.50
+  require_armed: true
+  require_offboard: true
+
+  # ===========================================================================
+  # 4. 进入条件与姿态保护
+  # ===========================================================================
+  vertical_speed_gate_mps: 0.20
+  max_roll_deg: 15.0
+  max_pitch_deg: 15.0
+
+  # ===========================================================================
+  # 5. 靠近阶段
+  # 进入 APPROACH 后先等待 approach_settle_time_s，再以固定速度向上靠近。
+  # 超过 approach_timeout_s 未接触则退出本次吸顶。
+  # ===========================================================================
+  approach_settle_time_s: 0.50
+  approach_speed_mps: 0.15
+  approach_timeout_s: 8.0
+
+  # ===========================================================================
+  # 6. 接触确认与稳定判定
+  # 压缩量 >= attach_confirm_compression_m，并持续 attach_confirm_time_s，
+  # 才从 ATTACH_CONTROL 进入 SURFACE_HOLD。
+  # ===========================================================================
+  attach_control_time_s: 0.50
+  # 接触后若距离仍未进入稳定区间，最多尝试该时长，然后受控脱离。
+  attach_control_timeout_s: 5.00
+  require_attach_confirmation: true
+  attach_confirm_compression_m: 0.015
+  attach_confirm_time_s: 0.30
+  stable_tolerance_m: 0.01
+  stable_time_s: 0.50
+
+  # ===========================================================================
+  # 7. 接触/贴顶推力候选
+  # 接触推力从 hover_thrust*attach_thrust_multiplier 开始；若顶部距离仍大于
+  # 稳定目标区间，则按 attach_thrust_ramp_per_s 递增，最高到
+  # attach_max_thrust。进入稳定距离区间后停止增加。
+  # 保持推力=hover_thrust*surface_thrust_multiplier
+  # 所有推力最终仍受 max_thrust 限制。
+  # ===========================================================================
+  # 2026-09-22 ULog 标定：悬停约0.45、稳定贴顶约0.48、接触约0.50。
+  hover_thrust: 0.45
+  attach_thrust_multiplier: 1.11
+  surface_thrust_multiplier: 1.07
+  attach_thrust_ramp_per_s: 0.02
+  attach_max_thrust: 0.55
+  max_thrust: 0.90
+
+  # ===========================================================================
+  # 8. 脱离阶段距离PID候选
+  # 脱离目标距离从压缩目标缓慢增加到独立安全分离距离。
+  # detach_timeout_s 防止距离始终达不到安全分离阈值而卡在 DETACH。
+  # ===========================================================================
+  detach_safe_distance_m: 0.30
+  detach_clear_hold_s: 0.20
+  detach_min_thrust: 0.30
+  detach_distance_ramp_mps: 0.08
+  distance_kp: 1.0
+  distance_ki: 0.0
+  distance_kd: 0.0
+  integral_limit: 1.0
+  detach_timeout_s: 5.0
+  recovery_hover_time_s: 2.0
+
+  # 真实机构驱动必须对相同 sequence 回复 acknowledged+released。
+  mechanism_candidate_topic: /attachment/mechanism_candidate
+  mechanism_status_topic: /attachment/mechanism_status
+  require_mechanism_ack: true
+  mechanism_timeout_s: 1.0

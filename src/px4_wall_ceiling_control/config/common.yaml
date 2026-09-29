@@ -1,0 +1,2 @@
+# Deprecated compatibility marker. Internal launches now load the explicit
+# sensors.yaml, operator.yaml, attachment_output.yaml and legacy.yaml files.

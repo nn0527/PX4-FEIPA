@@ -1,0 +1,643 @@
+一、测试总则
+============
+
+- 台架、SITL 和 HITL 测试期间均拆除桨叶或不连接实际动力，机构输出默认关闭。
+- 每一阶段只在上一阶段通过后进行；任何坐标方向或 failsafe 结果不符合预期，
+  立即停止并记录，不进入有桨测试。
+- /mock_mavros/* 只验证消息链，不代表真实 PX4 会按相同方向运动。
+
+
+二、阶段 0：编译和软件测试
+=========================
+
+步骤 0.1：进入工作空间并编译
+
+   cd /home/cry/catkin_ws
+   catkin_make
+   source /home/cry/catkin_ws/devel/setup.bash
+
+通过条件：
+- catkin_make 无编译错误。
+- 自定义消息均成功生成。
+
+步骤 0.2：运行已有安全单元测试
+
+   catkin_make run_tests_px4_wall_ceiling_control
+   catkin_test_results
+
+通过条件：
+- test/test_attachment_safety.py 中的测试全部通过。
+
+
+三、阶段 1：确认两路串口和雷达数据
+=================================
+
+步骤 1.1：确认串口设备
+
+   ls -l /dev/serial/by-id/
+source /home/cry/catkin_ws/devel/setup.bash
+
+export CEILING_PORT=/dev/serial/by-path/pci-0000:02:00.0-usb-0:2.1:1.0-port0
+export FRONT_PORT=/dev/serial/by-path/pci-0000:02:00.0-usb-0:2.2:1.0-port0
+
+test -e "$CEILING_PORT" && test -e "$FRONT_PORT"
+test "$(readlink -f "$CEILING_PORT")" != "$(readlink -f "$FRONT_PORT")"
+
+roslaunch px4_wall_ceiling_control lidar_dual.launch \
+  ceiling_serial_port:="$CEILING_PORT" \
+  front_serial_port:="$FRONT_PORT"
+记录：
+
+   CEILING_PORT=/dev/serial/by-id/REPLACE_WITH_CEILING_SENSOR
+   FRONT_PORT=/dev/serial/by-id/REPLACE_WITH_FRONT_SENSOR
+
+必须通过单独遮挡或移动目标板，确认哪个设备是顶部雷达、哪个设备是前向雷达。
+不要只根据 ttyUSB0/ttyUSB1 判断。
+
+步骤 1.2：启动双雷达链路
+
+   roslaunch px4_wall_ceiling_control lidar_dual.launch \
+     ceiling_serial_port:=$CEILING_PORT \
+     front_serial_port:=$FRONT_PORT
+
+步骤 1.3：在其他终端检查数据
+
+   source /home/cry/catkin_ws/devel/setup.bash
+   rostopic echo /sensor/health
+
+   rostopic hz /sensor/ceiling/raw
+   rostopic hz /sensor/front/raw
+   rostopic hz /sensor/ceiling/range
+   rostopic hz /sensor/front/range
+
+步骤 1.4：移动两块目标板
+
+- 只移动顶部目标板：只允许 ceiling 距离明显变化。
+- 只移动前向目标板：只允许 front 距离明显变化。
+- 用卷尺在若干已知距离处比较雷达读数，确认单位是米。
+- 检查近距离、远距离和目标板倾斜时是否出现跳变或错误帧。
+
+通过条件：
+- /sensor/health 中 ceiling_valid=true、front_valid=true。
+- ceiling_sequence、front_sequence 随各自真实样本独立递增。
+- 正常工作时两个 age_s 均小于 0.60 秒。
+- 两路数据不会串线或互相覆盖。
+- 滤波后的 /sensor/*/range 连续且没有明显错误残留。
+
+步骤 1.5：单路断线测试
+
+- 拔掉顶部雷达，观察顶部通道约 0.60 秒内变为无效，前向通道继续工作。
+- 恢复顶部雷达后，再拔掉前向雷达，验证相反情况。
+- 无效帧不能重复发布为新的有效距离。
+
+通过条件：
+- 一路故障不会阻塞或污染另一路。
+- invalid_count 正确增加。
+- 恢复串口后 sequence 能继续增加。
+
+
+四、阶段 2：侧吸逻辑隔离台架测试
+================================
+
+本阶段使用真实双雷达、模拟 RC/PX4/odom，并将输出隔离到 /mock_mavros/*。
+不会向真实 PX4 发布 setpoint。
+
+步骤 2.1：启动侧吸隔离链路
+
+   # 先在一个新终端启动状态变化提醒，避免错过启动后很快发生的切换
+   source /home/cry/catkin_ws/devel/setup.bash
+   rosrun px4_wall_ceiling_control wall_perch_state_monitor.py
+
+   # 再在另一个终端启动测试链路
+   source /home/cry/catkin_ws/devel/setup.bash
+   roslaunch px4_wall_ceiling_control wall_perch_sensor_test.launch
+
+步骤 2.2：分别打开监控终端
+
+   # 需要查看每帧细节时，再使用以下命令
+  source /home/cry/catkin_ws/devel/setup.bash
+    rostopic echo /wall_perch/status
+   rostopic echo /wall_perch/control_candidate
+   rostopic echo /attachment/output_owner
+   rostopic echo /attachment/output_mode
+   rostopic echo /mock_mavros/setpoint_raw/local
+   rostopic echo /mock_mavros/setpoint_raw/attitude
+
+状态提醒仅在状态发生变化时输出“旧状态 -> 新状态”、原因、两路滤波距离和故障次数；
+进入 ABORT 时会标出“警告”，并打印完整 /wall_perch/status 及最近收到的
+/sensor/health、/mock_mavros/state、/mock_mavros/local_position/odom，
+附带监控器接收时间差；缺失的消息会明确标注。终端支持响铃时，每次状态变化还会响一声。
+看到最终 IDLE 的 reason: control released 时，向上看前面的 ABORT 行才能确定中止原因。
+Ctrl+C 只会停止提醒脚本，不会停止侧吸测试链路。
+
+owner 定义：
+- 0：无 owner
+- 1：吸顶 owner
+- 2：侧吸 owner
+
+output_mode 定义：
+- 0：无输出
+- 1：局部速度 PositionTarget
+- 2：姿态加推力 AttitudeTarget
+
+步骤 2.3：按照当前 config/wall_perch.yaml 的阈值移动目标板
+
+1. 保证顶部、前向两路雷达都有效。
+2. 前向距离保持小于 0.50 m，持续至少 0.60 s。
+   预期：FRONT_WALL_DETECT -> STABILIZE_HOVER。
+3. 再等待至少 1.50 s。
+   预期：STABILIZE_HOVER -> SLOW_APPROACH。
+4. 在进入 SLOW_APPROACH 后 20.0 s 内，让前向滤波距离小于等于 0.20 m，
+   并由新样本持续确认至少 0.30 s。
+   预期：进入 FLIP_TO_WALL。
+   翻转开始后，前向雷达只用于观察，不再作为状态或安全判定依据。
+5. FLIP_TO_WALL 默认持续 2.0 s；进入 WALL_CAPTURE 后最多等待 30.0 s；
+   顶部滤波距离小于等于 0.05 m，由新样本连续确认至少 2.0 s。
+   预期：WALL_CAPTURE -> WALL_HOLD。
+   进入 WALL_HOLD 后若顶部滤波距离大于 0.05 m，立即按接触丢失进入 ABORT。
+   台架与实机使用相同阈值；顶部雷达/飞行状态安全故障不会等满 30.0 s。
+6. 当前 hold_time_s=2.0 s，到时自动进入 DETACH_ROTATE；脱离旋转持续 2.0 s。
+7. 在恢复阶段将顶部距离保持大于等于 0.10 m，由新样本持续确认至少 0.50 s。
+   预期：RECOVER -> EXIT -> IDLE。
+
+步骤 2.4：检查侧吸候选
+
+预期：
+- 动作期间 owner=2，不允许出现 owner=1。
+- 等待阶段通常 output_mode=1，并输出零速度。
+- SLOW_APPROACH、FLIP、CAPTURE、HOLD、DETACH、RECOVER 阶段通常
+  output_mode=2。
+- 初始 yaw=0 且 wall_angle_deg=-90 时，最终候选四元数约为：
+
+     x=0.0
+     y=-0.7071
+     z=0.0
+     w=0.7071
+
+- 当前墙面保持推力候选约为：
+
+     hover_thrust * hold_thrust_multiplier
+     0.55 * 1.50 = 0.825
+
+注意：四元数数值正确只说明 ROS 节点生成了 -90 度 pitch 候选，不能证明真实飞机
+一定朝正确墙面翻转。翻转方向必须在 SITL/HITL 中用小角度验证。
+
+步骤 2.5：确认一次动作不会自动重复
+
+- 完成 EXIT -> IDLE 后，不释放模拟侧吸开关。
+- 确认状态机不会立刻再次开始翻转。
+- 重新测试可重启 launch；后续真实 RC 测试需要先释放开关再重新打开。
+
+
+五、阶段 3：吸顶逻辑隔离台架测试
+================================
+
+本阶段使用真实顶部雷达、模拟 PX4/odom/RC 和模拟机构确认。
+
+步骤 3.1：启动吸顶隔离链路
+   # 先在一个新终端启动状态变化提醒，避免漏掉快速切换或 FAULT 快照
+   source /home/cry/catkin_ws/devel/setup.bash
+   rosrun px4_wall_ceiling_control ceiling_attachment_state_monitor.py
+
+   # 再在另一个终端启动测试链路
+   source /home/cry/catkin_ws/devel/setup.bash
+  
+   roslaunch px4_wall_ceiling_control ceiling_attachment_sensor_test.launch
+
+步骤 3.2：打开监控终端
+
+   # 需要查看每帧细节时，再使用以下命令
+
+   rostopic echo /ceiling_attachment/status
+   rostopic echo /ceiling_attachment/control_candidate
+   rostopic echo /ceiling_attachment/output_mode
+   rostopic echo /mock_mavros/setpoint_raw/local
+   rostopic echo /mock_mavros/setpoint_raw/attitude
+   rostopic echo /attachment/mechanism_candidate
+   rostopic echo /attachment/mechanism_command
+   rostopic echo /attachment/mechanism_status
+
+状态提醒平时只显示状态切换、顶部滤波距离、压缩量和故障次数；进入 FAULT 时
+打印完整 /ceiling_attachment/status 及最近收到的顶部 Range、/sensor/health、
+模拟飞控/里程计和机构状态，并标注监控器接收时间差。
+
+步骤 3.3：按照当前 ceiling_attachment.yaml 的距离移动目标板
+
+1. 顶部距离大于 0.50 m：等待捕获。
+2. 顶部距离小于 0.50 m，且模拟竖直速度为零：进入 APPROACH。
+3. 稳定约 0.50 s 后：
+
+     /mock_mavros/setpoint_raw/local.velocity.z 约为 +0.15 m/s
+
+   正号表示 ROS ENU 向上/朝天花板接近。
+4. 顶部距离小于等于 contact_distance_m + contact_margin_m：
+
+     0.10 + 0.02 = 0.12 m
+
+   预期：进入 ATTACH_CONTROL。
+5. 压缩量持续满足确认条件。按当前参数，滤波距离约小于等于 0.085 m，并持续
+   至少 0.30 s。
+   预期：ATTACH_CONTROL -> SURFACE_HOLD。
+
+步骤 3.4：触发脱离
+
+   rostopic pub -1 /ceiling_attachment/detach std_msgs/Bool "data: true"
+
+mock_attachment_mechanism_node 应返回与 RELEASE 命令相同 sequence 的确认。
+将顶部目标板逐渐移远，并保持距离大于等于 0.30 m。
+
+预期：
+
+   DETACH -> RECOVERY_HOVER -> NORMAL_FLIGHT
+
+通过条件：
+- RELEASE 命令和 ACK 的 sequence 相同。
+- 未收到 ACK 时不能把脱离误报为成功。
+- 接近阶段 z 速度为正；脱离阶段推力不超过悬停推力并不低于配置下限。
+- 全部输出只存在于 /mock_mavros/*。
+
+
+六、阶段 4：连接真实 PX4，但禁止真实输出
+========================================
+
+前提：
+- 螺旋桨仍全部拆除。
+- PX4 保持未解锁。
+- 吸附机构保持断电。
+- MAVROS 已使用与飞控匹配的连接参数单独启动。
+
+步骤 4.1：检查 MAVROS
+source /home/cry/catkin_ws/devel/setup.bash
+   rostopic echo -n 1 /mavros/state
+   rostopic hz /mavros/local_position/odom
+
+通过条件：
+- connected=true。
+- odom 稳定发布，且没有明显时间戳停滞。
+
+步骤 4.2：启动统一真实输入链路，保持所有真实输出关闭
+source /home/cry/catkin_ws/devel/setup.bash
+   roslaunch px4_wall_ceiling_control attachment_system_mavros.launch \
+     ceiling_serial_port:=$CEILING_PORT \
+     front_serial_port:=$FRONT_PORT \
+     ceiling_enabled:=true \
+     wall_enabled:=true \
+     output_enabled:=false \
+     mechanism_output_enabled:=false
+
+步骤 4.3：确认没有真实 setpoint 流
+
+   rostopic echo /attachment/output_mode
+   rostopic info /mavros/setpoint_raw/local
+   rostopic info /mavros/setpoint_raw/attitude
+
+通过条件：
+- /attachment/output_mode 始终为 0。
+- MAVROS setpoint 话题不存在持续消息流。
+- setpoint 话题的 publisher 列表中不得同时出现多个控制输出节点。
+
+
+七、阶段 5：手动倾斜验证 PX4 -> ROS 坐标转换
+================================================
+
+本阶段只能验证反馈路径：
+
+   PX4 NED/FRD -> MAVROS -> ROS ENU/FLU odom
+
+不能验证输出路径：
+
+   ROS setpoint -> MAVROS -> PX4 -> 飞行器实际响应
+
+步骤 5.1：运行 odom 欧拉角观察程序
+
+   source /home/cry/catkin_ws/devel/setup.bash
+
+   python3 - <<'PY'
+   import math
+   import rospy
+   from nav_msgs.msg import Odometry
+   from tf.transformations import euler_from_quaternion
+
+   last_print = [0.0]
+
+   def callback(msg):
+       now = rospy.get_time()
+       if now - last_print[0] < 0.2:
+           return
+       last_print[0] = now
+       q = msg.pose.pose.orientation
+       roll, pitch, yaw = euler_from_quaternion([q.x, q.y, q.z, q.w])
+       print(
+           "\rroll=%7.2f deg  pitch=%7.2f deg  yaw=%7.2f deg  z=%7.3f m"
+           % (
+               math.degrees(roll),
+               math.degrees(pitch),
+               math.degrees(yaw),
+               msg.pose.pose.position.z,
+           ),
+           end="",
+           flush=True,
+       )
+
+   rospy.init_node("odom_coordinate_check")
+   rospy.Subscriber("/mavros/local_position/odom", Odometry, callback, queue_size=1)
+   rospy.spin()
+   PY
+
+步骤 5.2：手动移动飞行器并记录符号
+
+动作                                      ROS odom 预期
+-----------------------------------------------------------------
+整体抬高                                  position.z 增大
+机头向上                                  pitch 变为负值
+机头向下                                  pitch 变为正值
+右侧降低、左侧抬高                        roll 变为正值
+左侧降低、右侧抬高                        roll 变为负值
+从上方看机头逆时针转动                    yaw 增大
+从上方看机头顺时针转动                    yaw 减小
+
+判断方法：
+- 重点比较相对变化方向，不要求初始 roll/pitch/yaw 全为零。
+- yaw 可能在 +180/-180 度边界跳变。
+- 机头向上约 10 度时，PX4 FRD 的 pitch 通常为正，而 ROS FLU 的 pitch 应约为
+  -10 度。符号相反是 FRD -> FLU 正确转换的表现。
+
+重要限制：
+- pose.position 和 pose.orientation 处于 map/ENU 语义。
+- Odometry.twist 按消息规范属于 child_frame_id，MAVROS 默认通常是 base_link/FLU。
+- 因此 twist.twist.linear.z 不能在大姿态下直接当作世界竖直速度。
+- 当前两套决策已通过 adapters/odometry.py 将 child_frame_id 速度旋转到父坐标系，
+  然后判断 ENU 竖直速度；仍须在 SITL/HITL 中核对实际 odom 来源与坐标方向。
+
+
+八、阶段 6：真实 RC 和 owner 仲裁测试，仍禁止输出
+=================================================
+
+保持阶段 4 的 launch 正在运行，并保持 output_enabled=false。
+
+步骤 6.1：两个开关都关闭
+
+预期：
+- /operator/command 为 STANDBY。
+- enable_control=false。
+- owner 最终为 0。
+
+步骤 6.2：只打开吸顶开关
+
+预期：
+- /operator/command 为 MODE_CEILING。
+- 条件未满足或 PX4 未解锁/非 OFFBOARD 时，不允许产生真实输出。
+
+步骤 6.3：释放吸顶开关，等待至少 0.50 s，再只打开侧吸开关
+
+预期：
+- /operator/command 为 MODE_WALL。
+- 不允许 owner 从 1 直接跳到 2；必须经过 owner=0 和 handoff_dwell_s。
+
+步骤 6.4：两个开关同时打开
+
+预期：
+- /operator/command 为 MODE_ABORT。
+- enable_control=false。
+- 空闲状态不得取得 owner。
+- 如果动作已经开始，原 owner 可以保留到 ABORT/RECOVER 安全退出，但不得把
+  owner 直接交给另一个决策。
+
+
+九、阶段 7：故障注入测试
+========================
+
+优先在 /mock_mavros 隔离测试入口完成以下测试：
+
+1. 动作前拔掉顶部雷达。
+   预期：侧吸因 require_top_sensor_on_acquire=true 不能取得 owner。
+
+2. FLIP 前拔掉前向雷达。
+   预期：进入 ABORT 或候选失效，不能继续使用旧距离。
+
+   FLIP 开始后拔掉前向雷达。
+   预期：不会仅因前向雷达失效进入 ABORT；顶部雷达和飞行状态安全检查仍有效。
+
+3. FLIP 前拔掉顶部雷达。
+   预期：进入 ABORT，不能盲目翻转。
+
+4. owner 保持期间停止决策的 /control_candidate 消息。
+   预期：owner 进入互锁释放流程，不能被另一个决策立即抢占。
+
+5. owner 保持期间令 AttachmentControlCandidate.valid=false。
+   预期：owner 暂时保留，但 output_mode=0，停止发布新 setpoint。
+
+6. 停止 odom 输入。
+   预期：在 odom_timeout_s 之后输出被抑制，状态进入 FAULT/ABORT。
+
+7. 停止 MAVROS state 输入。
+   预期：在 state_timeout_s 之后输出被抑制。
+
+8. 模拟机构不返回 RELEASE ACK。
+   预期：吸顶脱离超时进入 FAULT，不能报告脱离成功。
+
+9. 动作结束后保持 RC 开关为高。
+   预期：必须先释放开关才能开始下一次动作。
+
+通过条件：
+- 所有失效都采用 fail-closed 行为。
+- 不允许使用超时前保存的旧距离继续动作。
+- 不允许两个决策同时控制 PX4。
+- 输出停止时间符合配置的 timeout 和一个控制周期裕量。
+
+
+十、记录 rosbag
+==============
+
+建议每次侧吸或吸顶测试前启动：
+
+   cd /home/cry/catkin_ws
+   rosbag record -O bench_attachment.bag \
+     /sensor/ceiling/raw \
+     /sensor/front/raw \
+     /sensor/ceiling/range \
+     /sensor/front/range \
+     /sensor/health \
+     /operator/command \
+     /mavros/state \
+     /mavros/local_position/odom \
+     /ceiling_attachment/status \
+     /ceiling_attachment/control_candidate \
+     /wall_perch/status \
+     /wall_perch/control_candidate \
+     /attachment/output_owner \
+     /attachment/output_mode \
+     /attachment/mechanism_candidate \
+     /attachment/mechanism_command \
+     /attachment/mechanism_status \
+     /mock_mavros/setpoint_raw/local \
+     /mock_mavros/setpoint_raw/attitude
+
+每次测试使用不同的 bag 文件名，记录日期、配置版本、雷达安装方式和异常现象。
+
+
+十一、阶段 8：SITL/HITL 控制方向验证
+===================================
+
+目的：验证 ROS 控制候选 -> 唯一输出 mux -> MAVROS -> PX4 -> 仿真飞机运动的
+正向控制链。前面的无桨手动倾斜只验证 PX4 -> MAVROS -> ROS 的反馈方向，
+不能证明飞机接收 setpoint 后会向正确方向运动。
+
+SITL：PX4 和飞机动力学都在电脑里运行，不接真实飞控；先做此项。
+HITL：真实飞控运行 PX4，电脑仿真飞机及传感器；必须拆桨，并隔离真实机构。
+
+步骤 8.1：准备 SITL 环境
+
+- 本机已使用 Ubuntu 20.04、ROS Noetic、MAVROS 和 Gazebo Classic 11。
+- 另需 PX4-Autopilot 源码及与所用 PX4 版本对应的仿真依赖。如果还没有 PX4 源码，
+  先按文末 PX4 官方 Noetic/Gazebo Classic 文档安装；不要混用新版 Gazebo 的
+  gz_x500 启动命令。源码版本、仿真模型和真机固件版本应记录在测试记录中。
+- SITL 初次只启动 PX4、Gazebo 和 MAVROS，不启动本包的真实双雷达 launch。
+  普通 Iris 模型不会自动发布本包需要的顶部/前向两路 Range 话题。
+
+终端 A（PX4-Autopilot 源码根目录）：
+
+   cd /实际路径/PX4-Autopilot
+   make px4_sitl gazebo-classic
+
+终端 B（与 SITL 同一台电脑；按实际端口调整 fcu_url）：
+
+   source /opt/ros/noetic/setup.bash
+   roslaunch mavros px4.launch fcu_url:="udp://:14540@127.0.0.1:14557"
+
+终端 C：
+
+   rostopic echo -n 1 /mavros/state
+   rostopic hz /mavros/local_position/odom
+
+通过条件：connected=true、odom 连续更新、Gazebo 中飞机模型存在。
+若连接或定位未通过，先修复 PX4/MAVROS/仿真器，不进入控制方向测试。
+
+步骤 8.2：先解决 OFFBOARD 预发送，再接入本包输出
+
+当前 attachment_output_mux_node 同时要求 owner 非 0、飞控已解锁且处于 OFFBOARD
+才发布 setpoint；但 PX4 要求切入 OFFBOARD 之前，先连续接收超过 2 Hz、持续
+至少约 1 秒的有效 setpoint。仅把统一 launch 的 output_enabled 设为 true，
+不能完成这一启动过程，也不能视为通过 SITL 验证。
+
+完整链路测试前，必须实现或准备一个经过验证的安全零速度预发送/交接流程：
+- 预发送阶段只发零速度或安全保持指令，不发贴顶、翻转或机构动作。
+- 同一时刻只允许一个节点向真实 /mavros/setpoint_raw/* 发布控制流。
+- 检查 rostopic info，不能由两个测试发布者长期同时写入同一控制话题。
+- 明确由谁请求解锁和 OFFBOARD；本包不会自动解锁或切换飞行模式。
+- mechanism_output_enabled 全程保持 false。
+
+在上述预发送流程实现并单独验证前，本步骤标记为“未完成”；不要跳过它，
+也不要直接在真机/HITL 上将 require_armed 或 require_offboard 关闭来绕过门控。
+
+步骤 8.3：SITL 小指令方向验证
+
+完成步骤 8.2 后，以单一控制出口分别测试，不同时启动 standalone 输出节点和
+attachment_output_mux_node。每次记录发布的 setpoint、/mavros/state、
+/mavros/local_position/odom 和 Gazebo 画面：
+
+1. 上升方向：只给很小的 ROS ENU 正 z 速度，观察
+   /mavros/setpoint_raw/local.velocity.z > 0，且仿真飞机高度 position.z 增大。
+   负 z 应使高度减小。若方向相反，立即停止，不继续测试贴顶动作。
+2. 姿态方向：先只做绝对值约 5 度的姿态目标，比较 +5 度和 -5 度产生的
+   roll/pitch 变化及仿真机体偏转方向。修改 wall_angle_deg 后要重启决策节点；
+   当前参数是在启动时读取的，运行中 rosparam set 不会自动更新。
+3. 推力方向：先在仿真中比较小幅推力变化，确认增大归一化推力不会产生与预期
+   相反的竖直加速度。悬停、接触和脱离推力都不能照搬台架 YAML 初值。
+
+普通 Iris 没有顶部雷达的安装轴，也没有目标墙面；只能确认机体姿态变化方向。
+要验证“顶部雷达轴是否朝墙面”和完整侧吸/吸顶状态机，必须另行建立包含墙面、
+顶部/前向雷达安装姿态和两路对应 Range 话题的仿真模型。真实电脑串口雷达静止
+放在台架上时，其数据不会随 Gazebo 飞机运动，不能当作闭环仿真传感器。
+
+步骤 8.4：SITL 故障与模式交接
+
+- 按本机 PX4 版本检查 COM_OF_LOSS_T、COM_OBL_RC_ACT 以及 RC 失联参数。
+- 在安全仿真高度分别停止 setpoint、断开 MAVROS、模拟 RC 失联；记录从故障
+  到 PX4 实际模式切换/着陆/保持的时间与动作，不能只看 ROS output_mode=0。
+- 测试吸顶 -> STANDBY -> 侧吸：owner 必须先归 0，再满足 handoff_dwell_s；
+  不允许由 owner=1 直接跳到 owner=2。
+- 方向和故障处理都正确后，才逐级测试 15、30、60、90 度。每级检查角速度、
+  高度、推力限制和 ABORT/RECOVER；不能直接跳到 90 度。
+
+步骤 8.5：HITL 重复验证（SITL 通过后才进行）
+
+1. 拆掉全部桨叶；断开真实电机/ESC 动力和吸附机构输出，机构总使能保持 false。
+2. 用 QGroundControl 给真实飞控启用 HITL，选择与模拟器兼容的机架并重启。
+3. 按 PX4 官方 HITL 文档启动 Gazebo Classic HITL 模型，使仿真器与飞控连接。
+4. 为 MAVROS 规划独立 MAVLink 链路或经仿真器转发的端口。仿真器若已经打开
+   飞控 USB 串口，MAVROS 不能再直接占用同一个串口。
+5. 先确认 connected=true、仿真 odom 连续，再重复步骤 8.2～8.4 的小指令、
+   交接和故障测试；不接真实机构，也不直接测试 90 度。
+
+通过条件：SITL 和 HITL 中，ROS 命令方向、仿真机体运动、odom 反馈一致；
+OFFBOARD 预发送和丢流保护有效；所有 failsafe 与事先记录的参数一致。
+若尚未搭好仿真双雷达，只能写“飞控控制方向已验证”，不能写“双雷达完整闭环
+已验证”。HITL 不能替代最后的受控有桨试飞。
+
+PX4 官方参考（具体路径/参数以实际固件版本为准）：
+- Noetic + Gazebo Classic 环境：
+  https://docs.px4.io/v1.14/en/dev_setup/dev_env_linux_ubuntu
+- PX4 SITL 与 ROS/MAVROS：
+  https://docs.px4.io/v1.14/en/simulation/ros_interface
+- PX4 HITL：
+  https://docs.px4.io/v1.14/en/simulation/hitl
+- OFFBOARD 预发送和失联条件：
+  https://docs.px4.io/v1.14/en/flight_modes/offboard
+- Failsafe 配置：
+  https://docs.px4.io/v1.14/en/config/safety
+
+
+十二、进入有桨测试前的通过清单
+================================
+
+[ ] 软件编译和单元测试全部通过。
+[ ] 两路雷达端口不会交换，距离单位和安装方向已确认。
+[ ] 两路 health/sequence/timeout 独立工作。
+[ ] 吸顶隔离状态链完整通过。
+[ ] 侧吸隔离状态链完整通过。
+[ ] owner 从未出现直接跨模式切换。
+[ ] 双 RC 开关冲突能立即禁止新动作。
+[ ] PX4 -> MAVROS -> ROS 的 z、roll、pitch、yaw 变化方向已手动确认。
+[ ] Odometry.twist 的机体系/世界系问题已经处理。
+[ ] OFFBOARD 安全零速度预发送与单出口交接流程已验证。
+[ ] ROS -> MAVROS -> PX4 输出方向已在 SITL/HITL 用小角度确认。
+[ ] 顶部/前向仿真雷达安装轴、墙面与两路 Range 话题已验证（完整闭环测试时）。
+[ ] Offboard 丢流、RC 失联、MAVROS 断连 failsafe 已验证。
+[ ] 真实悬停推力、接触推力、保持推力、脱离推力已经标定。
+[ ] 真实 setpoint 话题只有 attachment_output_mux_node 一个发布出口。
+[ ] 机构输出已独立测试，RELEASE 命令与 ACK sequence 一致。
+[ ] 首次有桨测试的安全区域、防护网、安全绳、急停和现场人员分工已确认。
+
+只有以上项目全部确认后，才进入低高度、低速度、有限推力的有桨试飞。
+
+
+十三、单次测试记录模板
+======================
+
+日期：
+测试人员：
+代码/配置版本：
+顶部雷达端口：
+前向雷达端口：
+PX4 固件版本：
+MAVROS 版本：
+测试阶段：
+是否拆桨：
+output_enabled：
+mechanism_output_enabled：
+rosbag 文件：
+
+检查结果：
+[ ] 通过
+[ ] 不通过
+
+异常现象：
+
+关键时间点和 topic：
+
+处理结论：
+
+是否允许进入下一阶段：
+[ ] 是
+[ ] 否

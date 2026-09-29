@@ -1,0 +1,71 @@
+<launch>
+  <!-- Propeller-free, fixed-frame bench only. Run one MAVROS instance separately. -->
+  <arg name="ceiling_serial_port" default="" />
+  <arg name="output_enabled" default="false" />
+  <arg name="motor_enabled" default="false" />
+  <arg name="max_thrust" default="0.20" />
+  <arg name="attach_thrust" default="0.20" />
+  <arg name="hold_thrust" default="0.14" />
+  <arg name="max_active_s" default="4.0" />
+
+  <rosparam command="load" file="$(find px4_wall_ceiling_control)/config/sensors.yaml" />
+  <rosparam command="load" file="$(find px4_wall_ceiling_control)/config/ceiling_attachment.yaml" />
+
+  <node pkg="px4_wall_ceiling_control" type="lidar_distance_node.py"
+        name="ceiling_lidar_node" output="screen">
+    <param name="serial_port" value="$(arg ceiling_serial_port)" />
+    <param name="range_topic" value="/bench/sensor/ceiling/raw" />
+  </node>
+  <node pkg="px4_wall_ceiling_control" type="sensor_range_manager_node.py"
+        name="sensor_range_manager_node" output="screen">
+    <param name="ceiling_input_topic" value="/bench/sensor/ceiling/raw" />
+    <param name="front_input_topic" value="/bench/sensor/front/raw" />
+    <param name="ceiling_output_topic" value="/bench/sensor/ceiling/range" />
+    <param name="front_output_topic" value="/bench/sensor/front/range" />
+    <param name="health_topic" value="/bench/sensor/health" />
+  </node>
+  <node pkg="px4_wall_ceiling_control" type="ceiling_attachment_decision_node.py"
+        name="ceiling_attachment_decision_node" output="screen">
+    <param name="odom_topic" value="/mavros/local_position/odom" />
+    <param name="range_topic" value="/bench/sensor/ceiling/range" />
+    <param name="operator_topic" value="/bench/operator/command" />
+    <param name="detach_topic" value="/bench/ceiling_attachment/detach" />
+    <param name="status_topic" value="/bench/ceiling_attachment/status" />
+    <param name="control_candidate_topic" value="/bench/ceiling_attachment/control_candidate" />
+    <param name="mechanism_candidate_topic" value="/bench/attachment/mechanism_candidate" />
+    <param name="mechanism_status_topic" value="/bench/attachment/mechanism_status" />
+    <param name="require_armed" value="true" />
+    <param name="require_offboard" value="true" />
+    <param name="state_timeout_s" value="1.5" />
+  </node>
+  <node pkg="px4_wall_ceiling_control" type="mock_attachment_mechanism_node.py"
+        name="mock_attachment_mechanism_node" output="screen">
+    <param name="command_topic" value="/bench/attachment/mechanism_command" />
+    <param name="status_topic" value="/bench/attachment/mechanism_status" />
+  </node>
+  <node pkg="px4_wall_ceiling_control" type="attachment_mechanism_output_node.py"
+        name="attachment_mechanism_output_node" output="screen">
+    <param name="candidate_topic" value="/bench/attachment/mechanism_candidate" />
+    <param name="command_topic" value="/bench/attachment/mechanism_command" />
+    <param name="output_enabled" value="true" />
+    <param name="require_ceiling_owner" value="false" />
+  </node>
+  <node pkg="px4_wall_ceiling_control" type="ceiling_motor_bench_output_node.py"
+        name="ceiling_motor_bench_output_node" output="screen">
+    <param name="output_enabled" value="$(arg output_enabled)" />
+    <param name="motor_enabled" value="$(arg motor_enabled)" />
+    <param name="max_thrust" value="$(arg max_thrust)" />
+    <param name="attach_thrust" value="$(arg attach_thrust)" />
+    <param name="hold_thrust" value="$(arg hold_thrust)" />
+    <param name="max_active_s" value="$(arg max_active_s)" />
+  </node>
+  <node pkg="px4_wall_ceiling_control" type="ceiling_attachment_state_monitor.py"
+        name="ceiling_attachment_state_monitor" output="screen">
+    <param name="status_topic" value="/bench/ceiling_attachment/status" />
+    <param name="range_topic" value="/bench/sensor/ceiling/range" />
+    <param name="health_topic" value="/bench/sensor/health" />
+    <param name="state_topic" value="/mavros/state" />
+    <param name="odom_topic" value="/mavros/local_position/odom" />
+    <param name="mechanism_topic" value="/bench/attachment/mechanism_status" />
+  </node>
+</launch>

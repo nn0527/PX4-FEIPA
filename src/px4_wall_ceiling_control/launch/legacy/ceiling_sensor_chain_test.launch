@@ -1,0 +1,70 @@
+<launch>
+  <!--
+    LEGACY bench-only generic distance-control chain:
+    real L1 -> ceiling FSM -> controller -> mux -> /mock_mavros/setpoint_raw/local
+    No output in this launch is connected to the real MAVROS setpoint topics.
+  -->
+  <arg name="serial_port"
+       default="/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0" />
+  <arg name="startup_command" default="iACM" />
+  <arg name="target_distance_m" default="1.0" />
+  <arg name="range_timeout_s" default="0.6" />
+
+  <node pkg="px4_wall_ceiling_control" type="lidar_distance_node.py"
+        name="ceiling_lidar_node" output="screen">
+    <param name="serial_port" value="$(arg serial_port)" />
+    <param name="baudrate" value="38400" />
+    <param name="input_format" value="l1_ascii" />
+    <param name="startup_command" value="$(arg startup_command)" />
+    <param name="range_topic" value="/sensor/ceiling/raw" />
+    <param name="frame_id" value="ceiling_lidar_link" />
+    <param name="min_range_m" value="0.03" />
+    <param name="max_range_m" value="40.0" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="mock_flight_inputs_node.py"
+        name="mock_flight_inputs_node" output="screen" />
+
+  <node pkg="px4_wall_ceiling_control" type="operator_gate_node.py"
+        name="operator_gate_node" output="screen">
+    <param name="rc_topic" value="/mock_mavros/rc/in" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="sensor_range_manager_node.py"
+        name="sensor_range_manager_node" output="screen">
+    <param name="input_timeout_s" value="$(arg range_timeout_s)" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="flight_supervisor_node.py"
+        name="flight_supervisor_node" output="screen">
+    <param name="mavros_state_topic" value="/mock_mavros/state" />
+    <param name="odom_topic" value="/mock_mavros/local_position/odom" />
+    <param name="ceiling_range_topic" value="/sensor/ceiling/range" />
+    <param name="range_timeout_s" value="$(arg range_timeout_s)" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="ceiling_fsm_node.py"
+        name="ceiling_fsm_node" output="screen">
+    <param name="target_distance_m" value="$(arg target_distance_m)" />
+    <param name="range_timeout_s" value="$(arg range_timeout_s)" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="ceiling_controller_node.py"
+        name="ceiling_controller_node" output="screen">
+    <param name="controller_enabled" value="true" />
+    <param name="odom_topic" value="/mock_mavros/local_position/odom" />
+    <param name="input_timeout_s" value="$(arg range_timeout_s)" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="setpoint_mux_node.py"
+        name="setpoint_mux_node" output="screen">
+    <param name="output_enabled" value="true" />
+    <param name="ceiling_output_enabled" value="true" />
+    <param name="wall_output_enabled" value="false" />
+    <param name="local_setpoint_topic"
+           value="/mock_mavros/setpoint_raw/local" />
+    <param name="attitude_setpoint_topic"
+           value="/mock_mavros/setpoint_raw/attitude" />
+    <param name="candidate_timeout_s" value="0.3" />
+  </node>
+</launch>

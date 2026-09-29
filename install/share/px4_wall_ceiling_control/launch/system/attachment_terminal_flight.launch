@@ -1,0 +1,41 @@
+<launch>
+  <!-- Real MAVROS output: use only after sensor, frame and thrust calibration. -->
+  <arg name="ceiling_serial_port" default="/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0" />
+  <arg name="front_serial_port" default="" />
+  <arg name="flight_enabled" default="false" />
+  <arg name="rc_assist_enabled" default="$(arg flight_enabled)" />
+  <arg name="rc_roll_channel_index" default="-1" />
+  <arg name="rc_pitch_channel_index" default="-1" />
+  <arg name="rc_throttle_channel_index" default="-1" />
+  <arg name="rc_roll_reverse" default="false" />
+  <arg name="rc_pitch_reverse" default="false" />
+  <arg name="rc_pwm_low" default="1000" />
+  <arg name="rc_pwm_center" default="1500" />
+  <arg name="rc_pwm_high" default="2000" />
+  <arg name="rc_center_tolerance_pwm" default="70" />
+  <arg name="hover_thrust" default="0.45" />
+  <include file="$(find px4_wall_ceiling_control)/launch/system/attachment_system_mavros.launch">
+    <arg name="ceiling_serial_port" value="$(arg ceiling_serial_port)" />
+    <arg name="front_serial_port" value="$(arg front_serial_port)" />
+    <arg name="operator_source" value="terminal" />
+    <arg name="flight_mode_enabled" value="$(arg flight_enabled)" />
+    <arg name="ceiling_enabled" value="true" />
+    <arg name="wall_enabled" value="true" />
+    <arg name="output_enabled" value="$(arg flight_enabled)" />
+    <arg name="mechanism_output_enabled" value="false" />
+    <arg name="require_mechanism_ack" value="false" />
+    <arg name="wall_hold_time_s" value="0.0" />
+    <arg name="rc_assist_enabled" value="$(arg rc_assist_enabled)" />
+    <arg name="require_rc_center" value="$(arg flight_enabled)" />
+    <arg name="rc_roll_channel_index" value="$(arg rc_roll_channel_index)" />
+    <arg name="rc_pitch_channel_index" value="$(arg rc_pitch_channel_index)" />
+    <arg name="rc_throttle_channel_index" value="$(arg rc_throttle_channel_index)" />
+    <arg name="rc_roll_reverse" value="$(arg rc_roll_reverse)" />
+    <arg name="rc_pitch_reverse" value="$(arg rc_pitch_reverse)" />
+    <arg name="rc_pwm_low" value="$(arg rc_pwm_low)" />
+    <arg name="rc_pwm_center" value="$(arg rc_pwm_center)" />
+    <arg name="rc_pwm_high" value="$(arg rc_pwm_high)" />
+    <arg name="rc_center_tolerance_pwm" value="$(arg rc_center_tolerance_pwm)" />
+    <arg name="hover_thrust" value="$(arg hover_thrust)" />
+  </include>
+</launch>

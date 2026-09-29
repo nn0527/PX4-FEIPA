@@ -1,0 +1,110 @@
+# ROS port of the external PX4 wall_perch reference module. These are
+# bench-test initial values, not flight-qualified gains or limits.
+wall_perch_decision_node:
+  decision_enabled: false
+
+  front_range_topic: /sensor/front/range
+  top_range_topic: /sensor/ceiling/range
+  sensor_health_topic: /sensor/health
+  odom_topic: /mavros/local_position/odom
+  state_topic: /mavros/state
+  operator_topic: /operator/command
+  detach_topic: /wall_perch/detach
+  cancel_topic: /wall_perch/cancel
+  status_topic: /wall_perch/status
+  control_candidate_topic: /wall_perch/control_candidate
+  publish_rate_hz: 50.0
+
+  # WP_FRN_RD_DIST / WP_FRN_RD_HLD
+  front_ready_distance_m: 0.50
+  # 前距连续满足0.4 s后直接进入SLOW_APPROACH。
+  front_ready_hold_s: 0.40
+  # WP_FLP_TRD_DIST / WP_FLP_TRD_HLD
+  flip_trigger_distance_m: 0.20
+  flip_trigger_hold_s: 0.30
+  # WP_TOP_CT_DIST / WP_TOP_CT_HLD
+  top_contact_distance_m: 0.05
+  # 顶距连续确认1 s后从WALL_CAPTURE进入WALL_HOLD。
+  top_contact_hold_s: 1.00
+  top_clear_distance_m: 0.10
+  top_clear_hold_s: 0.50
+  # 翻转后顶部雷达成为贴墙压力反馈：距离偏大时增推，恢复后回到名义保持值。
+  wall_pressure_target_distance_m: 0.05
+  wall_pressure_tolerance_m: 0.01
+
+  # 正常流程跳过STABILIZE_HOVER；保留参数仅用于旧状态兼容。
+  stabilize_time_s: 0.00
+  approach_timeout_s: 20.00
+  flip_time_s: 2.00
+  capture_time_s: 0.50
+  # Safety input failures still abort immediately; these are phase limits only.
+  capture_timeout_s: 8.00
+  # Remain against the wall until the operator stops the wheels and requests detach.
+  hold_time_s: 0.00
+  hold_entry_blend_s: 0.50
+  # Bench starting gates for operator-triggered detach; tune from geometry/logs.
+  detach_reference_angle_deg: 10.0
+  detach_axis_error_deg: 5.0
+  detach_max_rate_rps: 0.15
+  detach_max_abs_vertical_speed_mps: 0.15
+  detach_stable_hold_s: 0.50
+  # 90 deg over 4 s (quintic setpoint); verify wheel contact and sink rate on rig.
+  detach_time_s: 4.00
+  recover_time_s: 1.00
+  # Capture odometry Z when detach starts. As the body levels, use Z/vertical
+  # speed feedback and measured tilt to request the vertical hover component.
+  # Keep the wall-pressure thrust while the wheels roll on the wall. Near 90 deg,
+  # wheel friction must support weight; thrust is capped at max_thrust.
+  detach_altitude_kp: 0.50
+  detach_vertical_speed_kd: 0.30
+  detach_compensation_start_deg: 75.0
+  # Remain in RECOVER until both height and vertical speed settle.
+  detach_altitude_tolerance_m: 0.10
+  detach_vertical_speed_tolerance_mps: 0.20
+
+  # Positive pitch matches the direction verified by pitch_45_test.py.
+  # Only +45 deg has been bench tested; the +90 deg target still needs validation.
+  wall_angle_deg: 90.0
+  # 慢速接近一开始就向墙倾斜3°，不再先做翻转前悬停稳定阶段。
+  approach_pitch_deg: 3.0
+  # 2026-09-22 ULog：翻转前约0.47，翻转实际四电机均值约0.616。
+  hover_thrust: 0.45
+  approach_thrust: 0.47
+  flip_thrust_multiplier: 1.35
+  hold_thrust_multiplier: 1.50
+  # 贴墙距离仍偏大时，以0.03/s从翻转/保持值增加，最高0.75；恢复接触后
+  # 以0.05/s回到名义保持值0.675。不要复制ACRO日志中饱和的0.89指令。
+  wall_pressure_ramp_up_per_s: 0.03
+  wall_pressure_ramp_down_per_s: 0.05
+  wall_pressure_max_thrust: 0.75
+  recover_thrust_multiplier: 1.10
+  # ROS/MAVROS总推力请求上限。日志中单电机曾达到1.0，因此先降额到0.85；
+  # 真正的单电机硬上限仍须在PX4控制分配器或ESC内实现。
+  max_thrust: 0.85
+
+  max_rate_rps: 3.0
+  flip_max_rate_rps: 6.0
+  capture_max_rate_rps: 4.5
+  recover_max_rate_rps: 3.0
+  max_down_velocity_mps: 0.80
+  min_altitude_m: 0.30
+  recover_angle_deg: 15.0
+  sensor_timeout_s: 0.60
+  sensor_health_timeout_s: 0.30
+  # 侧吸取得 owner 前要求顶部传感器已有新鲜有效量测。
+  require_top_sensor_on_acquire: true
+  odom_timeout_s: 0.50
+  # nav_msgs/Odometry.twist is expressed in child_frame_id by convention.
+  odom_twist_in_child_frame: true
+  state_timeout_s: 0.50
+  operator_timeout_s: 0.50
+  range_filter_alpha: 0.30
+  require_armed: true
+  require_offboard: true
+
+  # PX4 reference bypasses the mixer and writes raw motors in WALL_PIN.
+  # This MAVROS port deliberately defaults to a bounded attitude/thrust target.
+  pin_enabled: false
+  pin_pitch_deg: 85.0
+  pin_thrust: 0.85
+  pin_hold_s: 0.0

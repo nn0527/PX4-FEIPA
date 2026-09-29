@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: px4_wall_ceiling_control
+Version: 0.1.0
+Summary: ROS1 PX4 ceiling and wall attachment control with guarded flight mode handover.
+Home-page: UNKNOWN
+Author: cry
+Author-email: cry@todo.todo
+License: BSD-3-Clause
+Description: UNKNOWN
+Platform: UNKNOWN

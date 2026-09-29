@@ -1,0 +1,62 @@
+<launch>
+  <!-- LEGACY generic distance-control chain. Prefer attachment_system_mavros.launch. -->
+  <arg name="ceiling_serial_port"
+       default="/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0" />
+  <arg name="front_serial_port" default="" />
+  <arg name="output_enabled" default="false" />
+  <arg name="ceiling_enabled" default="false" />
+  <arg name="wall_enabled" default="false" />
+
+  <rosparam command="load"
+            file="$(find px4_wall_ceiling_control)/config/sensors.yaml" />
+  <rosparam command="load"
+            file="$(find px4_wall_ceiling_control)/config/operator.yaml" />
+  <rosparam command="load"
+            file="$(find px4_wall_ceiling_control)/config/legacy.yaml" />
+
+  <node pkg="px4_wall_ceiling_control" type="lidar_distance_node.py"
+        name="ceiling_lidar_node" output="screen">
+    <param name="serial_port" value="$(arg ceiling_serial_port)" />
+    <param name="range_topic" value="/sensor/ceiling/raw" />
+    <param name="frame_id" value="ceiling_lidar_link" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="lidar_distance_node.py"
+        name="front_lidar_node" output="screen">
+    <param name="serial_port" value="$(arg front_serial_port)" />
+    <param name="range_topic" value="/sensor/front/raw" />
+    <param name="frame_id" value="front_lidar_link" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="operator_gate_node.py"
+        name="operator_gate_node" output="screen" />
+
+  <node pkg="px4_wall_ceiling_control" type="sensor_range_manager_node.py"
+        name="sensor_range_manager_node" output="screen" />
+
+  <node pkg="px4_wall_ceiling_control" type="flight_supervisor_node.py"
+        name="flight_supervisor_node" output="screen" />
+
+  <node pkg="px4_wall_ceiling_control" type="ceiling_fsm_node.py"
+        name="ceiling_fsm_node" output="screen" />
+
+  <node pkg="px4_wall_ceiling_control" type="wall_fsm_node.py"
+        name="wall_fsm_node" output="screen" />
+
+  <node pkg="px4_wall_ceiling_control" type="ceiling_controller_node.py"
+        name="ceiling_controller_node" output="screen">
+    <param name="controller_enabled" value="$(arg ceiling_enabled)" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="wall_controller_node.py"
+        name="wall_controller_node" output="screen">
+    <param name="controller_enabled" value="$(arg wall_enabled)" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="setpoint_mux_node.py"
+        name="setpoint_mux_node" output="screen">
+    <param name="output_enabled" value="$(arg output_enabled)" />
+    <param name="ceiling_output_enabled" value="$(arg ceiling_enabled)" />
+    <param name="wall_output_enabled" value="$(arg wall_enabled)" />
+  </node>
+</launch>

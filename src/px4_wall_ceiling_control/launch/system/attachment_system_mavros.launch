@@ -1,0 +1,116 @@
+<launch>
+  <!--
+    Unified ceiling-attachment + wall-perch chain with one MAVROS output owner.
+    MAVROS must be started separately. Real output defaults to disabled.
+  -->
+  <arg name="ceiling_serial_port"
+       default="/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0" />
+  <arg name="front_serial_port" default="" />
+  <arg name="ceiling_enabled" default="false" />
+  <arg name="wall_enabled" default="false" />
+  <arg name="output_enabled" default="false" />
+  <arg name="mechanism_output_enabled" default="false" />
+  <arg name="operator_source" default="rc" />
+  <arg name="flight_mode_enabled" default="false" />
+  <arg name="require_mechanism_ack" default="true" />
+  <arg name="wall_hold_time_s" default="0.0" />
+  <arg name="rc_assist_enabled" default="false" />
+  <arg name="require_rc_center" default="false" />
+  <arg name="rc_roll_channel_index" default="-1" />
+  <arg name="rc_pitch_channel_index" default="-1" />
+  <arg name="rc_throttle_channel_index" default="-1" />
+  <arg name="rc_roll_reverse" default="false" />
+  <arg name="rc_pitch_reverse" default="false" />
+  <arg name="rc_pwm_low" default="1000" />
+  <arg name="rc_pwm_center" default="1500" />
+  <arg name="rc_pwm_high" default="2000" />
+  <arg name="rc_center_tolerance_pwm" default="70" />
+  <arg name="hover_thrust" default="0.45" />
+
+  <rosparam command="load"
+            file="$(find px4_wall_ceiling_control)/config/sensors.yaml" />
+  <rosparam command="load"
+            file="$(find px4_wall_ceiling_control)/config/operator.yaml" />
+  <rosparam command="load"
+            file="$(find px4_wall_ceiling_control)/config/ceiling_attachment.yaml" />
+  <rosparam command="load"
+            file="$(find px4_wall_ceiling_control)/config/wall_perch.yaml" />
+  <rosparam command="load"
+            file="$(find px4_wall_ceiling_control)/config/attachment_output.yaml" />
+
+  <node pkg="px4_wall_ceiling_control" type="lidar_distance_node.py"
+        name="ceiling_lidar_node" output="screen">
+    <param name="serial_port" value="$(arg ceiling_serial_port)" />
+    <param name="range_topic" value="/sensor/ceiling/raw" />
+    <param name="frame_id" value="ceiling_lidar_link" />
+  </node>
+
+  <node if="$(eval arg('front_serial_port') != '')"
+        pkg="px4_wall_ceiling_control" type="lidar_distance_node.py"
+        name="front_lidar_node" output="screen">
+    <param name="serial_port" value="$(arg front_serial_port)" />
+    <param name="range_topic" value="/sensor/front/raw" />
+    <param name="frame_id" value="front_lidar_link" />
+  </node>
+
+  <node if="$(eval arg('operator_source') == 'rc')"
+        pkg="px4_wall_ceiling_control" type="operator_gate_node.py"
+        name="operator_gate_node" output="screen" />
+  <node if="$(eval arg('operator_source') == 'terminal')"
+        pkg="px4_wall_ceiling_control" type="terminal_operator_node.py"
+        name="terminal_operator_node" output="screen" />
+
+  <node pkg="px4_wall_ceiling_control" type="flight_mode_manager_node.py"
+        name="flight_mode_manager_node" output="screen">
+    <param name="enabled" value="$(arg flight_mode_enabled)" />
+    <param name="require_rc_center" value="$(arg require_rc_center)" />
+    <param name="rc_roll_channel_index" value="$(arg rc_roll_channel_index)" />
+    <param name="rc_pitch_channel_index" value="$(arg rc_pitch_channel_index)" />
+    <param name="rc_throttle_channel_index" value="$(arg rc_throttle_channel_index)" />
+    <param name="rc_pwm_center" value="$(arg rc_pwm_center)" />
+    <param name="rc_center_tolerance_pwm" value="$(arg rc_center_tolerance_pwm)" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="sensor_range_manager_node.py"
+        name="sensor_range_manager_node" output="screen" />
+
+  <node if="$(arg ceiling_enabled)"
+        pkg="px4_wall_ceiling_control"
+        type="ceiling_attachment_decision_node.py"
+        name="ceiling_attachment_decision_node" output="screen">
+    <param name="odom_topic" value="/mavros/local_position/odom" />
+    <param name="require_mechanism_ack" value="$(arg require_mechanism_ack)" />
+    <param name="hover_thrust" value="$(arg hover_thrust)" />
+  </node>
+
+  <node if="$(arg wall_enabled)"
+        pkg="px4_wall_ceiling_control" type="wall_perch_decision_node.py"
+        name="wall_perch_decision_node" output="screen">
+    <param name="decision_enabled" value="true" />
+    <param name="hold_time_s" value="$(arg wall_hold_time_s)" />
+    <param name="hover_thrust" value="$(arg hover_thrust)" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="attachment_output_mux_node.py"
+        name="attachment_output_mux_node" output="screen">
+    <param name="output_enabled" value="$(arg output_enabled)" />
+    <param name="ceiling_output_enabled" value="$(arg ceiling_enabled)" />
+    <param name="wall_output_enabled" value="$(arg wall_enabled)" />
+    <param name="rc_assist_enabled" value="$(arg rc_assist_enabled)" />
+    <param name="rc_roll_channel_index" value="$(arg rc_roll_channel_index)" />
+    <param name="rc_pitch_channel_index" value="$(arg rc_pitch_channel_index)" />
+    <param name="rc_roll_reverse" value="$(arg rc_roll_reverse)" />
+    <param name="rc_pitch_reverse" value="$(arg rc_pitch_reverse)" />
+    <param name="rc_pwm_low" value="$(arg rc_pwm_low)" />
+    <param name="rc_pwm_center" value="$(arg rc_pwm_center)" />
+    <param name="rc_pwm_high" value="$(arg rc_pwm_high)" />
+    <param name="hover_thrust" value="$(arg hover_thrust)" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control"
+        type="attachment_mechanism_output_node.py"
+        name="attachment_mechanism_output_node" output="screen">
+    <param name="output_enabled" value="$(arg mechanism_output_enabled)" />
+    <param name="require_ceiling_owner" value="true" />
+  </node>
+</launch>

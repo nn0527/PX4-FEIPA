@@ -1,0 +1,149 @@
+旧版吸顶链路完整台架验证命令（归档）
+
+警告：本文件保留用于历史追溯，其中包含已经废弃的传感器话题和旧输出链路。
+新测试必须使用 docs/bench_test_procedure.txt，不要直接执行本文件命令。
+
+安全要求：拆除全部桨叶，固定机架，断开电机动力电源；当前只验证消息链路，不验证真实吸顶动力学。
+
+==================== A. 编译 ====================
+
+cd ~/catkin_ws
+source /opt/ros/noetic/setup.bash
+catkin_make --pkg px4_wall_ceiling_control
+source ~/catkin_ws/devel/setup.bash
+rosmsg show px4_wall_ceiling_control/CeilingAttachmentStatus
+
+==================== B. 识别两个USB设备 ====================
+
+ls -l /dev/serial/by-id/
+ls -l /dev/ttyUSB* /dev/ttyACM* 2>/dev/null
+
+记录两个传感器的稳定设备路径：
+顶部L1：/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0
+前向L1：<粘贴第二个传感器的by-id路径>
+
+检查传感器设备：
+test -e /dev/serial/by-id/usb-1a86_USB_Serial-if00-port0 && echo "L1设备正常" || echo "L1设备不存在"
+
+RC开关约定（索引从0开始）：
+通道4：吸顶启动；通道5：侧吸启动；PWM>=1700为开。
+两个开关同时打开必须得到MODE_ABORT，不能输出任何仲裁后距离。
+
+==================== C. 真实L1→决策→模拟MAVROS输出 ====================
+
+终端1：
+cd ~/catkin_ws
+source /opt/ros/noetic/setup.bash
+source ~/catkin_ws/devel/setup.bash
+roslaunch px4_wall_ceiling_control ceiling_attachment_sensor_test.launch serial_port:=/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0
+
+终端2：检查传感器：
+source /opt/ros/noetic/setup.bash
+source ~/catkin_ws/devel/setup.bash
+分别开三个终端检查：
+rostopic hz /sensor/ceiling/raw
+rostopic hz /sensor/ceiling/range
+rostopic echo /sensor/selected_source
+
+吸顶开关打开时selected_source应为1；侧吸开关打开时应为2；
+两个开关都关或同时打开时应为0。
+
+终端3：联合查看决策和输出，Ctrl+C退出：
+source /opt/ros/noetic/setup.bash
+source ~/catkin_ws/devel/setup.bash
+bash -c 'rostopic echo /ceiling_attachment/status & rostopic echo /ceiling_attachment/output_mode & rostopic echo /mock_mavros/setpoint_raw/local & rostopic echo /mock_mavros/setpoint_raw/attitude & wait'
+
+移动纸板并检查：
+1）顶距大于0.50m：CEILING_ARMED，mode=1，local.velocity.z=0。
+2）顶距约0.30m：APPROACH，mode=1，PositionTarget.type_mask=3527，velocity.z约+0.15。
+3）顶距小于等于0.12m并等待滤波收敛：ATTACH_CONTROL→SURFACE_HOLD，mode=2，AttitudeTarget.type_mask=7，thrust约0.60→0.575。
+
+终端4：触发脱离：
+source /opt/ros/noetic/setup.bash
+source ~/catkin_ws/devel/setup.bash
+rostopic pub -1 /ceiling_attachment/detach std_msgs/Bool "data: true"
+rostopic pub -1 /ceiling_attachment/detach std_msgs/Bool "data: false"
+
+预期：DETACH（mode=2）→RECOVERY_HOVER（mode=1，velocity.z=0）→NORMAL_FLIGHT（mode=0）。
+
+检查输出发布者：
+rostopic info /mock_mavros/setpoint_raw/local
+rostopic info /mock_mavros/setpoint_raw/attitude
+
+Publisher应只有/ceiling_attachment_output_node。完成后在终端1按Ctrl+C。
+
+==================== D. 连接真实PX4和MAVROS ====================
+
+重新插入两个USB设备并查看设备名：
+ls -l /dev/serial/by-id/
+
+终端1：输入飞控by-id路径并启动MAVROS：
+source /opt/ros/noetic/setup.bash
+read -r -p "粘贴飞控完整by-id路径: " CEIL_FCU_PORT
+read -r -p "输入飞控波特率，直接回车使用57600: " CEIL_FCU_BAUD
+CEIL_FCU_BAUD=${CEIL_FCU_BAUD:-57600}
+test -e "$CEIL_FCU_PORT" || { echo "飞控设备不存在"; exit 1; }
+roslaunch mavros px4.launch fcu_url:="${CEIL_FCU_PORT}:${CEIL_FCU_BAUD}"
+
+终端2：检查飞控通信：
+source /opt/ros/noetic/setup.bash
+source ~/catkin_ws/devel/setup.bash
+rostopic echo -n 1 /mavros/state
+rostopic echo -n 1 /mavros/rc/in
+rostopic echo -n 1 /mavros/local_position/odom
+
+/mavros/state中的connected必须为True。
+
+终端3：启动真实传感器和真实飞控输入，但保持控制输出关闭：
+cd ~/catkin_ws
+source /opt/ros/noetic/setup.bash
+source ~/catkin_ws/devel/setup.bash
+roslaunch px4_wall_ceiling_control ceiling_attachment_mavros.launch ceiling_serial_port:=/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0 output_enabled:=false
+
+如同时接入前向传感器，增加：
+front_serial_port:=<前向传感器完整by-id路径>
+
+终端4：联合检查输入与决策：
+source /opt/ros/noetic/setup.bash
+source ~/catkin_ws/devel/setup.bash
+bash -c 'rostopic echo /mavros/state & rostopic echo /mavros/rc/in & rostopic echo /sensor/ceiling/range & rostopic echo /ceiling_attachment/status & wait'
+
+检查真实MAVROS输出开关：
+rosparam get /ceiling_attachment_output_node/output_enabled
+
+必须显示false。完成后依次在终端3、终端1按Ctrl+C。
+
+==================== E. 当前停止位置 ====================
+
+不要在普通真机固件下执行output_enabled:=true。
+当前还需补充“预发送setpoint→进入OFFBOARD→确认模式→允许运动→退出/失联接管”流程。
+真实吸顶必须在SITL/SIH、接触模型或固定滑轨测试完成后进行；手动纸板只能验证消息与状态切换。
+
+==================== F. 吸顶/侧吸统一接口（新增） ====================
+
+统一真机链路只运行一个最终MAVROS输出节点，首次检查必须关闭输出：
+
+roslaunch px4_wall_ceiling_control attachment_system_mavros.launch \
+  ceiling_serial_port:=<顶部传感器by-id路径> \
+  front_serial_port:=<前向传感器by-id路径> \
+  ceiling_enabled:=true wall_enabled:=true output_enabled:=false
+
+侧吸开关打开后检查：
+
+rostopic hz /sensor/wall/range
+rostopic hz /sensor/wall/top_range
+rostopic echo /wall_perch/status
+rostopic echo /attachment/output_owner
+rostopic echo /attachment/output_mode
+
+预期：selected_source=2，output_owner=2；状态依次经过
+FRONT_WALL_DETECT→STABILIZE_HOVER→SLOW_APPROACH→FLIP_TO_WALL→
+WALL_CAPTURE→WALL_HOLD→DETACH_ROTATE→RECOVER→EXIT。
+
+检查最终输出发布者：
+
+rostopic info /mavros/setpoint_raw/local
+rostopic info /mavros/setpoint_raw/attitude
+
+Publisher只能有/attachment_output_mux_node。不得同时启动
+ceiling_attachment_output_node、setpoint_mux_node或其他setpoint发布器。

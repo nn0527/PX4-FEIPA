@@ -1,0 +1,19 @@
+# Operator intent is independent from both decision state machines.
+operator_gate_node:
+  rc_topic: /mavros/rc/in
+  publish_rate_hz: 10.0
+  rc_timeout_s: 0.5
+  # Two independent RC switches. Both ON is rejected as MODE_ABORT.
+  control_scheme: independent_switches
+  ceiling_switch_channel_index: 4
+  wall_switch_channel_index: 5
+  switch_pwm_min: 1700
+  # Used only when control_scheme=selector_deadman (backward compatibility).
+  mode_channel_index: 4
+  enable_channel_index: 5
+  enable_pwm_min: 1700
+  manual_pwm_max: 1200
+  standby_pwm_max: 1450
+  ceiling_pwm_max: 1750
+  debounce_samples: 3
+

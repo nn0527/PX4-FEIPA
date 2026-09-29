@@ -1,0 +1,12 @@
+<launch>
+  <!--
+    LEGACY compatibility bridge for external tools that still consume the
+    pre-manager wall sensor topics. Do not include this in new launch files.
+    /sensor/selected_source is intentionally not recreated because sensor
+    ownership no longer exists.
+  -->
+  <node pkg="topic_tools" type="relay" name="legacy_front_range_relay"
+        args="/sensor/front/range /sensor/wall/range" output="screen" />
+  <node pkg="topic_tools" type="relay" name="legacy_top_range_relay"
+        args="/sensor/ceiling/range /sensor/wall/top_range" output="screen" />
+</launch>

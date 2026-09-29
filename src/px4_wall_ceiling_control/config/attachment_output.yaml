@@ -1,0 +1,86 @@
+# Shared owner arbitration and the only MAVROS output in unified operation.
+attachment_output_mux_node:
+  ceiling_candidate_topic: /ceiling_attachment/control_candidate
+  wall_candidate_topic: /wall_perch/control_candidate
+  state_topic: /mavros/state
+  odom_topic: /mavros/local_position/odom
+  operator_topic: /operator/command
+  prestream_topic: /attachment/prestream
+  prestream_timeout_s: 0.30
+  attitude_setpoint_topic: /mavros/setpoint_raw/attitude
+  owner_topic: /attachment/output_owner
+  output_mode_topic: /attachment/output_mode
+
+  output_enabled: false
+  ceiling_output_enabled: false
+  wall_output_enabled: false
+  require_connected: true
+  require_armed: true
+  require_offboard: true
+  publish_rate_hz: 50.0
+  ceiling_candidate_timeout_s: 0.20
+  wall_candidate_timeout_s: 0.20
+  state_timeout_s: 0.50
+  odom_timeout_s: 0.50
+  operator_timeout_s: 0.50
+  handoff_dwell_s: 0.50
+  max_velocity_xy_mps: 0.30
+  max_velocity_z_mps: 0.30
+  min_thrust: 0.10
+  # 统一MAVROS输出的总推力兜底上限；不是PX4混控后的单电机硬上限。
+  max_thrust: 0.85
+  local_frame_id: map
+  # 2026-09-22 ALTCTL ULog calibrated value.
+  hover_thrust: 0.45
+  vertical_speed_kp: 0.15
+  odom_twist_in_child_frame: true
+  rc_assist_enabled: false
+  rc_topic: /mavros/rc/in
+  rc_roll_channel_index: -1
+  rc_pitch_channel_index: -1
+  rc_pwm_low: 1000
+  rc_pwm_center: 1500
+  rc_pwm_high: 2000
+  rc_deadzone: 0.06
+  rc_roll_reverse: false
+  rc_pitch_reverse: false
+  rc_timeout_s: 0.20
+  rc_slew_deg_s: 90.0
+  rc_free_max_angle_deg: 8.0
+  rc_contact_max_angle_deg: 2.0
+  rc_wall_detach_roll_deg: 2.0
+  rc_wall_detach_pitch_deg: 0.0
+  status_timeout_s: 0.30
+
+# Physical mechanism output has a separate, default-off master enable.
+attachment_mechanism_output_node:
+  candidate_topic: /attachment/mechanism_candidate
+  command_topic: /attachment/mechanism_command
+  owner_topic: /attachment/output_owner
+  output_enabled: false
+  require_ceiling_owner: true
+  candidate_timeout_s: 0.20
+  owner_timeout_s: 0.30
+  publish_rate_hz: 20.0
+
+# Compatibility adapter used only by the ceiling-only launch.
+ceiling_attachment_output_node:
+  status_topic: /ceiling_attachment/status
+  state_topic: /mavros/state
+  odom_topic: /mavros/local_position/odom
+  local_setpoint_topic: /mavros/setpoint_raw/local
+  attitude_setpoint_topic: /mavros/setpoint_raw/attitude
+  output_mode_topic: /ceiling_attachment/output_mode
+  output_enabled: false
+  require_connected: true
+  require_armed: true
+  require_offboard: true
+  publish_neutral_when_selected: true
+  publish_rate_hz: 30.0
+  status_timeout_s: 0.20
+  state_timeout_s: 0.50
+  odom_timeout_s: 0.50
+  max_approach_speed_mps: 0.30
+  min_thrust: 0.10
+  max_thrust: 0.90
+  local_frame_id: map

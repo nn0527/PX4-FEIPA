@@ -1,0 +1,74 @@
+<launch>
+  <!-- BENCH: two real L1 sensors, mock flight feedback, and isolated output. -->
+  <arg name="ceiling_serial_port"
+       default="/dev/serial/by-path/pci-0000:02:00.0-usb-0:2.1:1.0-port0" />
+  <arg name="front_serial_port"
+       default="/dev/serial/by-path/pci-0000:02:00.0-usb-0:2.2:1.0-port0" />
+  <arg name="mock_output_enabled" default="true" />
+  <!-- Give the operator time to move the target board during isolated bench tests. -->
+  <arg name="approach_timeout_s" default="20.0" />
+  <!-- Optional bench override; the default matches wall_perch.yaml. -->
+  <arg name="capture_timeout_s" default="30.0" />
+
+  <rosparam command="load"
+            file="$(find px4_wall_ceiling_control)/config/sensors.yaml" />
+  <rosparam command="load"
+            file="$(find px4_wall_ceiling_control)/config/operator.yaml" />
+  <rosparam command="load"
+            file="$(find px4_wall_ceiling_control)/config/wall_perch.yaml" />
+  <rosparam command="load"
+            file="$(find px4_wall_ceiling_control)/config/attachment_output.yaml" />
+
+  <node pkg="px4_wall_ceiling_control" type="lidar_distance_node.py"
+        name="ceiling_lidar_node" output="screen">
+    <param name="serial_port" value="$(arg ceiling_serial_port)" />
+    <param name="range_topic" value="/sensor/ceiling/raw" />
+    <param name="frame_id" value="ceiling_lidar_link" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="lidar_distance_node.py"
+        name="front_lidar_node" output="screen">
+    <param name="serial_port" value="$(arg front_serial_port)" />
+    <param name="range_topic" value="/sensor/front/raw" />
+    <param name="frame_id" value="front_lidar_link" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="mock_flight_inputs_node.py"
+        name="mock_flight_inputs_node" output="screen">
+    <param name="ceiling_switch_pwm" value="1000" />
+    <param name="wall_switch_pwm" value="1800" />
+    <param name="altitude_m" value="1.0" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="operator_gate_node.py"
+        name="operator_gate_node" output="screen">
+    <param name="rc_topic" value="/mock_mavros/rc/in" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="sensor_range_manager_node.py"
+        name="sensor_range_manager_node" output="screen">
+    <param name="input_timeout_s" value="0.60" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="wall_perch_decision_node.py"
+        name="wall_perch_decision_node" output="screen">
+    <param name="decision_enabled" value="true" />
+    <param name="approach_timeout_s" value="$(arg approach_timeout_s)" />
+    <param name="capture_timeout_s" value="$(arg capture_timeout_s)" />
+    <param name="odom_topic" value="/mock_mavros/local_position/odom" />
+    <param name="state_topic" value="/mock_mavros/state" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="attachment_output_mux_node.py"
+        name="attachment_output_mux_node" output="screen">
+    <param name="output_enabled" value="$(arg mock_output_enabled)" />
+    <param name="ceiling_output_enabled" value="false" />
+    <param name="wall_output_enabled" value="true" />
+    <param name="state_topic" value="/mock_mavros/state" />
+    <param name="odom_topic" value="/mock_mavros/local_position/odom" />
+    <param name="local_setpoint_topic"
+           value="/mock_mavros/setpoint_raw/local" />
+    <param name="attitude_setpoint_topic"
+           value="/mock_mavros/setpoint_raw/attitude" />
+  </node>
+</launch>

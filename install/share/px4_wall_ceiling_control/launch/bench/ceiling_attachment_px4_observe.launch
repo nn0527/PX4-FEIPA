@@ -1,0 +1,66 @@
+<launch>
+  <!--
+    Disarmed observation with real PX4 feedback and a real ceiling L1 sensor.
+    This launch has no MAVROS setpoint or mechanism command publisher.
+    The decision's armed/OFFBOARD requirements are relaxed only here.
+  -->
+  <arg name="ceiling_serial_port" default="" />
+
+  <rosparam command="load"
+            file="$(find px4_wall_ceiling_control)/config/sensors.yaml" />
+  <rosparam command="load"
+            file="$(find px4_wall_ceiling_control)/config/operator.yaml" />
+  <rosparam command="load"
+            file="$(find px4_wall_ceiling_control)/config/ceiling_attachment.yaml" />
+
+  <node pkg="px4_wall_ceiling_control" type="lidar_distance_node.py"
+        name="ceiling_lidar_node" output="screen">
+    <param name="serial_port" value="$(arg ceiling_serial_port)" />
+    <param name="range_topic" value="/bench/sensor/ceiling/raw" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="sensor_range_manager_node.py"
+        name="sensor_range_manager_node" output="screen">
+    <param name="ceiling_input_topic" value="/bench/sensor/ceiling/raw" />
+    <param name="front_input_topic" value="/bench/sensor/front/raw" />
+    <param name="ceiling_output_topic" value="/bench/sensor/ceiling/range" />
+    <param name="front_output_topic" value="/bench/sensor/front/range" />
+    <param name="health_topic" value="/bench/sensor/health" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control" type="operator_gate_node.py"
+        name="operator_gate_node" output="screen">
+    <param name="command_topic" value="/bench/operator/command" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control"
+        type="ceiling_attachment_decision_node.py"
+        name="ceiling_attachment_decision_node" output="screen">
+    <param name="odom_topic" value="/mavros/local_position/odom" />
+    <param name="range_topic" value="/bench/sensor/ceiling/range" />
+    <param name="operator_topic" value="/bench/operator/command" />
+    <param name="detach_topic" value="/bench/ceiling_attachment/detach" />
+    <param name="status_topic" value="/bench/ceiling_attachment/status" />
+    <param name="control_candidate_topic"
+           value="/bench/ceiling_attachment/control_candidate" />
+    <param name="mechanism_candidate_topic"
+           value="/bench/attachment/mechanism_candidate" />
+    <param name="mechanism_status_topic"
+           value="/bench/attachment/mechanism_status" />
+    <param name="require_armed" value="false" />
+    <param name="require_offboard" value="false" />
+    <!-- MAVROS state is currently observed at approximately 1 Hz. -->
+    <param name="state_timeout_s" value="1.5" />
+  </node>
+
+  <node pkg="px4_wall_ceiling_control"
+        type="ceiling_attachment_state_monitor.py"
+        name="ceiling_attachment_state_monitor" output="screen">
+    <param name="status_topic" value="/bench/ceiling_attachment/status" />
+    <param name="range_topic" value="/bench/sensor/ceiling/range" />
+    <param name="health_topic" value="/bench/sensor/health" />
+    <param name="state_topic" value="/mavros/state" />
+    <param name="odom_topic" value="/mavros/local_position/odom" />
+    <param name="mechanism_topic" value="/bench/attachment/mechanism_status" />
+  </node>
+</launch>

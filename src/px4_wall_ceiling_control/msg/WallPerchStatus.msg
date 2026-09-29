@@ -1,0 +1,44 @@
+std_msgs/Header header
+
+uint8 STATE_IDLE=0
+uint8 STATE_FRONT_WALL_DETECT=1
+uint8 STATE_STABILIZE_HOVER=2
+uint8 STATE_SLOW_APPROACH=3
+uint8 STATE_FLIP_TO_WALL=4
+uint8 STATE_WALL_CAPTURE=5
+uint8 STATE_WALL_HOLD=6
+uint8 STATE_WALL_PIN=7
+uint8 STATE_DETACH_ROTATE=8
+uint8 STATE_RECOVER=9
+uint8 STATE_EXIT=10
+uint8 STATE_ABORT=11
+
+uint8 state
+string state_name
+bool enabled
+bool acquire_request
+bool keep_ownership
+bool candidate_valid
+bool front_range_fresh
+bool top_range_fresh
+bool sensor_health_fresh
+bool top_preflight_ready
+bool odom_fresh
+bool flight_state_fresh
+bool front_ready
+bool flip_ready
+bool top_contact_ready
+bool top_clear_ready
+bool fault_detected
+bool neutral_setpoint_requested
+bool attitude_setpoint_valid
+float32 front_distance_raw_m
+float32 front_distance_filtered_m
+float32 top_distance_raw_m
+float32 top_distance_filtered_m
+float32 progress
+geometry_msgs/Quaternion attitude_setpoint
+# MAVROS AttitudeTarget convention: positive normalized collective thrust.
+float32 thrust_normalized
+uint32 fault_count
+string reason

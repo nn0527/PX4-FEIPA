@@ -1,0 +1,57 @@
+# Legacy generic distance-control chain. Not loaded by the unified runtime.
+flight_supervisor_node:
+  mavros_state_topic: /mavros/state
+  odom_topic: /mavros/local_position/odom
+  operator_topic: /operator/command
+  ceiling_range_topic: /sensor/ceiling/range
+  wall_range_topic: /sensor/front/range
+  state_timeout_s: 1.0
+  odom_timeout_s: 0.5
+  operator_timeout_s: 0.5
+  range_timeout_s: 0.3
+  publish_rate_hz: 20.0
+  require_offboard_for_motion: true
+  require_armed_for_motion: true
+
+ceiling_fsm_node:
+  target_distance_m: 1.0
+  distance_tolerance_m: 0.08
+  max_speed_mps: 0.35
+  range_timeout_s: 0.3
+
+wall_fsm_node:
+  target_distance_m: 1.2
+  distance_tolerance_m: 0.10
+  max_speed_mps: 0.40
+  range_timeout_s: 0.3
+
+ceiling_controller_node:
+  controller_enabled: false
+  kp: 0.6
+  max_speed_mps: 0.35
+  input_timeout_s: 0.3
+  odom_timeout_s: 0.5
+  target_tolerance_m: 0.08
+
+wall_controller_node:
+  controller_enabled: false
+  kp: 0.6
+  max_speed_mps: 0.40
+  input_timeout_s: 0.3
+  odom_timeout_s: 0.5
+  target_tolerance_m: 0.10
+
+setpoint_mux_node:
+  output_enabled: false
+  ceiling_output_enabled: false
+  wall_output_enabled: false
+  allow_attitude_setpoints: false
+  enforce_velocity_only: true
+  publish_rate_hz: 30.0
+  supervisor_timeout_s: 0.3
+  candidate_timeout_s: 0.2
+  max_velocity_xy_mps: 0.6
+  max_velocity_z_mps: 0.4
+  min_thrust: 0.1
+  max_thrust: 0.8
+

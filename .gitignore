@@ -1,0 +1,9 @@
+/build/
+/devel/
+/logs/
+*.bag
+*.bag.active
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
