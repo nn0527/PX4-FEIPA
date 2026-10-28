@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=%h/ros_ws
-ExecStart=/usr/bin/python3 -B -u %h/ros_ws/src/px4_wall_ceiling_control/scripts/operator/ceiling_wall_console.py --bridge local --public-host 192.168.2.20 --public-host 10.187.58.66 --public-host 172.20.10.2
+ExecStart=/usr/bin/python3 -B -u %h/ros_ws/src/px4_wall_ceiling_control/scripts/operator/ceiling_wall_console.py --bridge local --public-host 192.168.2.20 --public-host 10.187.58.66 --public-host 172.20.10.2 --public-host 10.52.56.66
 Restart=on-failure
 RestartSec=3
 TimeoutStopSec=10
