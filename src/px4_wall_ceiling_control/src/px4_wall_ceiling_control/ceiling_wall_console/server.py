@@ -20,8 +20,7 @@ from .transport import BridgeTransport, backend, PACKAGE
 ASSETS = PACKAGE / "web/ceiling_wall_console"
 ACTIONS = {"/api/acquire": "acquire", "/api/release": "release", "/api/start": "start",
            "/api/ceiling": "ceiling", "/api/ceiling-detach": "ceiling_detach", "/api/stop": "stop", "/api/repair-mavros": "repair_mavros",
-           "/api/wall": "wall", "/api/detach": "detach", "/api/cancel-wait": "cancel_wait", "/api/push": "push",
-           "/api/set-range-height": "set_range_height"}
+           "/api/wall": "wall", "/api/detach": "detach", "/api/cancel-wait": "cancel_wait", "/api/push": "push"}
 SESSION_IDLE = 180
 
 
@@ -112,19 +111,49 @@ class Application:
             self.config = backend.validate_config(backend.migrate_legacy_ports(json.loads(self.settings.read_text())))
         self.hosts = {"127.0.0.1", "localhost", socket.gethostname().lower(), socket.gethostname().lower()+".local"}
         self.hosts.update(args.public_host)
-        try:
-            if self.offline:
+        self.local_hosts = set()
+        self.host_refresh_at = None
+        self.host_lock = threading.Lock()
+        self._refresh_local_hosts()
+
+    def _refresh_local_hosts(self):
+        # DHCP/network readiness can change after the user service starts.
+        # Keep discovered addresses separate so old interface IPs expire too.
+        if self.offline:
+            return
+        with self.host_lock:
+            now = time.monotonic()
+            if self.host_refresh_at is not None and now-self.host_refresh_at < 2.0:
                 return
-            addresses = subprocess.check_output(["hostname", "-I"], text=True, stderr=subprocess.DEVNULL, timeout=2).split()
-            self.hosts.update(a for a in addresses if ipaddress.ip_address(a).version == 4)
-        except (OSError, ValueError, subprocess.SubprocessError):
-            pass
+            self.host_refresh_at = now
+            discovered = set()
+            try:
+                addresses = subprocess.check_output(
+                    ["hostname", "-I"], text=True, stderr=subprocess.DEVNULL, timeout=2).split()
+                for address in addresses:
+                    try:
+                        parsed = ipaddress.ip_address(address)
+                    except ValueError:
+                        continue
+                    if parsed.version == 4 and not parsed.is_unspecified and not parsed.is_multicast:
+                        discovered.add(str(parsed))
+            except (OSError, subprocess.SubprocessError):
+                pass
+            self.local_hosts = discovered
+
 
     def valid_host(self, header):
         try:
             value = urlsplit("http://" + (header or ""))
-            return (value.hostname in self.hosts and value.port == self.args.port and
-                    not value.username and not value.password and not value.path and not value.query and not value.fragment)
+            if (value.port != self.args.port or value.username or value.password
+                    or value.path or value.query or value.fragment):
+                return False
+            if value.hostname in self.hosts:
+                return True
+            if self.offline or ipaddress.ip_address(value.hostname).version != 4:
+                return False
+            self._refresh_local_hosts()
+            return value.hostname in self.local_hosts
         except ValueError:
             return False
 

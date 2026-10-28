@@ -42,7 +42,6 @@
     "height_tolerance_m": 0.1,
     "jump_m": 0.25,
     "loss_support_s": 0.3,
-    "manual_target_m": 1.5,
     "max_distance_m": 6.0,
     "max_vertical_speed_mps": 2.0,
     "min_distance_m": 0.02,

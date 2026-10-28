@@ -21,6 +21,7 @@ add_message_files(
   AttachmentMechanismCommand.msg
   AttachmentMechanismStatus.msg
   CeilingAttachmentStatus.msg
+  CeilingRcAssist.msg
   OperatorCommand.msg
   SensorHealth.msg
   WallPerchStatus.msg
@@ -32,7 +33,6 @@ add_message_files(
   SupervisorState.msg
 )
 
-add_service_files(FILES SetRangeHeight.srv)
 
 generate_messages(
   DEPENDENCIES
@@ -61,6 +61,7 @@ catkin_install_python(PROGRAMS
   scripts/operator/operator_gate_node.py
   scripts/operator/rc_takeover.py
   scripts/operator/terminal_operator_node.py
+  scripts/operator/ceiling_failsafe_guard_node.py
   scripts/operator/flight_mode_manager_node.py
   scripts/operator/wall_console_server.py
   scripts/operator/ceiling_wall_console.py
@@ -163,4 +164,26 @@ if(CATKIN_ENABLE_TESTING)
   catkin_add_nosetests(test/test_recovery_tilt_guard.py)
   catkin_add_nosetests(test/test_recovery_a_response.py)
   catkin_add_nosetests(test/test_rc_wall_toggle.py)
+endif()
+
+if(CATKIN_ENABLE_TESTING)
+  catkin_add_nosetests(test/test_ceiling_baseline_tuning.py)
+  catkin_add_nosetests(test/test_ceiling_ch12_handover.py)
+  catkin_add_nosetests(test/test_ceiling_closed_loop_ascent.py)
+  catkin_add_nosetests(test/test_ceiling_detach_height_velocity.py)
+  catkin_add_nosetests(test/test_ceiling_entry_ownership.py)
+  catkin_add_nosetests(test/test_ceiling_fault_land.py)
+  catkin_add_nosetests(test/test_ceiling_flow_ascent.py)
+  catkin_add_nosetests(test/test_ceiling_fused_height.py)
+  catkin_add_nosetests(test/test_ceiling_hold_abort.py)
+  catkin_add_nosetests(test/test_ceiling_hold_link_guard.py)
+  catkin_add_nosetests(test/test_ceiling_motion.py)
+  catkin_add_nosetests(test/test_ceiling_owner_confirmation.py)
+  catkin_add_nosetests(test/test_ceiling_rc_coordination.py)
+endif()
+
+if(CATKIN_ENABLE_TESTING)
+  catkin_add_nosetests(test/test_rc_startup_gesture.py)
+  catkin_add_nosetests(test/test_rc_startup_business_stop.py)
+  catkin_add_nosetests(test/test_rc_stop_ch12.py)
 endif()

@@ -7,7 +7,7 @@ uint8 STATE_ATTACH_CONTROL=3
 uint8 STATE_SURFACE_HOLD=4
 uint8 STATE_DETACH=5
 uint8 STATE_RECOVERY_HOVER=6
-uint8 STATE_FAULT=7
+uint8 STATE_ABORT=7
 
 uint8 state
 string state_name
@@ -22,7 +22,7 @@ bool attach_confirmed
 bool distance_stable
 bool fault_detected
 bool detach_failed
-# Latched APPROACH timeout: keep FAULT output until actual ALTCTL handover.
+# Latched APPROACH timeout: keep FAULT output until actual POSCTL handover.
 bool approach_timed_out
 bool integral_reset_request
 bool wheel_stop_request
@@ -54,3 +54,51 @@ bool baro_fresh
 bool baro_reference_ready
 float32 baro_pressure_pa
 float32 hold_pressure_pa
+
+# Ceiling POSCTL capture, free-flight motion envelope and recovery diagnostics.
+bool motion_control_enabled
+bool motion_ready
+bool baseline_ready
+bool motion_paused
+bool recovery_ready
+float32 horizontal_drift_m
+float32 horizontal_speed_mps
+float32 actual_tilt_deg
+float32 actual_body_rate_deg_s
+float32 yaw_reference_rad
+float32 recovery_target_height_m
+float32 target_vertical_speed_mps
+string motion_reason
+
+# HOLD watchdog: explicit abort requests PX4 AUTO.LAND through the mode manager.
+bool abort_land_requested
+bool hold_timed_out
+string abort_maneuver_id
+float32 hold_elapsed_s
+float32 hold_timeout_s
+
+# Ceiling manual/automatic horizontal coordination.
+bool rc_manual_coordination_enabled
+bool rc_manual_feedback_ready
+bool rc_manual_active
+float32 rc_position_weight
+
+# Stable recovery attitude is held until a later CH12 handover confirmation.
+bool recovery_attitude_locked
+time recovery_lock_time
+
+# Selected fused height feedback and independent pressure comparison.
+bool height_feedback_valid
+bool height_reference_ready
+float32 fused_height_m
+float32 hold_fused_height_m
+float32 fused_vertical_speed_mps
+float32 baro_descended_height_m
+
+# Current-entry descent reference, DETACH-only boundary and PI diagnostics.
+float32 detach_target_drop_m
+float32 detach_max_drop_m
+float32 detach_target_height_m
+float32 vertical_integral_thrust
+float32 vertical_support_thrust
+float32 vertical_proportional_thrust

@@ -2,10 +2,10 @@
 
 ROS1 Noetic workspace for PX4 wall/ceiling attachment control.
 
-The local SSH flight console and instructions for using another computer are in
-[`wall_console.md`](src/px4_wall_ceiling_control/docs/wall_console.md).
-Windows operators can double-click the portable `WallConsole.exe`; Codex and Python are not required.
-Developers build it with `./Build-WallConsole.ps1`. Source startup remains `./Start-WallConsole.ps1`.
+Use the unified `ceiling_wall_console` test console; see
+[`ceiling_wall_console.md`](src/px4_wall_ceiling_control/docs/ceiling_wall_console.md).
+The old 8787 console, Windows launcher and portable build entry have been removed.
+The ROS bridge backend remains shared by the unified console.
 
 ## Packages
 

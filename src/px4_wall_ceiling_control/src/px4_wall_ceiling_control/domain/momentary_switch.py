@@ -34,3 +34,34 @@ class MomentarySwitch:
         trigger = self.armed
         self.armed = False
         return trigger
+
+
+class AttachmentModeSelector:
+    """Stable CH8 end positions select a mode without issuing any command."""
+
+    def __init__(self, up_is_high=False, debounce_s=0.05, timeout_s=0.5):
+        self.up_is_high = up_is_high
+        self.debounce_s, self.timeout_s = debounce_s, timeout_s
+        self.reset()
+
+    def reset(self):
+        self.last_at = self.candidate_at = None
+        self.candidate = self.selected = None
+
+    def update(self, pwm, now):
+        if (pwm is None or not math.isfinite(pwm) or not 800 <= pwm <= 2200
+                or not math.isfinite(now)):
+            self.reset()
+            return None
+        if self.last_at is not None and not 0 <= now-self.last_at <= self.timeout_s:
+            self.reset()
+        self.last_at = now
+        level = 'low' if pwm <= 1200 else 'high' if pwm >= 1800 else None
+        if level != self.candidate:
+            self.candidate, self.candidate_at = level, now
+            self.selected = None
+        if level is None or now-self.candidate_at < self.debounce_s:
+            return None
+        up = (level == 'high') == self.up_is_high
+        self.selected = 'ceiling' if up else 'wall'
+        return self.selected

@@ -338,7 +338,7 @@ class RangeAdapterGainTests(unittest.TestCase):
         self.f.setUp()
         self.addCleanup(self.f.doCleanups)
 
-    def test_normal_abort_and_manual_range_paths_use_range_gain_not_legacy_gain(self):
+    def test_normal_abort_and_reanchored_range_paths_use_range_gain_not_legacy_gain(self):
         n,s = self.f.seeded(height=1.24,velocity=-.1,fast_velocity=.2)
         for state,revision in ((W.STATE_DETACH_ROTATE,0),(W.STATE_ABORT,0),(W.STATE_RECOVER,1),(W.STATE_EXIT,1)):
             n.state = state

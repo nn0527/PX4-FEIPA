@@ -22,10 +22,10 @@ geometry_msgs/Quaternion attitude_setpoint
 float32 thrust_normalized
 string reason
 
-# WALL control metadata travels atomically with attitude/thrust. Header.stamp
+# Control metadata travels atomically with attitude/thrust. Header.stamp
 # is the generation time in the ROS clock. The mux retains it in diagnostics
 # while the MAVROS output header carries the actual transport publication time.
-# Ceiling candidates retain their existing protocol and need not set these.
+# Motion-enabled ceiling candidates also set phase, maneuver ID and sequence.
 bool phase_valid
 uint8 control_phase
 string maneuver_id
@@ -51,3 +51,12 @@ bool departure_support_only
 
 # Captured-attitude demo recovery profile (10 degree output envelope).
 bool recover_attitude_locked
+
+# Ceiling final-envelope reference, atomic with this candidate's phase/attitude.
+float32 ceiling_yaw_reference_rad
+
+# Ceiling ABORT subtype, atomic with phase and control output.
+bool ceiling_abort_land_requested
+
+# Atomic ceiling phase/feedback gate; leaves wall assistance unchanged.
+bool ceiling_rc_assist_blocked

@@ -45,9 +45,6 @@ class FakeRuntime:
     def ceiling_detach(self):
         self.commands.append('ceiling_detach')
         return {'message': 'fake ceiling detach'}
-    def set_range_height(self):
-        self.commands.append('set_range_height')
-        return {'message': 'fixed height accepted'}
     def stop(self, config):
         self.commands.append('stop')
         return {'message': 'fake stop'}
@@ -59,16 +56,13 @@ class FakeRuntime:
 
 
 class HTTPTests(unittest.TestCase):
-    def test_fixed_height_endpoint_preserves_auth_control_and_pause_guards(self):
-        a, at = self.login('pilot'); b, bt = self.login('observer')
-        self.assertEqual(self.request('/api/set-range-height', {}, a, at)[0], 409)
-        self.request('/api/acquire', {}, a, at)
-        self.assertEqual(self.request('/api/set-range-height', {}, b, bt)[0], 409)
-        self.request('/api/push', {'enabled': False}, a, at)
-        self.assertEqual(self.request('/api/set-range-height', {}, a, at)[0], 409)
-        self.request('/api/push', {'enabled': True}, a, at)
-        self.assertEqual(self.request('/api/set-range-height', {}, a, at)[0], 200)
-        self.assertEqual(self.runtime.commands, ['set_range_height'])
+    def test_retired_fixed_height_endpoint_cannot_dispatch(self):
+        cookie, token = self.login('pilot')
+        self.request('/api/acquire', {}, cookie, token)
+        self.assertEqual(self.request('/api/set-range-height', {}, cookie, token)[0], 404)
+        self.assertEqual(self.runtime.commands, [])
+        self.assertFalse(hasattr(backend.RemoteRuntime, 'set_range_height'))
+
 
     def test_real_mode_has_no_mock_scenario_endpoint(self):
         cookie, token = self.login()
@@ -83,7 +77,7 @@ class HTTPTests(unittest.TestCase):
     def test_ceiling_detach_stop_and_new_configuration_are_forwarded_unchanged(self):
         cookie, token = self.login()
         self.request('/api/acquire', {}, cookie, token)
-        config = dict(backend.DEFAULT_CONFIG, detach_range_manual_target_m=1.8)
+        config = dict(backend.DEFAULT_CONFIG, hover_thrust=.48)
         self.assertEqual(self.request('/api/start', config, cookie, token)[0], 200)
         self.assertEqual(self.runtime.state.config, config)
         self.assertEqual(self.request('/api/ceiling-detach', {}, cookie, token)[0], 200)
@@ -271,24 +265,6 @@ class HTTPTests(unittest.TestCase):
 
 
 class ConsoleTransportTests(unittest.TestCase):
-    def test_stale_paused_and_observer_transport_never_dispatches(self):
-        from px4_wall_ceiling_control.ceiling_wall_console.transport import BridgeTransport
-        from unittest.mock import patch
-        transport=BridgeTransport.__new__(BridgeTransport)
-        transport.lock=threading.RLock()
-        transport.connected=True
-        transport.push_enabled=True
-        transport.session={"control":True}
-        transport.arrived=time.monotonic()
-        with patch.object(backend.SSHTransport,'request',return_value={"message":"accepted"}) as dispatch:
-            for field,value in [('connected',False),('push_enabled',False),('session',{"control":False}),('arrived',time.monotonic()-3)]:
-                old=getattr(transport,field)
-                setattr(transport,field,value)
-                with self.assertRaises(ValueError):transport.request('set_range_height')
-                setattr(transport,field,old)
-            dispatch.assert_not_called()
-            self.assertEqual(transport.request('set_range_height'),{"message":"accepted"})
-            dispatch.assert_called_once_with('set_range_height',None)
 
     def test_removed_takeover_action_never_reaches_shared_backend(self):
         from px4_wall_ceiling_control.ceiling_wall_console.transport import BridgeTransport
@@ -356,17 +332,6 @@ class MockHTTPTests(unittest.TestCase):
             self.assertEqual(snapshot['mock_scenario'], scenario)
             json.dumps(snapshot, allow_nan=False)
 
-    def test_manual_target_preserves_first_frame_and_rejects_duplicate(self):
-        before = self.choose('range_fault')
-        status, reply, _ = self.request('/api/set-range-height', {}, self.cookie, self.token)
-        self.assertEqual(status, 200, reply)
-        after = self.request('/api/status', cookie=self.cookie)[1]['status']['wall']['value']
-        self.assertEqual(after['detach_range_target_m'], 1.5)
-        self.assertEqual(after['detach_range_lock_height_m'], before['status']['wall']['value']['detach_range_lock_height_m'])
-        self.assertEqual(after['detach_range_height_m'], before['status']['wall']['value']['detach_range_height_m'])
-        self.assertTrue(after['detach_range_manual_recovery'])
-        self.assertFalse(after['detach_completed'])
-        self.assertEqual(self.request('/api/set-range-height', {}, self.cookie, self.token)[0], 409)
 
     def test_observer_and_paused_controller_cannot_change_scenarios(self):
         b, bt = self.login('offline observer')
@@ -378,9 +343,8 @@ class MockHTTPTests(unittest.TestCase):
     def test_stale_and_disconnected_frames_cannot_authorize_actions(self):
         for scenario in ('stale', 'disconnected'):
             snapshot = self.choose(scenario)
-            self.assertFalse(snapshot['can_set_range_height'])
             self.assertFalse(snapshot['session']['feedback_live'])
-            for action in ('wall', 'detach', 'ceiling', 'set-range-height'):
+            for action in ('wall', 'detach', 'ceiling'):
                 self.assertEqual(self.request('/api/'+action, {}, self.cookie, self.token)[0], 409)
         self.assertTrue(self.choose('range_control')['session']['feedback_live'])
 
@@ -444,3 +408,73 @@ class MigrationTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+
+class HostRefreshTests(unittest.TestCase):
+    def setUp(self):
+        import threading
+        from px4_wall_ceiling_control.ceiling_wall_console import server
+        self.server = server
+        self.app = Application.__new__(Application)
+        self.app.args = SimpleNamespace(port=8790)
+        self.app.offline = False
+        self.app.hosts = {'127.0.0.1', 'localhost', '192.168.2.20'}
+        self.app.local_hosts = set()
+        self.app.host_refresh_at = None
+        self.app.host_lock = threading.Lock()
+        self.now = 10.
+        clock = mock.patch.object(server.time, 'monotonic', side_effect=lambda: self.now)
+        clock.start(); self.addCleanup(clock.stop)
+        query = mock.patch.object(server.subprocess, 'check_output', return_value='')
+        self.query = query.start(); self.addCleanup(query.stop)
+
+    def test_network_appearing_after_startup_becomes_valid_without_restart(self):
+        self.app._refresh_local_hosts()
+        self.assertFalse(self.app.valid_host('10.52.56.66:8790'))
+        self.query.return_value = '10.52.56.66 172.17.0.1 '
+        self.now += 2.1
+        self.assertTrue(self.app.valid_host('10.52.56.66:8790'))
+
+    def test_address_change_adds_new_ip_and_removes_old_discovery(self):
+        self.query.return_value = '10.52.56.66'
+        self.assertTrue(self.app.valid_host('10.52.56.66:8790'))
+        self.query.return_value = '10.52.56.67'
+        self.now += 2.1
+        self.assertFalse(self.app.valid_host('10.52.56.66:8790'))
+        self.assertTrue(self.app.valid_host('10.52.56.67:8790'))
+
+    def test_refresh_is_rate_limited_and_configured_hosts_remain_valid(self):
+        for _ in range(10):
+            self.assertFalse(self.app.valid_host('203.0.113.1:8790'))
+        self.assertEqual(self.query.call_count, 1)
+        self.assertTrue(self.app.valid_host('192.168.2.20:8790'))
+        self.assertTrue(self.app.valid_host('localhost:8790'))
+
+    def test_bad_hosts_ports_and_origins_remain_rejected(self):
+        for host in ('evil.test:8790', '10.52.56.66:80', 'u@10.52.56.66:8790',
+                     '10.52.56.66:8790/path', '10.52.56.66:8790?q=x',
+                     '10.52.56.66:8790#x', '10.52.56.66:bad', ''):
+            self.assertFalse(self.app.valid_host(host), host)
+        self.query.assert_not_called()
+
+    def test_failed_discovery_fails_closed_and_retries_later(self):
+        self.query.return_value = '10.52.56.66'
+        self.assertTrue(self.app.valid_host('10.52.56.66:8790'))
+        self.query.side_effect = self.server.subprocess.TimeoutExpired('hostname', 2)
+        self.now += 2.1
+        self.assertFalse(self.app.valid_host('10.52.56.66:8790'))
+        self.query.side_effect = None
+        self.now += 2.1
+        self.assertTrue(self.app.valid_host('10.52.56.66:8790'))
+
+    def test_ipv6_and_bad_discovery_tokens_do_not_hide_valid_ipv4(self):
+        self.query.return_value = 'bad ::1 0.0.0.0 224.0.0.1 10.52.56.66'
+        self.assertTrue(self.app.valid_host('10.52.56.66:8790'))
+        self.assertFalse(self.app.valid_host('0.0.0.0:8790'))
+        self.assertFalse(self.app.valid_host('224.0.0.1:8790'))
+
+    def test_mock_mode_never_queries_or_accepts_discovered_network_hosts(self):
+        self.app.offline = True
+        self.app._refresh_local_hosts()
+        self.assertFalse(self.app.valid_host('10.52.56.66:8790'))
+        self.query.assert_not_called()

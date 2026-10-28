@@ -91,14 +91,6 @@ class RetreatTests(unittest.TestCase):
             n._range_vertical_thrust(at(13.2))
         self.assertTrue(n.recover_height_captured)
 
-    def test_automatic_reanchor_is_not_mistaken_for_manual_height_request(self):
-        n = self.n
-        self.assertEqual(n.detach_range.target_revision, 1)
-        self.frame(13.1)
-        n.flight_state.header.stamp = at(13.1)
-        # The velocity window may still block admission, but auto revision 1
-        # must never be reported as an already-submitted manual request.
-        self.assertNotIn('本轮已提交一键定高', n._manual_range_height_block_reason(at(13.1)))
 
     def test_front_frames_no_longer_latch_or_drive_retreat(self):
         n = self.n

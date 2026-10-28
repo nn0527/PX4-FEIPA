@@ -1,6 +1,9 @@
 <launch>
   <arg name="rc_wall_toggle_enabled" default="true" />
   <arg name="rc_wall_channel_index" default="11" />
+  <arg name="rc_mode_selector_enabled" default="true" />
+  <arg name="rc_mode_channel_index" default="7" />
+  <arg name="rc_mode_up_is_high" default="false" />
   <!-- ALTCTL entry: wall uses calibrated roll/yaw; ceiling uses roll/pitch. No auto takeoff. -->
   <arg name="ceiling_serial_port" default="/dev/ttyUSB1" />
   <arg name="front_serial_port" default="/dev/ttyUSB2" />
@@ -8,7 +11,6 @@
   <arg name="preflip_right_roll_deg" default="1.7" />
   <arg name="restrained_bench" default="false" />
   <arg name="detach_range_height_enabled" default="true" />
-  <arg name="detach_range_manual_target_m" default="1.5" />
   <arg name="detach_range_entry_tilt_deg" default="" />
   <arg name="detach_range_operating_tilt_deg" default="" />
   <arg name="detach_range_min_distance_m" default="" />
@@ -17,11 +19,15 @@
   <arg name="wall_sensor_fusion_enabled" default="true" />
   <arg name="wall_sensor_fusion_restore_tilt_deg" default="80.0" />
   <include file="$(find px4_wall_ceiling_control)/launch/system/attachment_system_mavros.launch">
+    <arg name="test_log_alias_directory" value="/root/ceiling_test" />
     <arg name="ceiling_serial_port" value="$(arg ceiling_serial_port)" />
     <arg name="front_serial_port" value="$(arg front_serial_port)" />
     <arg name="operator_source" value="terminal" />
     <arg name="rc_wall_toggle_enabled" value="$(arg rc_wall_toggle_enabled)" />
     <arg name="rc_wall_channel_index" value="$(arg rc_wall_channel_index)" />
+    <arg name="rc_mode_selector_enabled" value="$(arg rc_mode_selector_enabled)" />
+    <arg name="rc_mode_channel_index" value="$(arg rc_mode_channel_index)" />
+    <arg name="rc_mode_up_is_high" value="$(arg rc_mode_up_is_high)" />
     <arg name="kill_guard_enabled" value="true" />
     <arg name="flight_mode_enabled" value="true" />
     <arg name="wall_enabled" value="true" />
@@ -50,16 +56,12 @@
     <arg name="wall_bench_wait_for_ranges" value="$(arg restrained_bench)" />
   </include>
   <param name="/wall_perch_decision_node/detach_range_height_enabled" value="$(eval arg('detach_range_height_enabled') and not arg('restrained_bench'))" />
-  <param name="/wall_perch_decision_node/detach_range_manual_target_m" value="$(arg detach_range_manual_target_m)" />
   <param if="$(eval arg('detach_range_entry_tilt_deg') != '')" name="/wall_perch_decision_node/detach_range_entry_tilt_deg" value="$(arg detach_range_entry_tilt_deg)" />
   <param if="$(eval arg('detach_range_operating_tilt_deg') != '')" name="/wall_perch_decision_node/detach_range_operating_tilt_deg" value="$(arg detach_range_operating_tilt_deg)" />
   <param if="$(eval arg('detach_range_min_distance_m') != '')" name="/wall_perch_decision_node/detach_range_min_distance_m" value="$(arg detach_range_min_distance_m)" />
   <param if="$(eval arg('detach_range_max_distance_m') != '')" name="/wall_perch_decision_node/detach_range_max_distance_m" value="$(arg detach_range_max_distance_m)" />
   <param if="$(eval arg('detach_range_geometry_confirmed') != '')" name="/wall_perch_decision_node/detach_range_geometry_confirmed" value="$(arg detach_range_geometry_confirmed)" />
-  <param name="/ceiling_attachment_decision_node/detach_baro_height_enabled" value="true" />
-  <param name="/flight_mode_manager_node/ceiling_baro_handover_enabled" value="true" />
   <param name="/attachment/front_sensor_masked" value="false" />
-  <param name="/flight_mode_manager_node/ceiling_distance_gate_enabled" value="true" />
   <param name="/flight_mode_manager_node/wall_pilot_mode" value="POSCTL" />
   <param name="/wall_perch_decision_node/flip_vertical_support_enabled" value="true" />
   <param name="/wall_perch_decision_node/flip_support_fade_start_deg" value="20.0" />
@@ -67,25 +69,28 @@
   <param name="/wall_perch_decision_node/flip_thrust_slew_per_s" value="0.50" />
   <param name="/wall_perch_decision_node/horizontal_velocity_enabled" value="true" />
   <param name="/wall_perch_decision_node/horizontal_approach_speed_mps" value="0.10" />
-  <param name="/ceiling_attachment_decision_node/console_contact_profile" value="true" />
-  <param name="/ceiling_attachment_decision_node/activation_distance_m" value="1.0" />
-  <param name="/ceiling_attachment_decision_node/activation_hold_s" value="0.30" />
+  <param name="/ceiling_attachment_decision_node/detach_fused_height_enabled" value="true" />
+  <param name="/ceiling_attachment_decision_node/detach_baro_height_enabled" value="false" />
+  <param name="/flight_mode_manager_node/ceiling_height_handover_enabled" value="true" />
+  <param name="/flight_mode_manager_node/ceiling_failsafe_unverified_warning_only" value="true" />
+  <param name="/flight_mode_manager_node/ceiling_distance_gate_enabled" value="true" />
+  <param name="/ceiling_attachment_decision_node/hold_timeout_s" value="0.0" />
+  <param name="/ceiling_attachment_decision_node/hold_require_explicit_detach" value="true" />
   <param name="/ceiling_attachment_decision_node/wall_contact_distance_m" value="0.067" />
-  <param name="/ceiling_attachment_decision_node/wall_contact_hold_s" value="1.0" />
-  <param name="/ceiling_attachment_decision_node/wall_contact_window_samples" value="3" />
-  <param name="/ceiling_attachment_decision_node/surface_hold_thrust" value="0.50" />
+  <param name="/ceiling_attachment_decision_node/surface_hold_thrust" value="0.55" />
   <param name="/ceiling_attachment_decision_node/approach_settle_time_s" value="0.0" />
-  <param name="/ceiling_attachment_decision_node/approach_contact_distance_m" value="0.07" />
   <param name="/ceiling_attachment_decision_node/approach_timeout_s" value="12.0" />
   <param name="/ceiling_attachment_decision_node/contact_distance_m" value="0.056" />
   <param name="/ceiling_attachment_decision_node/target_compression_m" value="0.006" />
-  <param name="/ceiling_attachment_decision_node/detach_drop_m" value="0.50" />
-  <param name="/ceiling_attachment_decision_node/detach_safe_distance_m" value="0.10" />
+  <param name="/ceiling_attachment_decision_node/detach_drop_m" value="0.40" />
+  <param name="/ceiling_attachment_decision_node/detach_height_velocity_enabled" value="true" />
+  <param name="/ceiling_attachment_decision_node/detach_thrust_transition_s" value="0.30" />
+  <param name="/ceiling_attachment_decision_node/detach_thrust_handover_slew_per_s" value="0.20" />
+  <param name="/ceiling_attachment_decision_node/detach_max_drop_m" value="1.50" />
+  <param name="/ceiling_attachment_decision_node/detach_height_tolerance_m" value="0.02" />
+  <param name="/ceiling_attachment_decision_node/detach_height_hold_s" value="0.30" />
+  <param name="/ceiling_attachment_decision_node/detach_settled_speed_mps" value="0.05" />
+  <param name="/ceiling_attachment_decision_node/contact_settled_speed_mps" value="0.10" />
   <param name="/ceiling_attachment_decision_node/detach_timeout_s" value="20.0" />
-  <param name="/ceiling_attachment_decision_node/recovery_hover_time_s" value="0.20" />
-  <!-- Passive independent ceiling capture, identical format to wall records. -->
-  <node pkg="px4_wall_ceiling_control" type="attachment_flight_logger.py"
-        name="ceiling_flight_logger" output="screen">
-    <param name="directory" value="/root/ceiling_test" />
-  </node>
+  <param name="/ceiling_attachment_decision_node/recovery_hover_time_s" value="0.50" />
 </launch>

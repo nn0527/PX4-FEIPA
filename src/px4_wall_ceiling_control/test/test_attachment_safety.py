@@ -272,7 +272,16 @@ class AttachmentSafetyTest(unittest.TestCase):
         )
         status.attitude_setpoint.w = 1.0
 
-        candidate = CeilingDecision._build_control_candidate(status)
+        node = CeilingDecision.__new__(CeilingDecision)
+        node.motion_controller = mock.Mock(yaw=0.0)
+        node.motion_sequence = 0
+        node.motion_id = 'test'
+        node.motion_ready = True
+        node.motion_fatal = ''
+        node.motion_paused = False
+        node.motion_contact_released = False
+        node._mechanism_release_confirmed = lambda _now: True
+        candidate = CeilingDecision._build_control_candidate(node, status)
 
         self.assertEqual(
             candidate.kind,
@@ -376,76 +385,10 @@ class AttachmentSafetyTest(unittest.TestCase):
 
         node._update_state_machine(rospy.Time.from_sec(10.0))
 
-        self.assertEqual(node.state, CeilingAttachmentStatus.STATE_FAULT)
+        self.assertEqual(node.state, CeilingAttachmentStatus.STATE_ABORT)
 
-    def test_ceiling_detach_reduces_thrust_and_uses_safe_distance(self):
-        node = CeilingDecision.__new__(CeilingDecision)
-        node.contact_distance_m = 0.10
-        node.detach_safe_distance_m = 0.30
-        node.target_distance_m = 0.08
-        node.detach_distance_ramp_mps = 0.08
-        node.distance_filtered_m = 0.08
-        node.distance_error_integral = 0.0
-        node.integral_limit = 1.0
-        node.previous_distance_error = 0.0
-        node.distance_kp = 1.0
-        node.distance_ki = 0.0
-        node.distance_kd = 0.0
-        node.hover_thrust = 0.50
-        node.detach_min_thrust = 0.30
 
-        mavros_thrust = -node._detach_thrust(0.02)
 
-        self.assertLessEqual(mavros_thrust, node.hover_thrust)
-        self.assertGreaterEqual(mavros_thrust, node.detach_min_thrust)
-        self.assertGreater(node.detach_safe_distance_m, node.contact_distance_m)
-
-    def test_ceiling_attach_thrust_ramps_until_range_is_stable(self):
-        node = CeilingDecision.__new__(CeilingDecision)
-        node.hover_thrust = 0.45
-        node.attach_thrust_multiplier = 1.11
-        node.surface_thrust_multiplier = 1.07
-        node.attach_max_thrust = 0.55
-        node.max_thrust = 0.90
-        node.attach_thrust_ramp_per_s = 0.02
-        node.contact_distance_m = 0.10
-        node.target_compression_m = 0.02
-        node.stable_tolerance_m = 0.01
-        node.distance_filtered_m = 0.11
-        node.attach_thrust_command = node._attach_base_thrust()
-
-        initial = node.attach_thrust_command
-        increased = node._attach_thrust(1.0)
-        self.assertAlmostEqual(initial, 0.4995)
-        self.assertAlmostEqual(increased, 0.5195)
-
-        node.distance_filtered_m = 0.08
-        held = node._attach_thrust(1.0)
-        self.assertAlmostEqual(held, increased)
-
-        node.distance_filtered_m = 0.11
-        for _ in range(10):
-            capped = node._attach_thrust(1.0)
-        self.assertAlmostEqual(capped, 0.55)
-
-    def test_ceiling_attach_thrust_reduces_when_overcompressed(self):
-        node = CeilingDecision.__new__(CeilingDecision)
-        node.hover_thrust = 0.45
-        node.attach_thrust_multiplier = 1.11
-        node.surface_thrust_multiplier = 1.07
-        node.attach_max_thrust = 0.55
-        node.max_thrust = 0.90
-        node.attach_thrust_ramp_per_s = 0.02
-        node.contact_distance_m = 0.10
-        node.target_compression_m = 0.02
-        node.stable_tolerance_m = 0.01
-        node.distance_filtered_m = 0.06
-        node.attach_thrust_command = 0.55
-
-        reduced = node._attach_thrust(1.0)
-
-        self.assertAlmostEqual(reduced, 0.53)
-        self.assertGreaterEqual(reduced, node._surface_hold_thrust())
 
     def test_wall_state_entry_resets_hold_timer(self):
         node = WallDecision.__new__(WallDecision)

@@ -1707,7 +1707,7 @@ class WallPerchDecisionNode(WallSimpleRecoveryMixin, WallDetachBrakingMixin, Wal
         if new_state == WallPerchStatus.STATE_EXIT and self.state == WallPerchStatus.STATE_RECOVER:
             self.recovery_completed = not self._range_task_active()
             if self._range_task_active():
-                self.fault_recovery_completed = self.detach_range_manual_recovery
+                self.fault_recovery_completed = False
                 self.detach_task_phase = 'HANDOVER_READY'
                 if self.detach_range_handover_started is None:
                     self.detach_range_handover_started = now.to_sec()
@@ -2199,7 +2199,7 @@ class WallPerchDecisionNode(WallSimpleRecoveryMixin, WallDetachBrakingMixin, Wal
                     self.detach_range_posctl_confirmed_at = self.flight_state_received_at.to_sec()
                     if not self.detach_range_faulted:
                         self.detach_task_phase = 'COMPLETED'
-                        self.detach_completed = self.recovery_completed = not self.detach_range_manual_recovery
+                        self.detach_completed = self.recovery_completed = True
                     self._enter_state(WallPerchStatus.STATE_IDLE, now, 'POSCTL新鲜反馈已确认，释放ROS控制')
                     return
                 if self.detach_vertical_fault and not self.detach_range_faulted:

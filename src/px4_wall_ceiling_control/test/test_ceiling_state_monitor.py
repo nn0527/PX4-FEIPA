@@ -62,8 +62,8 @@ class CeilingStateMonitorTest(unittest.TestCase):
         normal.state = CeilingAttachmentStatus.STATE_APPROACH
         normal.state_name = "APPROACH"
         fault = CeilingAttachmentStatus()
-        fault.state = CeilingAttachmentStatus.STATE_FAULT
-        fault.state_name = "FAULT"
+        fault.state = CeilingAttachmentStatus.STATE_ABORT
+        fault.state_name = "ABORT"
         fault.reason = "test fault"
         fault.fault_count = 1
 
@@ -74,8 +74,8 @@ class CeilingStateMonitorTest(unittest.TestCase):
             monitor.on_status(fault)
 
         text = output.getvalue()
-        self.assertEqual(text.count("[FAULT 快照]"), 1)
-        self.assertIn("APPROACH -> FAULT", text)
+        self.assertEqual(text.count("[ABORT 快照]"), 1)
+        self.assertIn("APPROACH -> ABORT", text)
         for topic in (
             monitor.status_topic,
             monitor.range_topic,
@@ -89,8 +89,8 @@ class CeilingStateMonitorTest(unittest.TestCase):
     def test_fault_marks_missing_inputs(self):
         monitor = self.make_monitor()
         fault = CeilingAttachmentStatus()
-        fault.state = CeilingAttachmentStatus.STATE_FAULT
-        fault.state_name = "FAULT"
+        fault.state = CeilingAttachmentStatus.STATE_ABORT
+        fault.state_name = "ABORT"
 
         output = io.StringIO()
         with contextlib.redirect_stdout(output):

@@ -1,6 +1,9 @@
 <launch>
   <arg name="rc_wall_toggle_enabled" default="false" />
   <arg name="rc_wall_channel_index" default="11" />
+  <arg name="rc_mode_selector_enabled" default="true" />
+  <arg name="rc_mode_channel_index" default="7" />
+  <arg name="rc_mode_up_is_high" default="false" />
   <!-- Explicit default lets rospy cache this setting instead of querying Master per log. -->
   <param name="/rosout_disable_topics_generation" value="false" />
   <!--
@@ -58,6 +61,7 @@
   <arg name="record_logs" default="true" />
   <arg name="kill_guard_enabled" default="false" />
   <arg name="test_log_directory" default="$(env HOME)/wall_test_records" />
+  <arg name="test_log_alias_directory" default="" />
   <arg name="node_output" default="log" />
 
   <rosparam command="load"
@@ -77,6 +81,7 @@
         type="attachment_flight_logger.py" name="attachment_flight_logger"
         output="screen" required="false">
     <param name="directory" value="$(arg test_log_directory)" />
+    <param name="alias_directory" value="$(arg test_log_alias_directory)" />
   </node>
 
   <node pkg="px4_wall_ceiling_control" type="lidar_distance_node.py"
@@ -102,13 +107,20 @@
         name="terminal_operator_node" output="screen">
     <param name="rc_wall_toggle_enabled" value="$(arg rc_wall_toggle_enabled)" />
     <param name="rc_wall_channel_index" value="$(arg rc_wall_channel_index)" />
+    <param name="rc_mode_selector_enabled" value="$(arg rc_mode_selector_enabled)" />
+    <param name="rc_mode_channel_index" value="$(arg rc_mode_channel_index)" />
+    <param name="rc_mode_up_is_high" value="$(arg rc_mode_up_is_high)" />
     <param name="kill_guard_enabled" value="$(arg kill_guard_enabled)" />
   </node>
+
+  <node if="$(arg ceiling_enabled)" pkg="px4_wall_ceiling_control" type="ceiling_failsafe_guard_node.py"
+        name="ceiling_failsafe_guard_node" output="$(arg node_output)" />
 
   <node pkg="px4_wall_ceiling_control" type="flight_mode_manager_node.py"
         name="flight_mode_manager_node" output="$(arg node_output)">
     <param name="kill_guard_enabled" value="$(arg kill_guard_enabled)" />
     <param name="enabled" value="$(arg flight_mode_enabled)" />
+    <param name="ceiling_failsafe_guard_required" value="true" />
     <param name="wall_bench_wait_for_ranges" value="$(arg wall_bench_wait_for_ranges)" />
     <param name="motor_output_telemetry_enabled" value="$(arg wall_bench_wait_for_ranges)" />
     <param name="wall_manual_approach" value="$(arg wall_manual_approach)" />

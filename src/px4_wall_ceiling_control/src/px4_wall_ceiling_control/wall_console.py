@@ -16,6 +16,9 @@ LEGACY_PORTS = {"fcu_port": "/dev/ttyUSB0", "ceiling_port": "/dev/ttyUSB1", "fro
 
 def migrate_legacy_ports(values):
     """Upgrade this bench's old defaults; preserve explicit alternate layouts."""
+    if isinstance(values, dict):
+        values = dict(values)
+        values.pop("detach_range_manual_target_m", None)  # Retired saved setting.
     if isinstance(values, dict) and all(values.get(k) == v for k, v in LEGACY_PORTS.items()):
         return dict(values, **STABLE_PORTS)
     return values
@@ -24,7 +27,6 @@ def migrate_legacy_ports(values):
 DEFAULT_CONFIG = {
     **STABLE_PORTS, "baud": 230400,
     "hover_thrust": 0.49,
-    "detach_range_manual_target_m": 1.5,
     "test_profile": "flight",
 }
 LIMITS = {"state": 1.5, "odom": 0.5, "estimator": 1.5, "rc": 0.2,
@@ -34,6 +36,8 @@ LIMITS = {"state": 1.5, "odom": 0.5, "estimator": 1.5, "rc": 0.2,
 LIMITS.update({"front_diagnostic": 3.0, "ceiling_diagnostic": 3.0})
 LIMITS["kill"] = 0.35
 LIMITS["ceiling_status"] = 0.5
+LIMITS["rc_selected_mode"] = 0.35
+LIMITS["ceiling_failsafe"] = 1.0
 LIMITS["wall_sensor_fusion"] = 0.5
 
 
@@ -53,9 +57,6 @@ def validate_config(values):
         raise ValueError("飞控波特率无效")
     if type(result["hover_thrust"]) not in (int, float) or not math.isfinite(result["hover_thrust"]) or not 0 < result["hover_thrust"] <= 0.85:
         raise ValueError("悬停推力需为 0 到 0.85 之间的标定值")
-    height = result["detach_range_manual_target_m"]
-    if type(height) not in (int, float) or not math.isfinite(height) or not .02 < height < 5.79:
-        raise ValueError("定高目标需在 0.02 到 5.79 米之间；控制节点还会核对实际测距工作范围")
     return result
 
 
@@ -64,7 +65,6 @@ def launch_arguments(config):
     return ["roslaunch", "px4_wall_ceiling_control", "wall_console_flight.launch",
             "ceiling_serial_port:=" + c["ceiling_port"], "front_serial_port:=" + c["front_port"],
             "hover_thrust:=" + str(c["hover_thrust"]),
-            "detach_range_manual_target_m:=" + str(c["detach_range_manual_target_m"]),
             "restrained_bench:=" + ("true" if c["test_profile"] == "restrained_bench" else "false")]
 
 
@@ -151,7 +151,7 @@ class ConsoleState:
                 ("idle", "待命状态", val("phase") == "IDLE" and val("owner") == 0 and
                  val("operator", {}).get("mode") == 1 and not val("operator", {}).get("enabled", True), "已有动作请求，等待当前流程结束"),
             ]
-            checks.append(("front_mask", "前部雷达控制输入", not runtime.get("front_sensor_masked", False), "前部雷达已屏蔽；确认交回 ALTCTL 后恢复侧吸"))
+            checks.append(("front_mask", "前部雷达控制输入", not runtime.get("front_sensor_masked", False), "前部雷达已屏蔽；确认交回 POSCTL 后恢复侧吸"))
             pending = self.pending_since is not None and now - self.pending_since < 5
             blockers = [reason for _, _, ok, reason in checks if not ok]
             if wall.get("horizontal_velocity_enabled") and not (wall.get("horizontal_velocity_ready") and estimator.get("horizontal_velocity")):
@@ -178,14 +178,6 @@ class ConsoleState:
                     val("operator", {}).get("mode") == 3 and val("operator", {}).get("enabled")), "贴墙控制链路未就绪"),
             ]
             detach_blockers = [reason for ok, reason in detach_checks if not ok]
-            manual_height_blockers = []
-            if not (runtime.get("enabled") and kill_ok and flight.get("connected") and flight.get("armed")
-                    and flight.get("mode") == "OFFBOARD" and val("owner") == 2
-                    and status["setpoint"]["fresh"] and val("operator", {}).get("mode") == 3
-                    and val("operator", {}).get("enabled")):
-                manual_height_blockers.append("定高需要有效的侧吸OFFBOARD输出权限和急停反馈")
-            if not wall.get("detach_range_manual_available"):
-                manual_height_blockers.append(wall.get("detach_range_manual_block_reason") or "等待离墙测距控制就绪")
             if detach_pending:
                 detach_blockers.insert(0, "离墙请求已发送，等待节点反馈")
             if self.launch_error or self.starting:
@@ -193,12 +185,25 @@ class ConsoleState:
             ceiling = val("ceiling_status", {})
             common = [reason for i, _, ok, reason in checks if i not in ("height", "health", "front_mask", "mode") and not ok]
             ceiling_checks = [
-                (flight.get("mode") == "ALTCTL", "吸顶请求需从 ALTCTL 模式发起"),
+                (flight.get("mode") == "POSCTL", "吸顶请求需从 POSCTL 模式发起"),
                 (runtime.get("ceiling_enabled"), "吸顶节点未启用；请在落地后重新启动基础程序"),
                 (status["ceiling_status"]["fresh"] and ceiling.get("state_name") == "NORMAL_FLIGHT", "吸顶决策未待命或反馈过期"),
                 (runtime.get("ceiling_distance_gate_enabled") or (health.get("ceiling_valid") and status["ceiling"]["fresh"]), "顶部雷达无效或过期"),
                 ((runtime.get("ceiling_distance_gate_enabled") or (isinstance(val("ceiling", {}).get("range_m"), (int,float)) and 0 < val("ceiling", {}).get("range_m", 99) < runtime.get("ceiling_activation_distance_m", .5))), "需手动接近顶部至激活距离内"),
             ]
+            ceiling_wait_conditions = []
+            if runtime.get("ceiling_motion_enabled"):
+                motion_checks = [
+                    (ceiling.get("motion_control_enabled") and ceiling.get("motion_ready"),
+                     "等待有效光流、位置与速度反馈：" + (ceiling.get("motion_reason") or "等待新鲜反馈")),
+                    (ceiling.get("baseline_ready"), "等待稳定POSCTL平衡姿态和推力基准"),
+                ]
+                # Match CH12: gated requests may wait in POSCTL. The manager
+                # independently requires every takeover gate before OFFBOARD.
+                if runtime.get("ceiling_distance_gate_enabled"):
+                    ceiling_wait_conditions = [reason for ok, reason in motion_checks if not ok]
+                else:
+                    ceiling_checks += motion_checks
             ceiling_blockers = common + [reason for ok, reason in ceiling_checks if not ok]
             ceiling_pending = getattr(self, "ceiling_pending_since", None)
             if ceiling_pending is not None and now-ceiling_pending < 5:
@@ -210,6 +215,7 @@ class ConsoleState:
                 and ceiling.get("state_name") == "SURFACE_HOLD" and not ceiling.get("fault_detected")
                 and ceiling.get("odom_fresh")
                 and (ceiling.get("height_source") != "barometer_hold_relative" or (ceiling.get("baro_fresh") and ceiling.get("baro_reference_ready")))
+                and (ceiling.get("height_source") != "px4_fused_hold_relative" or (ceiling.get("height_feedback_valid") and ceiling.get("height_reference_ready")))
                 and val("phase") == "ACTIVE" and val("owner") == 1
                 and val("operator", {}).get("mode") == 2 and val("operator", {}).get("enabled")
                 and status["setpoint"]["fresh"]
@@ -223,12 +229,10 @@ class ConsoleState:
                 elif self.ceiling_request_seen and val("operator",{}).get("mode")==1 and val("phase") in ("IDLE","LOCKED"):
                     request.update(state="RELEASED",reason=val("reason") or "吸顶请求已释放，请核对急停和飞控状态")
             return {"mavros_repair": dict(getattr(self, "mavros_repair", {"state": "IDLE", "reason": "尚未执行连接修复"})), "ceiling_request":request,"can_ceiling": not ceiling_blockers, "ceiling_blockers": ceiling_blockers,
-                    "can_ceiling_detach": ceiling_detach_ok, "status": status, "checks": [{"id": i, "label": label, "ok": ok, "reason": reason}
+                    "ceiling_wait_conditions": ceiling_wait_conditions, "can_ceiling_detach": ceiling_detach_ok, "status": status, "checks": [{"id": i, "label": label, "ok": ok, "reason": reason}
                     for i, label, ok, reason in checks], "blockers": blockers, "can_wall": not blockers and not self.starting,
                     "success": bool(success), "starting": self.starting, "pending": pending,
                     "can_detach": not detach_blockers, "detach_blockers": detach_blockers,
-                    "can_set_range_height": not manual_height_blockers,
-                    "set_range_height_blockers": manual_height_blockers,
                     "detach_pending": detach_pending,
                     "can_cancel_wait": bool(val("phase") == "WAITING_WALL" and val("owner") == 0
                         and flight.get("connected") and flight.get("mode") == runtime.get("wall_pilot_mode","ALTCTL")
@@ -263,7 +267,7 @@ class ConsoleState:
             if not self.snapshot()["can_ceiling_detach"]:
                 raise ValueError("离顶要求当前吸顶保持、OFFBOARD及新鲜有效反馈")
             publish("detach")
-            self.event("已发送离顶请求；按气压计相对吸顶保持高度下降0.50m后直接交回ALTCTL")
+            self.event("已发送离顶请求；按节点反馈的本轮目标下降量闭环控制，恢复稳定后等待CH12确认交回POSCTL")
 
     def send_wall(self, publish):
         # Serialize the preflight check and dispatch across tabs and double clicks.

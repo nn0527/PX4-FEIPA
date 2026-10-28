@@ -192,16 +192,10 @@ string detach_range_config_json
 string detach_range_rejections_json
 time detach_posctl_request_time
 time detach_posctl_confirmed_time
-# Explicit fixed-height action; original first-range evidence above is immutable.
-float32 detach_range_manual_target_m
+# Recovery target revision; original first-range evidence above is immutable.
 uint32 detach_range_target_revision
 string detach_range_target_source
 time detach_range_action_started_time
-string detach_range_manual_request_id
-bool detach_range_manual_recovery
-string detach_range_previous_fault
-bool detach_range_manual_available
-string detach_range_manual_block_reason
 
 # Captured-attitude demo recovery profile (10 degree output envelope).
 bool recover_attitude_locked

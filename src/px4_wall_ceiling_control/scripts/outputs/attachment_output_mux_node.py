@@ -37,11 +37,13 @@ from px4_wall_ceiling_control.domain.rc_attitude_assist import (
 )
 from px4_wall_ceiling_control.domain.recovery_attitude_limits import (
     limit_recovery_attitude, axis_yaw, attitude_from_axis_yaw)
+from px4_wall_ceiling_control.domain.ceiling_motion import CeilingMotionSettings, limit_ceiling_attitude
 from px4_wall_ceiling_control.domain.safety import flight_state_ready
 from px4_wall_ceiling_control.freshness import is_fresh_receipt as is_fresh, is_fresh_source
 from px4_wall_ceiling_control.msg import (
     AttachmentControlCandidate,
     CeilingAttachmentStatus,
+    CeilingRcAssist,
     OperatorCommand,
     WallPerchStatus,
 )
@@ -162,6 +164,7 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
         self.preflip_bias_publisher = rospy.Publisher("/attachment/preflip_roll_bias_deg", Float32, queue_size=10)
         self.rc_yaw_rad = 0.0
         self.rc_calibration = {}
+        self.ceiling_rc_feedback_publisher = rospy.Publisher('/attachment/ceiling_rc_assist', CeilingRcAssist, queue_size=1)
         if self.rc_roll_yaw_enabled or self.rc_ceiling_roll_pitch_enabled:
             if not self.rc_assist_enabled:
                 raise ValueError("Calibrated RC correction requires rc_assist_enabled")
@@ -200,6 +203,16 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
         if self.thrust_handover_ramp_s <= 0.0:
             raise ValueError("thrust_handover_ramp_s must be positive")
 
+        self.ceiling_motion_enabled = bool(rospy.get_param("/ceiling_attachment_decision_node/motion_control_enabled", False))
+        self.ceiling_motion_settings = CeilingMotionSettings.read(
+            lambda name, default: rospy.get_param("/ceiling_attachment_decision_node/"+name[1:], default))
+        self.ceiling_candidate_snapshot = None
+        self.ceiling_last_source = None
+        self.ceiling_last_sequence = 0
+        self.ceiling_maneuver_id = None
+        self.ceiling_retired_maneuvers = set()
+        self.ceiling_prestream_attitude = None
+        self.ceiling_entry_source = None
         self.ceiling_candidate = None
         self.ceiling_candidate_at = None
         self.wall_candidate = None
@@ -389,8 +402,37 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
         if message.source != AttachmentControlCandidate.SOURCE_CEILING:
             rospy.logerr_throttle(1.0, "invalid source on ceiling candidate topic")
             return
+        now = rospy.Time.now()
+        if getattr(self, "ceiling_motion_enabled", False):
+            if not is_fresh_source(message.header.stamp, self.ceiling_candidate_timeout_s, now, future_tolerance_s=0.):
+                return
+            if message.keep_ownership:
+                if (not message.phase_valid or not message.maneuver_id
+                        or message.maneuver_id in self.ceiling_retired_maneuvers
+                        or not math.isfinite(message.ceiling_yaw_reference_rad)):
+                    return
+                if self.ceiling_maneuver_id != message.maneuver_id:
+                    if self.ceiling_maneuver_id:
+                        self.ceiling_retired_maneuvers.add(self.ceiling_maneuver_id)
+                    self.ceiling_maneuver_id = message.maneuver_id
+                    self.ceiling_last_sequence = 0
+                if (message.control_sequence <= self.ceiling_last_sequence
+                        or (self.ceiling_last_source is not None and message.header.stamp <= self.ceiling_last_source)):
+                    return
+                self.ceiling_last_sequence = message.control_sequence
+                self.ceiling_last_source = message.header.stamp
+            elif self.ceiling_maneuver_id:
+                if (message.maneuver_id != self.ceiling_maneuver_id
+                        or message.control_sequence <= self.ceiling_last_sequence
+                        or not (message.control_phase == CeilingAttachmentStatus.STATE_NORMAL_FLIGHT
+                                or (message.control_phase == CeilingAttachmentStatus.STATE_ABORT
+                                    and message.ceiling_abort_land_requested))):
+                    return
+                self.ceiling_retired_maneuvers.add(self.ceiling_maneuver_id)
+                self.ceiling_maneuver_id = None
         self.ceiling_candidate = message
-        self.ceiling_candidate_at = rospy.Time.now()
+        self.ceiling_candidate_at = now
+        self.ceiling_candidate_snapshot = (message, now)
 
     def _wall_candidate_problem(self, message, now):
         if message is None or message.source != AttachmentControlCandidate.SOURCE_WALL:
@@ -515,7 +557,13 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
             self.rc_trim_axes = ()
         if getattr(self, "match_fcu_thrust_on_handover", False):
             if previous_mode != "OFFBOARD" and next_mode == "OFFBOARD":
-                if self._handover_source_ready(now):
+                entry = getattr(self, "ceiling_entry_source", None)
+                if (getattr(self, "ceiling_motion_enabled", False) and entry is not None
+                        and self._operator_mode(now) == OperatorCommand.MODE_CEILING
+                        and is_fresh(entry[2], self.ceiling_motion_settings.motion_capture_timeout_s, now)):
+                    self.handover_start_thrust = entry[1]
+                    self.handover_started_at = None
+                elif self._handover_source_ready(now):
                     self.handover_start_thrust = float(
                         self.fcu_attitude_target.thrust
                     )
@@ -523,7 +571,7 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
                     # the output. Until then prestream holds this exact thrust.
                     self.handover_started_at = None
                     rospy.loginfo(
-                        "captured ALTCTL handover thrust %.3f",
+                        "captured pilot-mode handover thrust %.3f",
                         self.handover_start_thrust,
                     )
                 else:
@@ -544,6 +592,9 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
         # used only to resume bounded publication after an output interruption.
         if self.flight_state is not None and self.flight_state.mode.upper() == "OFFBOARD":
             self.wall_continuity_fcu_snapshot = (message, rospy.Time.now())
+            return
+        if (getattr(self, "ceiling_motion_enabled", False) and getattr(self, "ceiling_entry_source", None) is not None
+                and getattr(self, "manager_phase", '') in ('ENTERING', 'ACTIVE', 'RETURNING')):
             return
         self.fcu_attitude_target = message
         self.fcu_attitude_target_at = rospy.Time.now()
@@ -641,7 +692,7 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
             self.rc_trim_at = now
         self.rc_trim_axes = axes
         if axes == ("roll", "pitch"):
-            limits = self._rc_limits(now, AttachmentControlCandidate.SOURCE_CEILING)
+            limits = self._rc_limits(now, AttachmentControlCandidate.SOURCE_CEILING, candidate)
         else:
             limits = self._roll_yaw_limits(now, source, candidate)
         ready = self._rc_ready(now, source)
@@ -723,6 +774,8 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
                 now,
             )
             and getattr(self, "ceiling_candidate", None) is not None
+            and (not getattr(self, "ceiling_motion_enabled", False) or is_fresh_source(
+                self.ceiling_candidate.header.stamp, self.ceiling_candidate_timeout_s, now, future_tolerance_s=0.))
         )
 
     def _wall_snapshot_fresh(self, snapshot, now):
@@ -886,13 +939,18 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
         free = math.radians(self.rc_free_max_angle_deg)
         contact = math.radians(self.rc_contact_max_angle_deg)
         if source == AttachmentControlCandidate.SOURCE_CEILING:
-            if not is_fresh(self.ceiling_status_at, self.status_timeout_s, now):
-                return 0.0, 0.0
-            state = self.ceiling_status.state
+            if candidate is not None and candidate.phase_valid:
+                state = candidate.control_phase
+                landing_abort = candidate.ceiling_abort_land_requested
+            else:
+                if not is_fresh(self.ceiling_status_at, self.status_timeout_s, now):
+                    return 0.0, 0.0
+                state = self.ceiling_status.state
+                landing_abort = self.ceiling_status.abort_land_requested
             if state in (
                 CeilingAttachmentStatus.STATE_ATTACH_CONTROL,
                 CeilingAttachmentStatus.STATE_SURFACE_HOLD,
-            ):
+            ) or (state == CeilingAttachmentStatus.STATE_ABORT and landing_abort):
                 return contact, contact
             if state in (
                 CeilingAttachmentStatus.STATE_APPROACH,
@@ -922,6 +980,11 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
         return free, free
 
     def _assisted_attitude(self, now, quaternion, source, candidate=None):
+        if (source == AttachmentControlCandidate.SOURCE_CEILING and candidate is not None
+                and candidate.ceiling_rc_assist_blocked):
+            self.rc_roll_rad = self.rc_pitch_rad = self.rc_yaw_rad = 0.
+            self.rc_trim_at = now
+            return quaternion
         if not getattr(self, "rc_assist_enabled", False):
             return self._preflip_bias_attitude(now, quaternion, source, candidate)
         if self._calibrated_rc_axes(now, source):
@@ -1036,6 +1099,14 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
         return bool(math.isfinite(thrust) and 0.0 <= thrust <= 1.0)
 
     def _on_manager_phase(self, message):
+        if (getattr(self, "ceiling_motion_enabled", False) and message.data == 'ENTERING'
+                and getattr(self, 'manager_phase', '') != 'ENTERING'
+                and self._operator_mode(rospy.Time.now()) == OperatorCommand.MODE_CEILING):
+            now = rospy.Time.now()
+            if self._handover_source_ready(now):
+                self.ceiling_entry_source = (self.fcu_attitude_target.orientation, float(self.fcu_attitude_target.thrust), now)
+        if message.data in ('IDLE', 'LOCKED'):
+            self.ceiling_entry_source = None
         self.manager_phase = message.data
         self.manager_phase_at = rospy.Time.now()
 
@@ -1107,6 +1178,12 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
         if not getattr(self, "match_fcu_thrust_on_handover", False):
             return self._vertical_attitude_target(now)
 
+        entry = getattr(self, "ceiling_entry_source", None)
+        if (getattr(self, "ceiling_motion_enabled", False) and entry is not None
+                and self._operator_mode(now) == OperatorCommand.MODE_CEILING
+                and is_fresh(entry[2], self.ceiling_motion_settings.motion_capture_timeout_s, now)):
+            self.ceiling_prestream_attitude = entry[0]
+            return self._attitude_target(now, entry[0], entry[1], apply_handover=False)
         flight_mode = (
             self.flight_state.mode.upper()
             if getattr(self, "flight_state", None) is not None
@@ -1135,6 +1212,15 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
             thrust = float(self.fcu_attitude_target.thrust)
 
         orientation=self._level_attitude()
+        if (getattr(self, "ceiling_motion_enabled", False)
+                and self._operator_mode(now) == OperatorCommand.MODE_CEILING):
+            if flight_mode == "OFFBOARD":
+                orientation = self.ceiling_prestream_attitude
+                if orientation is None:
+                    return None
+            else:
+                orientation = self.fcu_attitude_target.orientation
+                self.ceiling_prestream_attitude = orientation
         wall=getattr(self,"wall_status",None)
         if (wall is not None and getattr(wall,"horizontal_equilibrium_enabled",False)
                 and (self._operator_mode(now)==OperatorCommand.MODE_WALL or (
@@ -1434,6 +1520,8 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
         }
         return target
 
+
+
     def _publish_candidate(self, now, candidate):
         wall = candidate.source == AttachmentControlCandidate.SOURCE_WALL
         if wall:
@@ -1448,8 +1536,7 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
             target = self._vertical_attitude_target(
                 now, candidate.velocity_z_enu_mps, candidate.source, candidate if wall else None)
         elif candidate.kind == AttachmentControlCandidate.KIND_ATTITUDE_THRUST:
-            orientation = self._assisted_attitude(
-                now, candidate.attitude_setpoint, candidate.source, candidate if wall else None)
+            orientation = self._assisted_attitude(now, candidate.attitude_setpoint, candidate.source, candidate)
             target = self._attitude_target(now, orientation, candidate.thrust_normalized)
         else:
             return self.OUTPUT_NONE
@@ -1457,6 +1544,24 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
             return self.OUTPUT_NONE
         target = self._limit_final_recovery_target(now, target, candidate.source, candidate if wall else None)
         target = self._limit_final_approach_target(now, target, candidate.source, candidate if wall else None)
+        if not wall and getattr(self, "ceiling_motion_enabled", False):
+            if candidate.kind != AttachmentControlCandidate.KIND_ATTITUDE_THRUST:
+                return self.OUTPUT_NONE
+            seed = getattr(self, "last_published_control", None)
+            previous = seed[0] if seed is not None and is_fresh(seed[2], .30, now) else None
+            dt = min(.05, max(0., (now-seed[2]).to_sec())) if previous is not None else 0.
+            contact = (candidate.control_phase in (CeilingAttachmentStatus.STATE_ATTACH_CONTROL, CeilingAttachmentStatus.STATE_SURFACE_HOLD)
+                       or (candidate.control_phase == CeilingAttachmentStatus.STATE_ABORT and candidate.ceiling_abort_land_requested))
+            q = limit_ceiling_attitude(tuple(getattr(target.orientation, k) for k in "xyzw"), previous,
+                dt, candidate.ceiling_yaw_reference_rad, self.ceiling_motion_settings, contact)
+            target.orientation = Quaternion(*q)
+            snapshot = self.ceiling_candidate_snapshot
+            published = rospy.Time.now()
+            if (snapshot is None or snapshot[0] is not candidate or not candidate.phase_valid
+                    or not is_fresh(snapshot[1], self.ceiling_candidate_timeout_s, published)
+                    or not is_fresh_source(candidate.header.stamp, self.ceiling_candidate_timeout_s, published, future_tolerance_s=0.)):
+                return self.OUTPUT_NONE
+            target.header.stamp = published
         if wall:
             # The previous seed is stamped at actual publication, not at the
             # start of its timer. Use the current time at the matching boundary:
@@ -1498,10 +1603,38 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
             }
         self.attitude_publisher.publish(target)
         self._remember_publication(target, candidate.source, published_at if wall else now)
+        if not wall and getattr(self, 'ceiling_motion_enabled', False):
+            self._publish_ceiling_rc_feedback(candidate, target)
         if wall:
             self.last_wall_command = command_diagnostic
             self._publish_recovery_preview(published_at, target, candidate)
         return self.OUTPUT_ATTITUDE_THRUST
+
+    def _publish_ceiling_rc_feedback(self, candidate, target):
+        publisher = getattr(self, 'ceiling_rc_feedback_publisher', None)
+        if publisher is None or not candidate.phase_valid:
+            return
+        feedback = CeilingRcAssist()
+        feedback.header.stamp = target.header.stamp
+        feedback.candidate_stamp = candidate.header.stamp
+        feedback.maneuver_id = candidate.maneuver_id
+        feedback.control_sequence = candidate.control_sequence
+        feedback.control_phase = candidate.control_phase
+        calibrated = self._calibrated_rc_axes(target.header.stamp, candidate.source) == ('roll', 'pitch')
+        enabled = getattr(self, 'rc_assist_enabled', False)
+        ready = not enabled or self._rc_ready(target.header.stamp, candidate.source)
+        feedback.input_valid = ready
+        if enabled and ready and not candidate.ceiling_rc_assist_blocked:
+            fractions = ([self._calibrated_rc_fraction(axis) for axis in ('roll', 'pitch')] if calibrated
+                else [stick_fraction(self.rc_channels, index, self.rc_pwm_low, self.rc_pwm_center,
+                    self.rc_pwm_high, self.rc_deadzone, reverse) for index, reverse in (
+                        (self.rc_roll_channel_index, self.rc_roll_reverse), (self.rc_pitch_channel_index, self.rc_pitch_reverse))])
+            # An RC callback may replace the channel frame after _rc_ready.
+            feedback.input_valid = all(value is not None for value in fractions)
+            feedback.stick_active = feedback.input_valid and any(abs(value) > 0. for value in fractions)
+        feedback.roll_trim_rad = self.rc_roll_rad if enabled and not candidate.ceiling_rc_assist_blocked else 0.
+        feedback.pitch_trim_rad = self.rc_pitch_rad if enabled and not candidate.ceiling_rc_assist_blocked else 0.
+        publisher.publish(feedback)
 
     def _publish_output_health(self, now, output_mode, reason, checks):
         publisher = getattr(self, "output_health_publisher", None)

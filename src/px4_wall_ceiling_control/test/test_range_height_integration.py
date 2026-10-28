@@ -576,7 +576,7 @@ class FastRangeVelocityControlTests(unittest.TestCase):
         self.assertIsNone(n.detach_fast_invalid_since)
         self.assertIsNone(n.detach_fast_ready_since)
 
-    def test_manual_target_and_other_abort_keep_fast_velocity_damping(self):
+    def test_reanchored_recovery_and_abort_keep_fast_velocity_damping(self):
         n, s = self.seeded(velocity=.05, fast_velocity=-.4)
         for state, revision in ((W.STATE_ABORT, 0), (W.STATE_RECOVER, 1)):
             n.state, n.detach_range.target_revision = state, revision

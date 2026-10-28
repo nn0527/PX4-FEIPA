@@ -36,7 +36,7 @@ class CeilingRcAssistTest(unittest.TestCase):
                              (Ceiling.STATE_RECOVERY_HOVER, 5),
                              (Ceiling.STATE_ATTACH_CONTROL, 2), (Ceiling.STATE_SURFACE_HOLD, 2),
                              (Ceiling.STATE_NORMAL_FLIGHT, 0), (Ceiling.STATE_CEILING_ARMED, 0),
-                             (Ceiling.STATE_FAULT, 0)):
+                             (Ceiling.STATE_ABORT, 0)):
             with self.subTest(state=state):
                 node, _ = self.fixture()
                 node.ceiling_status.state = state

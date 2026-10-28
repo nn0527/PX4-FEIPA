@@ -65,6 +65,44 @@ class FakeRos:
 
 
 class LoggerTests(unittest.TestCase):
+    def test_incremental_log_copy_append_unchanged_truncate_and_rotation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            source.mkdir()
+            original = source / "node.log"
+            saved = root / "saved"
+            state = {}
+            original.write_bytes(b"first\n")
+            self.assertEqual(logger.copy_run_logs(source, saved, state), [])
+            with patch.object(logger.os, "replace") as replace:
+                self.assertEqual(logger.copy_run_logs(source, saved, state), [])
+                with original.open("ab") as stream:
+                    stream.write(b"second\n")
+                self.assertEqual(logger.copy_run_logs(source, saved, state), [])
+                replace.assert_not_called()
+            self.assertEqual((saved / "node.log").read_bytes(), original.read_bytes())
+            original.write_bytes(b"short")
+            self.assertEqual(logger.copy_run_logs(source, saved, state), [])
+            self.assertEqual((saved / "node.log").read_bytes(), b"short")
+            original.rename(source / "old.txt")
+            original.write_bytes(b"replacement is longer")
+            self.assertEqual(logger.copy_run_logs(source, saved, state), [])
+            self.assertEqual((saved / "node.log").read_bytes(), original.read_bytes())
+
+    def test_summary_subscribes_to_one_rosout_source_bag_keeps_both(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            ros = FakeRos(root)
+            with patch.object(ros, "Subscriber", wraps=ros.Subscriber) as subscribe:
+                summary = logger.SignalSummary(root, ros, True)
+                summary.subscribe()
+                topics = [call.args[0] for call in subscribe.call_args_list]
+                self.assertIn("/rosout", topics)
+                self.assertNotIn("/rosout_agg", topics)
+                self.assertIn("/rosout_agg", logger.TOPICS)
+                summary.close()
+
     def test_quaternion_sign_and_invalid_attitudes(self):
         q = orientation(math.pi / 2)
         minus_q = NS(**{axis: -getattr(q, axis) for axis in ("x", "y", "z", "w")})
@@ -182,6 +220,7 @@ class LoggerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             ros = FakeRos(root)
+            ros.values["~alias_directory"] = str(root / "ceiling_test")
             run_logs = root / "roslog" / "test-run"
             run_logs.mkdir(parents=True)
             (run_logs / "wall-stdout.log").write_text("Traceback\n", encoding="utf-8")
@@ -210,6 +249,10 @@ class LoggerTests(unittest.TestCase):
             session = json.loads((instance.session / "session.json").read_text(encoding="utf-8"))
             self.assertEqual(session["status"], "stopped")
             self.assertTrue((instance.session / "signals.csv").exists())
+            alias = root / "ceiling_test" / instance.session.name
+            self.assertTrue(alias.is_symlink())
+            self.assertEqual(alias.resolve(), instance.session)
+            self.assertEqual((alias / "signals.csv").read_bytes(), (instance.session / "signals.csv").read_bytes())
             self.assertTrue((instance.session / "ros_parameters.json").exists())
             self.assertTrue((instance.session / "ros_logs" / "wall-stdout.log").exists())
 

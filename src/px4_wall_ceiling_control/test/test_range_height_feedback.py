@@ -40,30 +40,7 @@ class RangeHeightTests(unittest.TestCase):
         r.process(11.)
         self.assertIsNotNone(r.invalid_since)
 
-    def test_manual_fixed_target_is_never_cosine_projected_or_written_to_feedback(self):
-        r = self.tracker()
-        self.frame(r, 10.1, 1.24, 5.)
-        self.frame(r, 10.3, 1.24, 5.)
-        height, velocity, lock = r.height, r.velocity, r.lock_height
-        r.set_manual_target(10.3)
-        self.assertEqual(r.target, 1.5)
-        self.assertEqual((r.height, r.velocity, r.lock_height), (height, velocity, lock))
-        self.frame(r, 10.5, 1.3, 5.)
-        self.assertEqual(r.target, 1.5)
-        self.assertEqual(r.lock_time, 10.1)
-        self.assertEqual(r.action_started, 10.3)
 
-    def test_manual_target_rejects_unlocked_out_of_range_or_reversed_clock(self):
-        r = self.tracker()
-        with self.assertRaises(ValueError):
-            r.set_manual_target(10.2)
-        self.frame(r, 10.1)
-        with self.assertRaises(ValueError):
-            r.set_manual_target(10.)
-        r.config = replace(r.config, manual_target_m=5.)
-        with self.assertRaises(ValueError):
-            r.set_manual_target(10.2)
-        self.assertEqual(r.target_revision, 0)
 
     def tracker(self, **kwargs):
         # Synthetic device limits for tests, never installation defaults.

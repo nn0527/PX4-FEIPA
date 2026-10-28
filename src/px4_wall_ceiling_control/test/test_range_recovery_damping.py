@@ -10,7 +10,6 @@ from unittest import mock
 if importlib.util.find_spec('test_range_height_integration') is None:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import test_range_height_integration as fixtures
-import test_manual_range_height as manual_fixtures
 
 W, at = fixtures.W, fixtures.at
 
@@ -51,7 +50,7 @@ class RangeRecoveryDampingTests(unittest.TestCase):
         self.assertLess(n.detach_vertical_controller.correction, 0.)
         self.assertLess(n.detach_vertical_controller.requested, n.detach_vertical_controller.base)
 
-    def test_manual_target_uses_fast_damping_and_preserves_the_explicit_target(self):
+    def test_reanchored_target_uses_fast_damping_and_preserves_reference(self):
         n = self.seed(height=1.26, velocity=.478, fast_velocity=-.389)
         n.state = W.STATE_RECOVER
         n.detach_range.target_revision = 1
@@ -88,10 +87,9 @@ class RangeRecoveryDampingTests(unittest.TestCase):
         self.assertEqual(n.detach_range_failure_cause, 'detach rotation timeout')
         self.assertEqual(n.detach_task_phase, 'FAULT')
 
-    def test_fault_exit_and_manual_recovery_do_not_switch_back_to_slow_velocity(self):
+    def test_fault_exit_does_not_switch_back_to_slow_velocity(self):
         n = self.seed(velocity=.05, fast_velocity=-.4)
         n.detach_range_faulted = True
-        n.detach_range_manual_recovery = True
         n.state = W.STATE_EXIT
         with mock.patch.object(n.detach_vertical_controller, 'update_range', wraps=n.detach_vertical_controller.update_range) as update:
             n._range_vertical_thrust(at(self.fixture.seconds))
@@ -106,14 +104,6 @@ class RangeRecoveryDampingTests(unittest.TestCase):
         n.detach_range.read_snapshot.return_value = replace(self.snapshot, fast_velocity=0., fast_velocity_valid=False)
         self.assertFalse(n._range_height_settled(at(self.fixture.seconds)))
 
-    def test_manual_admission_requires_fast_velocity_as_well_as_slow_window(self):
-        manual = manual_fixtures.ManualRangeHeightTests()
-        manual.setUp()
-        self.addCleanup(manual.doCleanups)
-        n = manual.n
-        self.assertEqual(n._manual_range_height_block_reason(at(manual.fx.seconds)), '')
-        n.detach_range.fast_velocity_valid = False
-        self.assertIn('快速测距速度', n._manual_range_height_block_reason(at(manual.fx.seconds)))
 
     def test_abort_before_first_range_lock_uses_the_same_damping_path(self):
         self.n = self.fixture.n
@@ -133,20 +123,6 @@ class RangeRecoveryDampingTests(unittest.TestCase):
         self.assertEqual(self.n.detach_range.target, first_target)
         self.assertEqual(self.n.detach_task_phase, 'FAULT')
 
-    def test_preserved_timeout_cause_cannot_hide_a_later_latched_velocity_fault(self):
-        manual = manual_fixtures.ManualRangeHeightTests()
-        manual.setUp()
-        self.addCleanup(manual.doCleanups)
-        manual.timeout()
-        n = manual.n
-        self.assertEqual(n._manual_range_height_block_reason(at(manual.fx.seconds)), '')
-        n.detach_fast_velocity_fault = True
-        n.detach_vertical_fault = '快速测距速度失效超过短时支撑上限'
-        result = manual.submit()
-        self.assertFalse(result.success)
-        self.assertIn('锁存', result.message)
-        self.assertTrue(n.detach_fast_velocity_fault)
-        self.assertEqual(n.detach_range.target_revision, 0)
 
     def test_descent_safety_and_thrust_use_same_velocity_in_every_range_phase(self):
         n = self.seed(velocity=-1.2, fast_velocity=-.2)

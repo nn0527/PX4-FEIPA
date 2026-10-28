@@ -1,6 +1,9 @@
 <launch>
   <arg name="rc_wall_toggle_enabled" default="true" />
   <arg name="rc_wall_channel_index" default="11" />
+  <arg name="rc_mode_selector_enabled" default="true" />
+  <arg name="rc_mode_channel_index" default="7" />
+  <arg name="rc_mode_up_is_high" default="false" />
   <!-- Real MAVROS output: use only after sensor, frame and thrust calibration. -->
   <arg name="ceiling_serial_port" default="/dev/serial/by-path/pci-0000:04:00.3-usb-0:4.4:1.0-port0" />
   <arg name="front_serial_port"
@@ -27,6 +30,9 @@
     <arg name="operator_source" value="terminal" />
     <arg name="rc_wall_toggle_enabled" value="$(arg rc_wall_toggle_enabled)" />
     <arg name="rc_wall_channel_index" value="$(arg rc_wall_channel_index)" />
+    <arg name="rc_mode_selector_enabled" value="$(arg rc_mode_selector_enabled)" />
+    <arg name="rc_mode_channel_index" value="$(arg rc_mode_channel_index)" />
+    <arg name="rc_mode_up_is_high" value="$(arg rc_mode_up_is_high)" />
     <arg name="flight_mode_enabled" value="$(arg flight_enabled)" />
     <arg name="ceiling_enabled" value="true" />
     <arg name="wall_enabled" value="true" />

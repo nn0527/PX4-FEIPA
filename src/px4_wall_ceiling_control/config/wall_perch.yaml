@@ -119,10 +119,8 @@ wall_perch_decision_node:
   detach_range_control_blend_s: 0.30
   # 真正失去新鲜高度后最多支撑2秒；缺少测距速度不会触发故障。
   detach_range_loss_support_s: 2.00
-  # 以下总时间预算和交接预算保留配置兼容，demo不据此中断回平或定高。
+  # 以下总时间预算和交接预算保留配置兼容，demo不据此中断回平或高度保持。
   detach_range_control_timeout_s: 15.0
-  # 一键操作的显式目标高度，单位为垂直方向的米；不替代实测高度。
-  detach_range_manual_target_m: 1.5
   detach_range_handover_wait_s: 6.0
   # 以下为兼容路径阈值；简化版锁定姿态RECOVER统一使用 domain/simple_recovery.py：
   # 总倾角10°、角速20°/s、高差0.20m、垂直/水平速度0.25m/s，连续0.50s且2个新测距。

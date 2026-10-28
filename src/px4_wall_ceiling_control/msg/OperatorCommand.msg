@@ -10,3 +10,6 @@ uint8 mode
 bool enable_control
 string source
 string reason
+
+# Ceiling-only CH12 confirmation after recovery; wall handback remains automatic.
+time pilot_handover_request_time

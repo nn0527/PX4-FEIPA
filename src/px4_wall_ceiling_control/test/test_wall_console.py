@@ -23,25 +23,16 @@ spec.loader.exec_module(server)
 
 
 class ConsoleTests(unittest.TestCase):
-    def test_manual_height_admission_requires_live_authority_and_node_permission(self):
-        self.ready()
-        self.state.update('state', dict(connected=True, armed=True, mode='OFFBOARD'))
-        self.state.update('owner', 2)
-        self.state.update('operator', dict(mode=3, enabled=True))
-        self.state.update('setpoint', dict(thrust=.5))
-        self.state.update('wall', dict(state_name='RECOVER', reason='test', detach_range_manual_available=True))
-        self.assertTrue(self.state.snapshot()['can_set_range_height'])
-        self.state.update('wall', dict(state_name='RECOVER', reason='test', detach_range_manual_available=False, detach_range_manual_block_reason='等待有效测距'))
-        self.assertFalse(self.state.snapshot()['can_set_range_height'])
-        self.state.update('wall', dict(state_name='RECOVER', reason='test', detach_range_manual_available=True))
-        self.state.update('kill', dict(valid=True, active=True))
-        self.assertFalse(self.state.snapshot()['can_set_range_height'])
+    def test_retired_height_setting_is_migrated_only_when_loading_saved_config(self):
+        old = dict(DEFAULT_CONFIG, detach_range_manual_target_m=1.5)
+        with self.assertRaises(ValueError):
+            validate_config(old)
+        migrated = server.migrate_legacy_ports(old)
+        self.assertEqual(validate_config(migrated), DEFAULT_CONFIG)
+        self.assertFalse(any('manual_target' in arg for arg in launch_arguments(migrated)))
 
-    def test_manual_height_parameter_is_fixed_at_launch_and_validated(self):
-        self.assertIn('detach_range_manual_target_m:=1.5', launch_arguments(DEFAULT_CONFIG))
-        for target in (0., float('nan'), -1., 6., True):
-            with self.assertRaises(ValueError):
-                validate_config(dict(DEFAULT_CONFIG, detach_range_manual_target_m=target))
+
+
 
     def test_fusion_status_serializes_ros_times_and_expires(self):
         runtime = object.__new__(server.RemoteRuntime)
@@ -518,6 +509,7 @@ class ConsoleTests(unittest.TestCase):
 
     def ceiling_ready(self):
         self.ready()
+        self.state.update("state", {"connected": True, "armed": True, "mode": "POSCTL"})
         self.state.update("runtime", {"enabled": True, "ceiling_enabled": True})
         self.state.update("ceiling_status", {"state_name": "NORMAL_FLIGHT", "reason": "idle"})
         self.state.update("ceiling", {"range_m": .4})
@@ -871,7 +863,6 @@ class ConsoleTests(unittest.TestCase):
         values = {"/mavros/fcu_url": "/dev/ttyUSB3:230400",
                   "/ceiling_lidar_node/serial_port": "/dev/ttyUSB1",
                   "/front_lidar_node/serial_port": "/dev/ttyUSB4",
-                  "/wall_perch_decision_node/detach_range_manual_target_m": 1.5,
                   "/wall_perch_decision_node/hover_thrust": 0.52}
         runtime.ros = SimpleNamespace(get_param=lambda name, default=False:
             values.get(name, False if name.endswith(("require_rc_center", "rc_assist_enabled")) else True))
@@ -891,7 +882,6 @@ class ConsoleTests(unittest.TestCase):
             values = {"/mavros/fcu_url": "/dev/ttyUSB3:230400",
                       "/ceiling_lidar_node/serial_port": "/dev/ttyUSB1",
                       "/front_lidar_node/serial_port": "/dev/ttyUSB4",
-                      "/wall_perch_decision_node/detach_range_manual_target_m": 1.5,
                   "/wall_perch_decision_node/hover_thrust": 0.52,
                       "/attachment_output_mux_node/rc_assist_enabled": True,
                       "/attachment_output_mux_node/rc_roll_yaw_enabled": roll_yaw}

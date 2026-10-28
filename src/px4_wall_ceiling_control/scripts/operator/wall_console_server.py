@@ -51,6 +51,7 @@ class RemoteRuntime:
         self.command_ack_lock = threading.Lock()
         self.command_acks = {}
         self.children = {}
+        self.process_logs = {}
         self.stop_requested = False
         self.stopping = False
         self.ros = None
@@ -262,6 +263,8 @@ class RemoteRuntime:
                       "front": ("/sensor/front/range", Range), "ceiling": ("/sensor/ceiling/range", Range),
                       "front_diagnostic": ("/sensor/front/diagnostic", String),
                       "ceiling_diagnostic": ("/sensor/ceiling/diagnostic", String),
+                      "rc_selected_mode": ("/attachment/rc_selected_mode", String),
+                      "ceiling_failsafe": ("/attachment/ceiling_failsafe_status", String),
                       "kill": ("/attachment/kill_switch", String),
                       "setpoint": ("/mavros/setpoint_raw/attitude", AttitudeTarget), "battery": ("/mavros/battery", BatteryState)}
             self.subscriptions = [rospy.Subscriber(topic, kind, self.callback, callback_args=name,
@@ -281,7 +284,15 @@ class RemoteRuntime:
             value = {"ceiling_valid": msg.ceiling_valid, "front_valid": msg.front_valid,
                      "ceiling_age_s": msg.ceiling_age_s, "front_age_s": msg.front_age_s}
         elif name == "ceiling_status":
-            value = {key: getattr(msg, key) for key in ("state_name", "reason", "fault_detected", "attach_confirmed", "distance_stable", "range_fresh", "odom_fresh", "candidate_valid", "ceiling_distance_filtered_m", "compression_m", "target_distance_m", "detach_failed", "activation_ready", "detach_start_height_m", "descended_height_m", "detach_height_ready", "height_source", "baro_fresh", "baro_reference_ready", "baro_pressure_pa", "hold_pressure_pa")}
+            value = {key: getattr(msg, key) for key in ("state_name", "reason", "fault_detected", "attach_confirmed", "distance_stable", "range_fresh", "odom_fresh", "candidate_valid", "ceiling_distance_filtered_m", "compression_m", "target_distance_m", "detach_failed", "activation_ready", "detach_start_height_m", "descended_height_m", "detach_height_ready", "height_source", "baro_fresh", "baro_reference_ready", "baro_pressure_pa", "hold_pressure_pa", "motion_control_enabled", "motion_ready", "baseline_ready", "motion_paused", "recovery_ready", "horizontal_drift_m", "horizontal_speed_mps", "actual_tilt_deg", "actual_body_rate_deg_s", "yaw_reference_rad", "recovery_target_height_m", "target_vertical_speed_mps", "motion_reason", "abort_land_requested", "hold_timed_out", "abort_maneuver_id", "hold_elapsed_s", "hold_timeout_s")}
+            value.update({key: getattr(msg, key, None) for key in ("rc_manual_coordination_enabled", "rc_manual_feedback_ready", "rc_manual_active", "rc_position_weight")})
+            value.update({key: getattr(msg, key, None) for key in ("height_feedback_valid", "height_reference_ready",
+                "fused_height_m", "hold_fused_height_m", "fused_vertical_speed_mps", "baro_descended_height_m",
+                "detach_target_drop_m", "detach_max_drop_m", "detach_target_height_m",
+                "vertical_integral_thrust", "vertical_support_thrust", "vertical_proportional_thrust")})
+            value["recovery_attitude_locked"] = getattr(msg, "recovery_attitude_locked", False)
+            stamp = getattr(msg, "recovery_lock_time", None)
+            value["recovery_lock_time"] = stamp.to_sec() if hasattr(stamp, "to_sec") else 0.
         elif name == "wall_sensor_fusion":
             # Parameter ACKs are not proof that the EKF fused a measurement.
             value = {key: getattr(msg, key) for key in (
@@ -298,12 +309,12 @@ class RemoteRuntime:
                       "hold_achieved", "reached_state_name", "detach_ready", "detach_completed", "recovery_completed",
                       "detach_pending", "detach_block_reason", "flip_ready", "front_range_fresh", "top_range_fresh",
                       "auto_approach_enabled", "approach_paused", "horizontal_velocity_enabled", "approach_takeover_thrust", "approach_base_vertical_thrust", "horizontal_velocity_ready", "horizontal_velocity_active", "horizontal_velocity_stable", "horizontal_velocity_reason", "horizontal_forward_target_mps", "horizontal_forward_measured_mps", "horizontal_integral_x_enu_mps2", "horizontal_integral_y_enu_mps2", "horizontal_integral_active", "horizontal_integral_reason", "horizontal_control_saturated",  "horizontal_velocity_x_enu_mps", "horizontal_velocity_y_enu_mps", "horizontal_target_x_enu_mps", "horizontal_target_y_enu_mps", "optical_flow_quality", "horizontal_equilibrium_enabled", "horizontal_equilibrium_valid", "horizontal_equilibrium_frozen", "horizontal_equilibrium_reason", "horizontal_prestream_valid", "fault_recovery_completed", "recover_attitude_locked", "recover_stable", "detach_final_pitch_deg", "abort_land_requested", "recovery_support_valid", "recovery_thrust_limit", "detach_vertical_active", "detach_vertical_reason", "detach_vertical_base_source", "detach_vertical_base_thrust", "detach_vertical_integral", "detach_vertical_integral_active", "detach_vertical_saturated", "detach_vertical_slew_limited", "detach_vertical_requested_thrust", "detach_vertical_support_weight", "detach_height_error_m", "departure_clearance_ready", "departure_clearance_distance_m", "departure_clearance_reason", "recovery_horizontal_integral_x", "recovery_horizontal_integral_y", "recovery_horizontal_integral_active",
-                      "detach_task_phase", "detach_task_phase_name", "detach_range_height_enabled", "detach_range_episode", "detach_range_maneuver_id", "detach_request_time", "detach_rotation_start_time", "detach_range_target_locked", "detach_range_source", "detach_range_target_m", "detach_range_height_m", "detach_range_raw_m", "detach_range_projected_m", "detach_range_velocity_mps", "detach_range_velocity_valid", "detach_range_valid", "detach_range_height_invalid_since_s", "detach_range_velocity_age_s", "detach_range_velocity_invalid_since_s", "detach_range_velocity_reason", "detach_range_fast_velocity_mps", "detach_range_fast_velocity_valid", "detach_range_fast_velocity_age_s", "detach_range_fast_velocity_reason", "detach_range_current_tilt_deg", "detach_range_sample_tilt_deg", "detach_range_pose_match_dt_s", "detach_range_pose_before_dt_s", "detach_range_pose_after_dt_s", "detach_range_pose_span_s", "detach_range_pose_wait_s", "detach_range_entry_tilt_deg", "detach_range_source_time", "detach_range_received_time", "detach_range_lock_source_time", "detach_range_lock_received_time", "detach_range_lock_raw_m", "detach_range_lock_height_m", "detach_range_lock_tilt_deg", "detach_range_velocity_samples", "detach_range_age_s", "detach_range_stable_elapsed_s", "detach_range_stable_samples", "detach_range_handover_ready", "detach_range_block_reason", "detach_range_config_json", "detach_range_rejections_json", "detach_posctl_request_time", "detach_posctl_confirmed_time", "detach_range_manual_target_m", "detach_range_target_revision", "detach_range_target_source", "detach_range_action_started_time", "detach_range_manual_request_id", "detach_range_manual_recovery", "detach_range_previous_fault", "detach_range_manual_available", "detach_range_manual_block_reason")}
+                      "detach_task_phase", "detach_task_phase_name", "detach_range_height_enabled", "detach_range_episode", "detach_range_maneuver_id", "detach_request_time", "detach_rotation_start_time", "detach_range_target_locked", "detach_range_source", "detach_range_target_m", "detach_range_height_m", "detach_range_raw_m", "detach_range_projected_m", "detach_range_velocity_mps", "detach_range_velocity_valid", "detach_range_valid", "detach_range_height_invalid_since_s", "detach_range_velocity_age_s", "detach_range_velocity_invalid_since_s", "detach_range_velocity_reason", "detach_range_fast_velocity_mps", "detach_range_fast_velocity_valid", "detach_range_fast_velocity_age_s", "detach_range_fast_velocity_reason", "detach_range_current_tilt_deg", "detach_range_sample_tilt_deg", "detach_range_pose_match_dt_s", "detach_range_pose_before_dt_s", "detach_range_pose_after_dt_s", "detach_range_pose_span_s", "detach_range_pose_wait_s", "detach_range_entry_tilt_deg", "detach_range_source_time", "detach_range_received_time", "detach_range_lock_source_time", "detach_range_lock_received_time", "detach_range_lock_raw_m", "detach_range_lock_height_m", "detach_range_lock_tilt_deg", "detach_range_velocity_samples", "detach_range_age_s", "detach_range_stable_elapsed_s", "detach_range_stable_samples", "detach_range_handover_ready", "detach_range_block_reason", "detach_range_config_json", "detach_range_rejections_json", "detach_posctl_request_time", "detach_posctl_confirmed_time", "detach_range_target_revision", "detach_range_target_source", "detach_range_action_started_time")}
             for key in ('detach_request_time', 'detach_rotation_start_time', 'detach_range_source_time', 'detach_range_received_time', 'detach_range_lock_source_time', 'detach_range_lock_received_time', 'detach_posctl_request_time', 'detach_posctl_confirmed_time', 'detach_range_action_started_time'):
                 value[key] = getattr(msg, key).to_sec()
-        elif name in ("front_diagnostic", "ceiling_diagnostic", "kill"):
+        elif name in ("front_diagnostic", "ceiling_diagnostic", "kill", "ceiling_failsafe"):
             value = json.loads(msg.data)
-        elif name in ("phase", "reason", "owner", "rc_takeover"):
+        elif name in ("phase", "reason", "owner", "rc_takeover", "rc_selected_mode"):
             value = msg.data
         elif name == "operator":
             value = {"mode": msg.mode, "enabled": msg.enable_control}
@@ -365,20 +376,22 @@ class RemoteRuntime:
                     running.update(fcu_port=port, baud=int(baud),
                         ceiling_port=self.ros.get_param("/ceiling_lidar_node/serial_port", running["ceiling_port"]),
                         front_port=self.ros.get_param("/front_lidar_node/serial_port", running["front_port"]),
-                        hover_thrust=self.ros.get_param("/wall_perch_decision_node/hover_thrust", running["hover_thrust"]),
-                        detach_range_manual_target_m=self.ros.get_param("/wall_perch_decision_node/detach_range_manual_target_m", running["detach_range_manual_target_m"]))
+                        hover_thrust=self.ros.get_param("/wall_perch_decision_node/hover_thrust", running["hover_thrust"]))
                     for name, alias in STABLE_PORTS.items():
                         if Path(running[name]).resolve() == Path(alias).resolve():
                             running[name] = alias
                     self.state.config = validate_config(migrate_legacy_ports(running))
                 except (ValueError, TypeError):
                     enabled = False
-        return {"wall_range_faults_diagnostic_only": bool(
+        return {"rc_startup_enabled": bool(getattr(self, "rc_startup_enabled", False)),
+                "rc_stop_ch12_enabled": bool(getattr(self, "rc_stop_ch12_enabled", False)),
+                "wall_range_faults_diagnostic_only": bool(
                     self.ros.get_param("/wall_perch_decision_node/auto_approach", False)
                     and self.ros.get_param("/flight_mode_manager_node/wall_auto_approach", False)
                     and self.ros.get_param("/wall_perch_decision_node/ignore_range_loss_during_attachment", False)
                     and self.ros.get_param("/flight_mode_manager_node/ignore_range_loss_during_attachment",
                         self.ros.get_param("/wall_perch_decision_node/ignore_range_loss_during_attachment", False))), "wall_pilot_mode": self.ros.get_param("/flight_mode_manager_node/wall_pilot_mode","ALTCTL"), "front_sensor_masked": self.ros.get_param("/attachment/front_sensor_masked", False), "ceiling_distance_gate_enabled": self.ros.get_param("/flight_mode_manager_node/ceiling_distance_gate_enabled", False), "ceiling_enabled": "/ceiling_attachment_decision_node" in nodes,
+                "ceiling_motion_enabled": self.ros.get_param("/ceiling_attachment_decision_node/motion_control_enabled", False),
                 "ceiling_activation_distance_m": self.ros.get_param("/ceiling_attachment_decision_node/activation_distance_m", .5),
                 "enabled": bool(enabled), "test_profile": profile, "nodes": sorted(nodes),
                 "missing": sorted(required - nodes), "logger": "/attachment_flight_logger" in nodes}
@@ -465,7 +478,8 @@ class RemoteRuntime:
             self.state.config = config
             self.state.starting = True
             self.state.launch_error = ""
-        threading.Thread(target=self.start_worker, daemon=True).start()
+        self.startup_thread = threading.Thread(target=self.start_worker, daemon=True)
+        self.startup_thread.start()
         return {"message": "开始启动 MAVROS 与贴墙基础程序"}
 
     def require_mavros_task_isolation(self):
@@ -526,6 +540,8 @@ class RemoteRuntime:
             self.spawn("wall_flight", launch_arguments(self.state.config))
             deadline = time.monotonic() + 45
             while not (self.state.snapshot()["status"]["runtime"]["value"] or {}).get("enabled", False):
+                if self.stop_requested:
+                    raise ValueError("启动已取消：已请求终止现有进程")
                 child = self.children["wall_flight"]
                 if child.poll() is not None:
                     raise ValueError("贴墙链路启动失败，查看 " + str(self.log_dir / "wall_flight.log"))
@@ -533,7 +549,7 @@ class RemoteRuntime:
                     raise ValueError("贴墙节点启动未完成，请查看缺失节点和启动日志")
                 time.sleep(0.3)
             self.state.launch_error = ""
-            self.state.event("基础程序已就绪；侧吸用POSCTL、吸顶用ALTCTL起飞并稳定")
+            self.state.event("基础程序已就绪；吸顶与侧吸均用POSCTL起飞并稳定；CH8低值选吸顶、高值选侧吸，CH12提交所选动作")
         except Exception as error:
             self.state.launch_error = str(error)
             self.state.event(str(error), "error")
@@ -746,24 +762,6 @@ class RemoteRuntime:
         self.state.send_detach(publish)
         return {"message": "离墙请求已发送；控制节点等待连续稳定后旋转，8 秒未满足会取消"}
 
-    def set_range_height(self):
-        from px4_wall_ceiling_control.srv import SetRangeHeight, SetRangeHeightRequest
-        if self.ros is None:
-            raise ValueError("ROS 尚未连接")
-        with self.state.lock:
-            snapshot = self.state.snapshot()
-            if not snapshot["can_set_range_height"]:
-                raise ValueError(snapshot["set_range_height_blockers"][0])
-            wall = snapshot["status"]["wall"]["value"]
-            request = SetRangeHeightRequest(request_id=secrets.token_hex(12),
-                maneuver_id=wall["detach_range_maneuver_id"], episode=wall["detach_range_episode"],
-                expected_target_revision=wall["detach_range_target_revision"], requested_at=self.ros.Time.now())
-        self.ros.wait_for_service("/wall_perch/set_range_height", timeout=.2)
-        reply = self.ros.ServiceProxy("/wall_perch/set_range_height", SetRangeHeight)(request)
-        if not reply.success:
-            raise ValueError(reply.message)
-        self.state.event(reply.message)
-        return {"message": reply.message}
 
     def rc_takeover(self):
         from std_srvs.srv import Trigger
@@ -788,10 +786,11 @@ class RemoteRuntime:
 
     def stop_processes(self):
         """Take a fresh inventory, including alternate paths and launch children."""
+        keep_telemetry = bool(getattr(self, "stop_keep_telemetry", False))
         scripts = {p.name for p in (PACKAGE / "scripts").rglob("*.py")}
         scripts -= {"wall_console_server.py", "ceiling_wall_console.py", "wall_console.py"}
         launches = {p.name for p in (PACKAGE / "launch").rglob("*.launch")}
-        processes, targets = {}, {}
+        processes, targets, telemetry = {}, {}, set()
         for item in Path("/proc").glob("[0-9]*/cmdline"):
             try:
                 original = item.read_bytes()
@@ -804,6 +803,11 @@ class RemoteRuntime:
                 processes[pid] = (original, parent)
                 names = {Path(a).name for a in args}
                 if names & {"wall_console_server.py", "ceiling_wall_console.py"}:
+                    continue
+                if keep_telemetry and ("mavros_node" in names or
+                        ("roslaunch" in names and ("wall_console_mavros.launch" in names or
+                         ("mavros" in args and "px4.launch" in names)))):
+                    telemetry.add(pid)
                     continue
                 if (names & scripts or "mavros_node" in names
                         or ("roslaunch" in names and (names & launches or
@@ -818,14 +822,21 @@ class RemoteRuntime:
         changed = True
         while changed:
             changed = False
+            for pid, (_, parent) in processes.items():
+                if parent in telemetry and pid not in telemetry:
+                    telemetry.add(pid)
+                    changed = True
+        changed = True
+        while changed:
+            changed = False
             for pid, (original, parent) in processes.items():
-                if parent in targets and pid not in targets:
+                if parent in targets and pid not in targets and pid not in telemetry:
                     targets[pid] = original
                     changed = True
-        return targets
+        return {pid: original for pid, original in targets.items() if pid not in telemetry}
 
     @staticmethod
-    def stop_ros_residuals():
+    def stop_ros_residuals(keep_telemetry=False):
         """Independent graph check catches nodes missed by the process matcher."""
         class TimeoutTransport(xmlrpc.client.Transport):
             def make_connection(self, host):
@@ -855,7 +866,9 @@ class RemoteRuntime:
                          "wall_perch_decision_node", "ceiling_attachment_decision_node",
                          "flight_mode_manager_node", "attachment_output_mux_node",
                          "terminal_operator_node", "mavros", "attachment_flight_logger",
-                         "ceiling_flight_logger", "wall_sensor_fusion_manager_node"})
+                         "ceiling_flight_logger", "ceiling_failsafe_guard_node", "wall_sensor_fusion_manager_node"})
+        if keep_telemetry:
+            names.discard("/mavros")
         remaining = []
         for name in sorted(names):
             code, _, uri = master.lookupNode(caller, name)
@@ -874,24 +887,31 @@ class RemoteRuntime:
         return remaining
 
     def verify_stopped(self):
+        keep_telemetry = bool(getattr(self, "stop_keep_telemetry", False))
         remaining = self.stop_processes()
         failures = ["残留 PID: " + str(sorted(remaining))] if remaining else []
-        nodes = self.stop_ros_residuals()
+        nodes = self.stop_ros_residuals(keep_telemetry=keep_telemetry)
         if nodes:
             failures.append("仍存活 ROS 节点: " + ", ".join(nodes))
         for key in ("fcu_port", "ceiling_port", "front_port"):
+            if key == "fcu_port" and keep_telemetry:
+                continue
             owners = self.port_owners(self.state.config[key])
             if owners:
                 failures.append(self.state.config[key] + " 仍被 PID " + str(owners) + " 占用")
         for name, child in self.children.items():
             # stop() deliberately preserves the shared ROS master.
-            if name != "roscore" and child.poll() is None:
+            if name not in ({"roscore", "mavros"} if keep_telemetry else {"roscore"}) and child.poll() is None:
                 failures.append("启动进程仍存活: " + name)
         if failures:
             raise ValueError("停止未完成；" + "；".join(failures))
 
     def stop(self, config=None, _repair=False):
         """Stop this console's test pipeline, preserving ROS master and SSH."""
+        resume_rc = bool(getattr(self, "rc_startup_enabled", False) and not _repair)
+        # A dead/unresponsive transport must be cleaned up as well; preserving
+        # its launcher would prevent telemetry bootstrap after a verified Stop.
+        keep_transport = resume_rc and self.mavros_alive()
         with self.state.lock:
             if getattr(self, "repairing", False) and not _repair:
                 raise ValueError("正在执行地面恢复，请等待 MAVROS 重启结果")
@@ -908,6 +928,10 @@ class RemoteRuntime:
                 raise ValueError("飞控反馈过期；需明确确认飞机已落地且电机停止，才可清理异常进程")
             self.stopping = True
             self.stop_requested = True
+            # Normal Stop retains only transport when RC startup is installed.
+            # Ground connection recovery must still stop and replace MAVROS.
+            self.stop_keep_telemetry = keep_transport
+            keep_telemetry = self.stop_keep_telemetry
         try:
             targets = self.stop_processes()
             def alive(pid, original):
@@ -928,26 +952,51 @@ class RemoteRuntime:
             remaining = [pid for pid, original in targets.items() if alive(pid, original)]
             if remaining:
                 raise ValueError("停止未完成；残留 PID: " + str(remaining))
+            worker = getattr(self, "startup_thread", None)
+            if worker is not None and worker is not threading.current_thread():
+                worker.join(timeout=3)
+                if worker.is_alive():
+                    raise ValueError("启动线程尚未退出，请等待后再次停止基础链路")
             self.verify_stopped()
             time.sleep(.3)
             self.verify_stopped()
             for name in ("wall_flight", "mavros"):
-                self.children.pop(name, None)
+                if name != "mavros" or not keep_telemetry:
+                    self.children.pop(name, None)
+                    sink=getattr(self,'process_logs',{}).pop(name,None)
+                    if sink is not None:sink.close()
             with self.state.lock:
                 self.state.pending_since = self.state.detach_pending_since = None
+                self.state.ceiling_request = {"state": "NOT_SENT", "reason": "基础链路已停止；等待新的吸附请求"}
+                self.state.ceiling_request_seen = False
                 self.state.starting = bool(getattr(self, "repairing", False))
                 self.state.launch_error = ""
             with self.state.lock:
-                self.state.samples.clear()  # Removed producers must not leave stale action state.
+                if keep_telemetry:
+                    # Keep live FCU/RC feedback; remove every stopped business
+                    # producer so old task/kill/sensor samples cannot authorize actions.
+                    telemetry_samples = {"state", "rc", "odom", "estimator", "battery"}
+                    self.state.samples = {k: v for k, v in self.state.samples.items() if k in telemetry_samples}
+                else:
+                    self.state.samples.clear()  # Removed producers must not leave stale action state.
             self.state.update("runtime", self.inspect_runtime() if self.ros else {"enabled": False, "nodes": [], "missing": []})
+            if resume_rc:
+                self.stop_requested = False
+                if keep_telemetry:
+                    self.state.event("基础链路已停止：控制、雷达及记录进程已终止；遥控启动监听保持运行")
+                    return {"message": "基础链路已停止，遥控启动待命；可直接用组合动作重新启动"}
+                self.state.event("基础链路及异常 MAVROS 已停止并通过核验；正在恢复最小遥控通信")
+                return {"message": "基础链路已停止；正在恢复遥控通信，待飞控状态有效后可拨杆启动"}
             self.state.event("已终止试验控制、MAVROS、雷达及记录进程；可以重新启动")
             return {"message": "现有试验进程已终止，可以重新启动基础程序"}
         except Exception as error:
             with self.state.lock:
+                self.stop_requested = True
                 self.state.launch_error = "停止核验失败：" + str(error)
             raise ValueError(self.state.launch_error) from error
         finally:
             self.stopping = False
+            self.stop_keep_telemetry = False
 
 
 def bridge_main():
@@ -1079,10 +1128,6 @@ class SSHTransport:
                     for check in result["checks"]:
                         check["ok"] = False
             detach_sources = required_feedback + (("setpoint",) if range_diagnostic_only else ("health", "setpoint"))
-            manual_sources = ("runtime", "state", "wall", "kill", "owner", "operator", "setpoint")
-            if not connected or not self.session.get("control") or any(not result["status"][n]["fresh"] for n in manual_sources):
-                result["can_set_range_height"] = False
-                result["set_range_height_blockers"] = ["定高所需实时反馈或控制权缺失"]
             if not connected or any(not result["status"][n]["fresh"] for n in detach_sources):
                 if not connected or result["can_detach"]:
                     result["detach_blockers"] = ["离墙所需实时反馈中断或过期"]
@@ -1116,7 +1161,7 @@ class SSHTransport:
                 raise ValueError("SSH 未连接，操作未发送")
             if action == "stop" and not self.session.get("control"):
                 raise ValueError("需要控制权，终止未发送")
-            if action in ("start", "wall", "detach", "cancel_wait", "rc_takeover", "set_range_height") and (not self.push_enabled or not self.session.get("control") or time.monotonic() - self.arrived >= 2):
+            if action in ("start", "wall", "detach", "cancel_wait", "rc_takeover") and (not self.push_enabled or not self.session.get("control") or time.monotonic() - self.arrived >= 2):
                 raise ValueError("需要控制权和有效的实时反馈，操作未发送")
             if action == "push":
                 self.push_enabled = bool(config["enabled"])
@@ -1141,89 +1186,6 @@ class SSHTransport:
                 self.pending.pop(identifier, None)
 
 
-def http_main(args):
-    settings = Path(args.settings).expanduser()
-    config = dict(DEFAULT_CONFIG)
-    if settings.exists():
-        config = validate_config(migrate_legacy_ports(json.loads(settings.read_text(encoding="utf-8"))))
-    transport = SSHTransport(args)
-    token = secrets.token_urlsafe(32)
-    class Handler(BaseHTTPRequestHandler):
-        def respond(self, code, payload, mime="application/json; charset=utf-8"):
-            if not isinstance(payload, bytes):
-                payload = json.dumps(finite_json(payload), ensure_ascii=False, allow_nan=False).encode()
-            self.send_response(code)
-            self.send_header("Content-Type", mime)
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("X-Content-Type-Options", "nosniff")
-            self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'")
-            self.send_header("Content-Length", str(len(payload)))
-            self.end_headers()
-            self.wfile.write(payload)
-        def valid_host(self):
-            return self.headers.get("Host") in ("127.0.0.1:" + str(args.port), "localhost:" + str(args.port))
-        def do_GET(self):
-            if not self.valid_host():
-                return self.respond(403, {"error": "Invalid host"})
-            if self.path == "/api/status":
-                value = transport.status(config)
-                value["token"] = token
-                value["console_protocol"] = 2
-                return self.respond(200, value)
-            assets = {"/": ("index.html", "text/html; charset=utf-8"),
-                      "/app.js": ("app.js", "text/javascript; charset=utf-8"),
-                      "/style.css": ("style.css", "text/css; charset=utf-8")}
-            if self.path in assets:
-                name, mime = assets[self.path]
-                return self.respond(200, (PACKAGE / "web" / "wall_console" / name).read_bytes(), mime)
-            return self.respond(404, {"error": "Not found"})
-        def do_POST(self):
-            nonlocal config
-            origin = self.headers.get("Origin")
-            if not self.valid_host() or (origin and origin != "http://" + self.headers.get("Host", "")) or not secrets.compare_digest(self.headers.get("X-Console-Token", ""), token):
-                return self.respond(403, {"error": "操作来源校验失败"})
-            try:
-                size = int(self.headers.get("Content-Length", "0"))
-                if not 0 < size <= 8192:
-                    raise ValueError("请求长度无效")
-                data = json.loads(self.rfile.read(size))
-                if self.path == "/api/start":
-                    proposed = validate_config(migrate_legacy_ports(data))
-                    result = transport.request("start", proposed)
-                    settings.parent.mkdir(parents=True, exist_ok=True)
-                    temporary = settings.with_suffix(".tmp")
-                    temporary.write_text(json.dumps(proposed, ensure_ascii=False, indent=2), encoding="utf-8")
-                    temporary.replace(settings)
-                    config = proposed
-                elif self.path in ("/api/acquire", "/api/release"):
-                    result = transport.request(self.path.rsplit("/", 1)[1])
-                elif self.path == "/api/push":
-                    if type(data.get("enabled")) is not bool:
-                        raise ValueError("enabled 必须为布尔值")
-                    result = transport.request("push", data)
-                elif self.path in ("/api/ceiling", "/api/ceiling-detach"):
-                    result = transport.request("ceiling" if self.path == "/api/ceiling" else "ceiling_detach")
-                elif self.path == "/api/wall":
-                    result = transport.request("wall")
-                elif self.path == "/api/rc-takeover":
-                    result = transport.request("rc_takeover")
-                elif self.path == "/api/cancel-wait":
-                    result = transport.request("cancel_wait")
-                elif self.path == "/api/stop":
-                    result = transport.request("stop", data)
-                elif self.path == "/api/detach":
-                    result = transport.request("detach")
-                elif self.path == "/api/set-range-height":
-                    result = transport.request("set_range_height")
-                else:
-                    return self.respond(404, {"error": "Not found"})
-                return self.respond(200, result)
-            except (ValueError, TypeError, KeyError, OSError) as error:
-                return self.respond(409, {"error": str(error)})
-        def log_message(self, *unused):
-            pass
-    print("Wall console: http://127.0.0.1:" + str(args.port), flush=True)
-    ThreadingHTTPServer(("127.0.0.1", args.port), Handler).serve_forever()
 
 
 if __name__ == "__main__":
@@ -1247,4 +1209,4 @@ if __name__ == "__main__":
     elif options.bridge:
         bridge_main()
     else:
-        http_main(options)
+        parser.error("旧控制台已删除，请运行 ceiling_wall_console.py 使用新版统一测试台")

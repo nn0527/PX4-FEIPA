@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Print ceiling-attachment transitions and a one-shot FAULT snapshot."""
+"""Print ceiling-attachment transitions and a one-shot ABORT snapshot."""
 
 import sys
 import time
@@ -100,7 +100,7 @@ class CeilingAttachmentStateMonitor:
             self.previous_name = status.state_name
             latest = (
                 dict(self.latest)
-                if status.state == CeilingAttachmentStatus.STATE_FAULT
+                if status.state == CeilingAttachmentStatus.STATE_ABORT
                 else None
             )
 
@@ -117,14 +117,14 @@ class CeilingAttachmentStateMonitor:
             status.compression_m,
             status.fault_count,
         )
-        if status.state == CeilingAttachmentStatus.STATE_FAULT:
+        if status.state == CeilingAttachmentStatus.STATE_ABORT:
             line = "[警告] " + line
 
         output = "\a" if ring and sys.stdout.isatty() else ""
         output += line + "\n"
         if latest is not None:
             now = time.monotonic()
-            output += "[FAULT 快照] 最近接收的消息；接收时间差不代表传感器样本年龄\n"
+            output += "[ABORT 快照] 最近接收的消息；接收时间差不代表传感器样本年龄\n"
             output += self._format_message(self.status_topic, (status, now), now) + "\n"
             for name, topic in (
                 ("range", self.range_topic),
@@ -134,7 +134,7 @@ class CeilingAttachmentStateMonitor:
                 ("mechanism", self.mechanism_topic),
             ):
                 output += self._format_message(topic, latest.get(name), now) + "\n"
-            output += "[FAULT 快照结束]\n"
+            output += "[ABORT 快照结束]\n"
         sys.stdout.write(output)
         sys.stdout.flush()
 

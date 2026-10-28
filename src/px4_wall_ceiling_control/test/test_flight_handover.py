@@ -157,7 +157,7 @@ class FlightHandoverTest(unittest.TestCase):
         node.output_at = now
         node.output_timeout_s = 0.3
         node.estimator = EstimatorStatus(
-            attitude_status_flag=True, velocity_vert_status_flag=True
+            attitude_status_flag=True, velocity_vert_status_flag=True, velocity_horiz_status_flag=True, pos_horiz_rel_status_flag=True
         )
         node.estimator_at = now
         node.estimator_timeout_s = 0.5
@@ -309,6 +309,7 @@ class FlightHandoverTest(unittest.TestCase):
         node.estimator = EstimatorStatus(
             attitude_status_flag=True,
             velocity_horiz_status_flag=True,
+            pos_horiz_rel_status_flag=True,
             velocity_vert_status_flag=True,
         )
         node.estimator_at = now
@@ -369,7 +370,7 @@ class FlightHandoverTest(unittest.TestCase):
         node.selected_mode = OperatorCommand.MODE_CEILING
         node.stream_since = time.monotonic() - 2.0
         node.prestream_s = 1.5
-        node.flight = State(mode="ALTCTL")
+        node.flight = State(mode="POSCTL")
         now = rospy.Time.from_sec(10.0)
         node.flight_at = now
         node.state_timeout_s = 0.5
@@ -748,7 +749,7 @@ class FlightHandoverTest(unittest.TestCase):
         self.assertTrue(node.completed)
         self.assertTrue(node.owner_seen)
 
-    def test_altctl_is_requested_only_after_completion_and_owner_release(self):
+    def test_posctl_is_requested_only_after_completion_and_owner_release(self):
         node = Manager.__new__(Manager)
         now = rospy.Time.from_sec(10.0)
         node.phase = Manager.ACTIVE
@@ -764,7 +765,7 @@ class FlightHandoverTest(unittest.TestCase):
         node.output_mode = 2
         node.output_at = now
         node.estimator = EstimatorStatus(
-            attitude_status_flag=True, velocity_vert_status_flag=True
+            attitude_status_flag=True, velocity_vert_status_flag=True, velocity_horiz_status_flag=True, pos_horiz_rel_status_flag=True
         )
         node.estimator_at = now
         node.estimator_timeout_s = 0.5
@@ -796,7 +797,7 @@ class FlightHandoverTest(unittest.TestCase):
             node._on_timer(None)
             node._on_timer(None)
         self.assertEqual(node.phase, Manager.RETURNING)
-        node._request_mode.assert_called_once_with("ALTCTL")
+        node._request_mode.assert_called_once_with("POSCTL")
 
     def test_owner_timeout_reports_wall_decision_reason(self):
         node = Manager.__new__(Manager)
@@ -949,12 +950,12 @@ class FlightHandoverTest(unittest.TestCase):
         node.odom.twist.twist.angular.y = 0.5
         self.assertFalse(node._handover_ready(now))
 
-    def test_terminal_detach_keeps_mode_until_altctl(self):
+    def test_terminal_detach_keeps_mode_until_posctl(self):
         node = Terminal.__new__(Terminal)
         node.mode = OperatorCommand.MODE_STANDBY
         node.detaching = False
         node.was_offboard = False
-        node.flight_mode = "ALTCTL"
+        node.flight_mode = "POSCTL"
         node.command_pub = mock.Mock()
         node.ceiling_detach_pub = mock.Mock()
         node.wall_detach_pub = mock.Mock()
@@ -983,7 +984,7 @@ class FlightHandoverTest(unittest.TestCase):
         with mock.patch.object(rospy.Time, "now", return_value=rospy.Time.from_sec(10.3)):
             node._on_state(State(connected=True, mode="OFFBOARD"))
             with mock.patch.object(rospy, "set_param"):
-                node._on_state(State(connected=True, mode="ALTCTL"))
+                node._on_state(State(connected=True, mode="POSCTL"))
         self.assertEqual(node.mode, OperatorCommand.MODE_STANDBY)
 
 

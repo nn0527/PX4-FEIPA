@@ -13,7 +13,6 @@ from std_msgs.msg import Bool
 
 from px4_wall_ceiling_control.domain.range_height_feedback import RangeHeightConfig
 from px4_wall_ceiling_control.msg import WallPerchStatus as W
-from px4_wall_ceiling_control.srv import SetRangeHeightRequest
 from test_attachment_safety import WallDecision
 import test_detach_state_machine as fixtures
 
@@ -94,7 +93,7 @@ class HoldConfigLatencyTests(unittest.TestCase):
             self.assertTrue(status.detach_ready)
             self.assertEqual(self.n.state, W.STATE_WALL_HOLD)
 
-    def test_valid_request_first_range_and_manual_height_need_no_parameter_io(self):
+    def test_valid_request_and_first_range_need_no_parameter_io(self):
         config = self.n._range_config()
         with self.deny_parameters() as reads:
             self.refresh(10.)
@@ -113,18 +112,11 @@ class HoldConfigLatencyTests(unittest.TestCase):
             self.fx.enter(self.n, W.STATE_RECOVER, self.seconds)
             self.n._detach_progress = lambda: 1.
             self.n._wall_fusion_samples_ready = lambda now: True
-            request = SetRangeHeightRequest(request_id='no-parameter-io',
-                maneuver_id=self.n.maneuver_id, episode=self.n.detach_range.episode,
-                expected_target_revision=self.n.detach_range.target_revision, requested_at=fixtures.at(self.seconds))
-            result = self.n._on_set_range_height(request)
-            self.assertTrue(result.success, result.message)
-            self.assertEqual(self.n.detach_range.target, config.manual_target_m)
             reads.assert_not_called()
 
     def test_parameter_changes_require_restart_even_for_later_departures(self):
         config = self.n._range_config()
-        changed = dict(self.params, **{'~detach_range_entry_tilt_deg': 8.,
-                                      '~detach_range_manual_target_m': 1.8})
+        changed = dict(self.params, **{'~detach_range_entry_tilt_deg': 8.})
         with mock.patch.object(rospy, 'get_param', side_effect=lambda key, default=None: changed.get(key, default)) as reads:
             for seconds in (10., 11.):
                 self.refresh(seconds)
@@ -132,11 +124,9 @@ class HoldConfigLatencyTests(unittest.TestCase):
                     fixtures.at(seconds), self.n.horizontal_output))
                 self.assertIs(self.n.detach_range.config, config)
                 self.assertEqual(self.n.detach_range.config.entry_tilt_deg, 10.)
-                self.assertEqual(self.n.detach_range.config.manual_target_m, 1.5)
             reads.assert_not_called()
         restarted = self.new_node(**changed)
         self.assertEqual(restarted._range_config().entry_tilt_deg, 8.)
-        self.assertEqual(restarted._range_config().manual_target_m, 1.8)
 
     def test_startup_normalizes_and_freezes_config_and_rejects_invalid_values(self):
         node = self.new_node(**{'~detach_range_sensor_axis_body': [0., 0., -1.],
@@ -146,7 +136,7 @@ class HoldConfigLatencyTests(unittest.TestCase):
         self.assertIsInstance(config.reference_offset_body_m, tuple)
         self.assertIs(node.detach_range.config, config)
         with self.assertRaises(FrozenInstanceError):
-            config.manual_target_m = 2.
+            config.entry_tilt_deg = 2.
         with self.assertRaises(ValueError):
             self.new_node(**{'~detach_range_timeout_s': -1.})
 

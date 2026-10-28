@@ -21,16 +21,12 @@ ceiling_attachment_decision_node:
   # 2. 机械结构与距离标定（最先修改）
   # contact_distance_m：机构刚接触天花板时，雷达实际读数 d0。
   # target_compression_m：期望压缩量；目标顶距=d0-target_compression_m。
-  # activation_distance_m：小于该距离后，开始自动接近。
-  # contact_margin_m：允许从 APPROACH 进入接触控制的额外距离裕量。
+  # wall_contact_distance_m：顶部原始测距进入接触确认阶段的门限。
   # lost_contact_margin_m：贴顶时顶距大于 d0+该值，判定接触丢失并脱离。
   # 必须满足：0 < target_compression_m < contact_distance_m
-  #           contact_distance_m + contact_margin_m < activation_distance_m
   # ===========================================================================
   contact_distance_m: 0.10
   target_compression_m: 0.02
-  activation_distance_m: 0.50
-  contact_margin_m: 0.02
   lost_contact_margin_m: 0.08
 
   # ===========================================================================
@@ -56,10 +52,9 @@ ceiling_attachment_decision_node:
 
   # ===========================================================================
   # 5. 靠近阶段
-  # 进入 APPROACH 后先等待 approach_settle_time_s，再以固定速度向上靠近。
-  # 超过 approach_timeout_s 未接触则锁存 FAULT，由模式管理器交回 ALTCTL。
-  # 控制台分支的吸附控制入口，与后续贴顶接触确认距离独立。
-  approach_contact_distance_m: 0.07
+  # 进入 APPROACH 后先等待 approach_settle_time_s，再按距离比例/制动界限上升。
+  # 超过接近总时间预算未接触则 ABORT，由模式管理器交回 POSCTL。
+  # 顶距来源：接管基准 + 朝下光流升高量（固定平面地面）。
   # ===========================================================================
   approach_settle_time_s: 0.50
   approach_speed_mps: 0.15
@@ -67,50 +62,38 @@ ceiling_attachment_decision_node:
 
   # ===========================================================================
   # 6. 接触确认与稳定判定
-  # 控制台分支：原始顶距和最近3点中位数均 <= 0.067m，连续1秒，
-  # 从 ATTACH_CONTROL 进入 SURFACE_HOLD。
-  # 普通分支：压缩量 >= attach_confirm_compression_m，并持续 attach_confirm_time_s。
+  # 原始顶距 <= wall_contact_distance_m 且低速进入 ATTACH_CONTROL；
+  # 原始/滤波距离、速度、姿态及支撑推力连续稳定后才进入 SURFACE_HOLD。
   # ===========================================================================
   wall_contact_distance_m: 0.067
-  wall_contact_hold_s: 1.0
   attach_control_time_s: 0.50
   # 接触后若距离仍未进入稳定区间，最多尝试该时长，然后受控脱离。
   attach_control_timeout_s: 5.00
-  require_attach_confirmation: true
-  attach_confirm_compression_m: 0.015
-  attach_confirm_time_s: 0.30
-  stable_tolerance_m: 0.01
+  stable_tolerance_m: 0.02
   stable_time_s: 0.50
 
   # ===========================================================================
   # 7. 接触/贴顶推力候选
-  # 接触推力从 hover_thrust*attach_thrust_multiplier 开始；若顶部距离仍大于
-  # 稳定目标区间，则按 attach_thrust_ramp_per_s 递增，最高到
-  # attach_max_thrust。进入稳定距离区间后停止增加。
-  # 保持推力=hover_thrust*surface_thrust_multiplier
-  # 所有推力最终仍受 max_thrust 限制。
+  # 接触推力继承接管时的支撑推力；按 attach_thrust_ramp_per_s 在
+  # [保持推力, attach_max_thrust] 之间调整。
+  # 保持推力 = surface_hold_thrust；所有推力最终仍受 max_thrust 限制。
   # ===========================================================================
   # 2026-10-13 根据机载日志复核，用户指定悬停基值 0.49；仍需悬停验证。
+  # HOLD超过该时长仍未开始DETACH，进入ABORT并请求PX4 AUTO.LAND；
+  # 0 表示不限时（控制台入口）。
+  hold_timeout_s: 5.0
   hover_thrust: 0.49
-  attach_thrust_multiplier: 1.11
-  surface_thrust_multiplier: 1.07
   attach_thrust_ramp_per_s: 0.02
   attach_max_thrust: 0.55
+  surface_hold_thrust: 0.55
   max_thrust: 0.90
 
   # ===========================================================================
-  # 8. 脱离阶段距离PID候选
-  # 脱离目标距离从压缩目标缓慢增加到独立安全分离距离。
-  # detach_timeout_s 防止距离始终达不到安全分离阈值而卡在 DETACH。
+  # 8. 脱离阶段
+  # 以进入 DETACH 时的融合高度/气压为基准，下降 detach_drop_m 后进入恢复。
+  # detach_timeout_s 防止始终达不到下降量而卡在 DETACH。
   # ===========================================================================
-  detach_safe_distance_m: 0.30
-  detach_clear_hold_s: 0.20
   detach_min_thrust: 0.30
-  detach_distance_ramp_mps: 0.08
-  distance_kp: 1.0
-  distance_ki: 0.0
-  distance_kd: 0.0
-  integral_limit: 1.0
   detach_timeout_s: 5.0
   recovery_hover_time_s: 2.0
 
@@ -119,3 +102,89 @@ ceiling_attachment_decision_node:
   mechanism_status_topic: /attachment/mechanism_status
   require_mechanism_ack: true
   mechanism_timeout_s: 1.0
+
+  # POSCTL capture and free-flight stabilization (ENU). Limits are initial values.
+  abort_land_on_fault: true
+  ekf_abort_guard_enabled: true
+  # Keep EKF attitude/acceleration and telemetry checks; magnetic ratio is warning-only.
+  ekf_mag_ratio_abort_enabled: false
+  motion_control_enabled: true
+  detach_fused_height_enabled: true
+  detach_height_velocity_enabled: true
+  detach_drop_m: 0.40
+  detach_max_drop_m: 1.50
+  detach_height_tolerance_m: 0.02
+  detach_height_hold_s: 0.30
+  detach_settled_speed_mps: 0.05
+  contact_settled_speed_mps: 0.10
+  detach_velocity_ki: 0.10
+  detach_integral_limit: 0.12
+  detach_thrust_transition_s: 0.30
+  detach_thrust_handover_slew_per_s: 0.20
+  odom_vertical_jump_m: 0.25
+  rc_manual_coordination_enabled: true
+  rc_manual_position_weight: 0.25
+  rc_manual_blend_s: 0.50
+  rc_manual_feedback_timeout_s: 0.20
+  rc_manual_zero_deg: 0.05
+  horizontal_position_deadband_m: 0.1
+  horizontal_position_kp: 0.3
+  horizontal_max_speed_mps: 0.2
+  horizontal_velocity_kp: 1.5
+  horizontal_velocity_ki: 0.3
+  horizontal_integral_limit_mps2: 0.2
+  horizontal_max_acceleration_mps2: 0.4
+  horizontal_target_acceleration_mps2: 0.1
+  horizontal_drift_warn_m: 0.3
+  horizontal_drift_pause_m: 1.0
+  horizontal_drift_resume_m: 0.6
+  attitude_max_tilt_deg: 10.0
+  contact_max_tilt_deg: 5.0
+  yaw_max_offset_deg: 10.0
+  attitude_tilt_slew_deg_s: 15.0
+  attitude_yaw_slew_deg_s: 15.0
+  actual_tilt_pause_deg: 15.0
+  actual_tilt_resume_deg: 12.0
+  actual_body_rate_pause_deg_s: 30.0
+  actual_body_rate_resume_deg_s: 20.0
+  motion_limit_confirm_s: 0.2
+  motion_resume_hold_s: 0.5
+  motion_feedback_timeout_s: 2.0
+  motion_pause_timeout_s: 8.0
+  motion_flow_timeout_s: 0.6
+  motion_flow_future_tolerance_s: 0.1
+  motion_flow_quality_min: 1.0
+  motion_estimator_timeout_s: 1.5
+  motion_reacquire_time_s: 0.3
+  motion_equilibrium_window_s: 0.3
+  motion_equilibrium_speed_mps: 0.3
+  motion_fcu_target_timeout_s: 0.55
+  # Log replay: target frames ~0.23s apart, occasional gaps near 0.50s.
+  motion_equilibrium_max_gap_s: 0.55
+  motion_equilibrium_max_spread_deg: 3.0
+  motion_capture_timeout_s: 2.0
+  vertical_speed_kp: 0.3
+  vertical_target_acceleration_mps2: 0.15
+  detach_min_down_speed_mps: 0.05
+  recovery_height_kp: 0.5
+  recovery_height_tolerance_m: 0.05
+  recovery_vertical_speed_mps: 0.15
+  recovery_horizontal_speed_mps: 0.15
+  recovery_max_tilt_deg: 10.0
+  recovery_max_rate_deg_s: 20.0
+  recovery_stable_time_s: 0.5
+  recovery_timeout_s: 15.0
+  contact_release_distance_m: 0.1
+  contact_release_hold_s: 0.2
+  odom_position_jump_m: 0.75
+  odom_yaw_jump_deg: 20.0
+
+  # 顶距来源：进入 CEILING_ARMED 时锁定顶部基准与朝下光流距离，
+  # 之后只用“基准 − 光流升高量”估算顶距（固定平面地面）。
+  approach_flow_min_m: 0.02
+  approach_flow_max_m: 6.0
+  approach_flow_sync_s: 0.25
+  approach_distance_kp: 0.50
+  approach_max_duration_s: 300.0
+  approach_max_ascent_m: 40.0
+  approach_range_loss_timeout_s: 2.0

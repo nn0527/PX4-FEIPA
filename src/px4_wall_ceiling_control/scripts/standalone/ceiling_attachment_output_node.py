@@ -182,7 +182,7 @@ class CeilingAttachmentOutputNode:
             CeilingAttachmentStatus.STATE_ATTACH_CONTROL,
             CeilingAttachmentStatus.STATE_SURFACE_HOLD,
             CeilingAttachmentStatus.STATE_DETACH,
-            CeilingAttachmentStatus.STATE_FAULT,
+            CeilingAttachmentStatus.STATE_ABORT,
         ):
             if not self.status.attitude_setpoint_valid:
                 rospy.logerr_throttle(1.0, "missing ceiling attitude candidate")

@@ -46,10 +46,10 @@ class SharedBridge:
             return False
         if not value:
             return not (snapshot["status"]["runtime"].get("value") or {}).get("enabled")
-        pilot_modes = {"ALTCTL"}
+        pilot_modes = {"POSCTL"}
         runtime = snapshot["status"]["runtime"]
-        if runtime["fresh"] and (runtime.get("value") or {}).get("wall_pilot_mode") == "POSCTL":
-            pilot_modes.add("POSCTL")
+        if runtime["fresh"] and (runtime.get("value") or {}).get("wall_pilot_mode") == "ALTCTL":
+            pilot_modes.add("ALTCTL")
         return bool(state["fresh"] and value.get("connected") and
                     (not value.get("armed") or
                      (value.get("mode") in pilot_modes and
@@ -87,7 +87,7 @@ class SharedBridge:
                     raise ValueError("动作执行中或反馈过期，不能释放控制权")
                 self.owner, self.owner_label = None, ""
                 return {"message": "已释放控制权"}
-            if action not in ("start", "wall", "detach", "ceiling", "ceiling_detach", "cancel_wait", "rc_takeover", "set_range_height", "stop", "repair_mavros"):
+            if action not in ("start", "wall", "detach", "ceiling", "ceiling_detach", "cancel_wait", "rc_takeover", "stop", "repair_mavros"):
                 raise ValueError("未知操作")
             recovery = (action == "repair_mavros"
                         and (config or {}).get("grounded_confirmed") is True
@@ -111,6 +111,8 @@ def serve(runtime_factory, socket_path):
             return  # A concurrent SSH connection already started the service.
         path.unlink(missing_ok=True)
         broker = SharedBridge(runtime_factory())
+        from px4_wall_ceiling_control.rc_startup import install as install_rc_startup
+        rc_startup = install_rc_startup(broker)
         listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         listener.bind(str(path))
         os.chmod(str(path), 0o600)

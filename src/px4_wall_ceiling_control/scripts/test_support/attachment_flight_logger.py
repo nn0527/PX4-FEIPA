@@ -20,6 +20,7 @@ import zipfile
 TOPICS = [
     "/wall_perch/sensor_fusion_status", "/wall_perch/handover_readiness",
     "/wall_perch/status", "/wall_perch/departure_trace", "/wall_perch/control_candidate", "/wall_perch/detach", "/wall_perch/cancel",
+    "/attachment/ceiling_rc_assist", "/attachment/ceiling_failsafe_status",
     "/ceiling_attachment/status", "/ceiling_attachment/control_candidate", "/ceiling_attachment/detach",
     "/mavros/setpoint_raw/attitude", "/mavros/setpoint_raw/target_attitude",
     "/mavros/state", "/mavros/local_position/odom", "/mavros/local_position/velocity_local",
@@ -52,7 +53,7 @@ def save_json(path, value):
     os.replace(str(temporary), str(path))
 
 
-def copy_run_logs(source, destination):
+def copy_run_logs(source, destination, state=None):
     """Copy snapshots, never modify the roslaunch log directory."""
     errors = []
     if source is None or not source.is_dir():
@@ -65,8 +66,31 @@ def copy_run_logs(source, destination):
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
             temporary = target.with_name(target.name + ".tmp")
-            shutil.copyfile(str(path), str(temporary))
-            os.replace(str(temporary), str(target))
+            with path.open("rb") as stream:
+                stat = os.fstat(stream.fileno())
+                identity = (stat.st_dev, stat.st_ino)
+                previous = state.get(str(path)) if state is not None else None
+                append = (previous is not None and previous[:2] == identity
+                          and target.exists() and target.stat().st_size == previous[2]
+                          and stat.st_size > previous[2])
+                unchanged = (previous == identity + (stat.st_size, stat.st_mtime_ns)
+                             and target.exists() and target.stat().st_size == stat.st_size)
+                if unchanged:
+                    continue
+                offset = previous[2] if append else 0
+                stream.seek(offset)
+                with (target if append else temporary).open("ab" if append else "wb") as output:
+                    remaining = stat.st_size - offset
+                    while remaining:
+                        data = stream.read(min(1024 * 1024, remaining))
+                        if not data:
+                            raise OSError("log changed while copying")
+                        output.write(data)
+                        remaining -= len(data)
+                if not append:
+                    os.replace(str(temporary), str(target))
+                if state is not None:
+                    state[str(path)] = identity + (stat.st_size, stat.st_mtime_ns)
         except OSError as exc:
             errors.append("{}: {}".format(path.name, exc))
     return errors
@@ -135,6 +159,9 @@ class SignalSummary:
 
     def subscribe(self):
         for topic in TOPICS:
+            # rosout_agg repeats rosout. Keep both in the raw bag, summarize once.
+            if topic == "/rosout_agg":
+                continue
             self.subscribers.append(self.ros.Subscriber(topic, self.ros.AnyMsg,
                 self.receive, callback_args=topic, queue_size=30))
 
@@ -163,10 +190,8 @@ class SignalSummary:
                     message.detach_task_phase_name, message.detach_range_episode, message.detach_range_target_locked,
                     message.detach_range_lock_raw_m, message.detach_range_lock_height_m, message.detach_range_lock_tilt_deg,
                     message.detach_range_lock_source_time.to_sec(), message.detach_range_lock_received_time.to_sec())
-                event += ' target={} source={} revision={} request={} manual_recovery={} previous_fault={}'.format(
-                    message.detach_range_target_m, message.detach_range_target_source,
-                    message.detach_range_target_revision, message.detach_range_manual_request_id,
-                    message.detach_range_manual_recovery, message.detach_range_previous_fault)
+                event += ' target={} source={} revision={}'.format(
+                    message.detach_range_target_m, message.detach_range_target_source, message.detach_range_target_revision)
         elif topic == "/wall_perch/sensor_fusion_status":
             # Deliberately exclude tilt and publishing time: they change every
             # loop, while the event stream records only transaction changes.
@@ -227,7 +252,7 @@ class SignalSummary:
         for key in ("state_name", "reason", "progress", "candidate_valid", "fault_count", "thrust_normalized",
                     "front_distance_raw_m", "front_distance_filtered_m", "top_distance_raw_m",
                     "top_distance_filtered_m", "top_range_fresh", "top_preflight_ready", "odom_fresh", "horizontal_velocity_enabled", "horizontal_velocity_ready", "horizontal_velocity_active", "horizontal_velocity_stable", "horizontal_velocity_reason", "horizontal_forward_target_mps", "horizontal_forward_measured_mps", "horizontal_integral_x_enu_mps2", "horizontal_integral_y_enu_mps2", "horizontal_integral_active", "horizontal_integral_reason", "horizontal_control_saturated",  "horizontal_velocity_x_enu_mps", "horizontal_velocity_y_enu_mps", "horizontal_target_x_enu_mps", "horizontal_target_y_enu_mps", "horizontal_accel_x_enu_mps2", "horizontal_accel_y_enu_mps2", "optical_flow_quality", "vertical_control_active", "vertical_reference_valid", "vertical_reference_m", "vertical_reference_source", "vertical_target_enu_mps", "vertical_thrust_correction", "approach_takeover_thrust", "approach_base_vertical_thrust", "flip_vertical_support_enabled", "flip_vertical_support_weight", "flip_entry_thrust", "flip_base_vertical_thrust", "flip_support_thrust", "flip_pressure_thrust", "horizontal_equilibrium_enabled", "horizontal_equilibrium_valid", "horizontal_equilibrium_frozen", "horizontal_equilibrium_reason", "horizontal_prestream_valid", "fault_recovery_completed", "recover_attitude_locked", "recover_stable", "detach_final_pitch_deg", "abort_land_requested", "recovery_support_valid", "recovery_thrust_limit", "detach_vertical_active", "detach_vertical_reason", "detach_vertical_base_source", "detach_vertical_base_thrust", "detach_vertical_integral", "detach_vertical_integral_active", "detach_vertical_saturated", "detach_vertical_slew_limited", "detach_vertical_requested_thrust", "detach_vertical_support_weight", "detach_height_error_m", "departure_clearance_ready", "departure_clearance_distance_m", "departure_clearance_reason", "recovery_horizontal_integral_x", "recovery_horizontal_integral_y", "recovery_horizontal_integral_active",
-                    "detach_task_phase", "detach_task_phase_name", "detach_range_height_enabled", "detach_range_episode", "detach_range_maneuver_id", "detach_request_time", "detach_rotation_start_time", "detach_range_target_locked", "detach_range_source", "detach_range_target_m", "detach_range_height_m", "detach_range_raw_m", "detach_range_projected_m", "detach_range_velocity_mps", "detach_range_velocity_valid", "detach_range_valid", "detach_range_height_invalid_since_s", "detach_range_velocity_age_s", "detach_range_velocity_invalid_since_s", "detach_range_velocity_reason", "detach_range_fast_velocity_mps", "detach_range_fast_velocity_valid", "detach_range_fast_velocity_age_s", "detach_range_fast_velocity_reason", "detach_range_current_tilt_deg", "detach_range_sample_tilt_deg", "detach_range_pose_match_dt_s", "detach_range_pose_before_dt_s", "detach_range_pose_after_dt_s", "detach_range_pose_span_s", "detach_range_pose_wait_s", "detach_range_entry_tilt_deg", "detach_range_source_time", "detach_range_received_time", "detach_range_lock_source_time", "detach_range_lock_received_time", "detach_range_lock_raw_m", "detach_range_lock_height_m", "detach_range_lock_tilt_deg", "detach_range_velocity_samples", "detach_range_age_s", "detach_range_stable_elapsed_s", "detach_range_stable_samples", "detach_range_handover_ready", "detach_range_block_reason", "detach_range_config_json", "detach_range_rejections_json", "detach_posctl_request_time", "detach_posctl_confirmed_time", "detach_range_manual_target_m", "detach_range_target_revision", "detach_range_target_source", "detach_range_action_started_time", "detach_range_manual_request_id", "detach_range_manual_recovery", "detach_range_previous_fault", "detach_range_manual_available", "detach_range_manual_block_reason"):
+                    "detach_task_phase", "detach_task_phase_name", "detach_range_height_enabled", "detach_range_episode", "detach_range_maneuver_id", "detach_request_time", "detach_rotation_start_time", "detach_range_target_locked", "detach_range_source", "detach_range_target_m", "detach_range_height_m", "detach_range_raw_m", "detach_range_projected_m", "detach_range_velocity_mps", "detach_range_velocity_valid", "detach_range_valid", "detach_range_height_invalid_since_s", "detach_range_velocity_age_s", "detach_range_velocity_invalid_since_s", "detach_range_velocity_reason", "detach_range_fast_velocity_mps", "detach_range_fast_velocity_valid", "detach_range_fast_velocity_age_s", "detach_range_fast_velocity_reason", "detach_range_current_tilt_deg", "detach_range_sample_tilt_deg", "detach_range_pose_match_dt_s", "detach_range_pose_before_dt_s", "detach_range_pose_after_dt_s", "detach_range_pose_span_s", "detach_range_pose_wait_s", "detach_range_entry_tilt_deg", "detach_range_source_time", "detach_range_received_time", "detach_range_lock_source_time", "detach_range_lock_received_time", "detach_range_lock_raw_m", "detach_range_lock_height_m", "detach_range_lock_tilt_deg", "detach_range_velocity_samples", "detach_range_age_s", "detach_range_stable_elapsed_s", "detach_range_stable_samples", "detach_range_handover_ready", "detach_range_block_reason", "detach_range_config_json", "detach_range_rejections_json", "detach_posctl_request_time", "detach_posctl_confirmed_time", "detach_range_target_revision", "detach_range_target_source", "detach_range_action_started_time"):
             value = getattr(wall, key, None)
             row["wall_" + key] = value.to_sec() if hasattr(value, "to_sec") else value
         for name in ("horizontal_equilibrium_attitude", "horizontal_prestream_attitude"):
@@ -247,7 +272,10 @@ class SignalSummary:
                     "ceiling_distance_raw_m", "ceiling_distance_filtered_m", "activation_ready",
                     "attach_confirmed", "detach_start_height_m", "descended_height_m", "detach_height_ready",
                     "thrust_body_z_normalized", "approach_velocity_z_enu_mps", "detach_failed",
-                    "height_source", "baro_fresh", "baro_reference_ready", "baro_pressure_pa", "hold_pressure_pa"):
+                    "height_source", "baro_fresh", "baro_reference_ready", "baro_pressure_pa", "hold_pressure_pa",
+                    "target_vertical_speed_mps", "fused_vertical_speed_mps", "height_feedback_valid",
+                    "detach_target_drop_m", "detach_max_drop_m", "detach_target_height_m",
+                    "vertical_integral_thrust", "vertical_support_thrust", "vertical_proportional_thrust"):
             row["ceiling_" + key] = getattr(ceiling, key, None)
         odom = sample("/mavros/local_position/odom", "odom")
         for key in ("x", "y", "z"):
@@ -338,6 +366,7 @@ class FlightLogger:
         self.info = {"schema_version": 1, "started_utc": utc_now(), "status": "starting"}
         self.summary = None
         self.shutdown_requested = False
+        self.log_copy_state = {}
 
     def request_stop(self):
         # Signal callback only requests shutdown; file I/O finishes in the main loop.
@@ -357,6 +386,18 @@ class FlightLogger:
             raise RuntimeError("less than 1 GB free; automatic capture not started")
         self.session = root / (datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "_" + uuid.uuid4().hex[:6])
         self.session.mkdir()
+        # One physical recording, with the existing ceiling discovery path retained.
+        alias_directory = self.ros.get_param("~alias_directory", "")
+        if alias_directory:
+            try:
+                alias_root = Path(alias_directory).expanduser().resolve()
+                alias_root.mkdir(parents=True, exist_ok=True)
+                alias = alias_root / self.session.name
+                if alias != self.session:
+                    alias.symlink_to(self.session, target_is_directory=True)
+                self.info["alias_directory"] = str(alias)
+            except OSError as exc:
+                self.info["alias_error"] = str(exc)
         topics = self.ros.get_param("~topics", TOPICS)
         if not isinstance(topics, list) or not topics or any(not isinstance(t, str) or not t.startswith("/") for t in topics):
             raise ValueError("logger topics must be a nonempty list of absolute topic names")
@@ -395,6 +436,7 @@ class FlightLogger:
 
     def run(self):
         last_copy = 0.
+        last_metadata = 0.
         while not self.ros.is_shutdown() and not self.stopped and not self.shutdown_requested:
             exit_code = self.process.poll()
             if exit_code is not None:
@@ -407,12 +449,15 @@ class FlightLogger:
                 self.ros.logerr("Low disk space; stopping only flight recording")
                 break
             self.summary.write()
-            if time.monotonic() - last_copy >= 2:
-                self.info["last_log_copy_errors"] = copy_run_logs(self.run_logs, self.session / "ros_logs")
+            if time.monotonic() - last_copy >= 30:
+                self.info["last_log_copy_errors"] = copy_run_logs(
+                    self.run_logs, self.session / "ros_logs", self.log_copy_state)
+                last_copy = time.monotonic()
+            if time.monotonic() - last_metadata >= 2:
                 self.info["last_capture_check_utc"] = utc_now()
                 self.info["received_messages"] = dict(self.summary.counts)
                 save_json(self.session / "session.json", self.info)
-                last_copy = time.monotonic()
+                last_metadata = time.monotonic()
             time.sleep(.1)
         self.stop()
 
@@ -441,7 +486,8 @@ class FlightLogger:
                 self.info["summary_close_error"] = str(exc)
             self.info["received_messages"] = dict(self.summary.counts)
         if self.session is not None:
-            self.info["last_log_copy_errors"] = copy_run_logs(self.run_logs, self.session / "ros_logs")
+            self.info["last_log_copy_errors"] = copy_run_logs(
+                self.run_logs, self.session / "ros_logs", self.log_copy_state)
             self.info["stopped_utc"] = utc_now()
             self.info["files"] = [{"name": path.name, "bytes": path.stat().st_size}
                                   for path in sorted(self.session.glob("*.bag*")) if path.is_file()]

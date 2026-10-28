@@ -9,8 +9,8 @@ from unittest import mock
 import rospy
 from std_msgs.msg import String
 from mavros_msgs.msg import RCIn, State
-from px4_wall_ceiling_control.msg import OperatorCommand as Op, WallPerchStatus as Wall
-from px4_wall_ceiling_control.domain.momentary_switch import MomentarySwitch
+from px4_wall_ceiling_control.msg import OperatorCommand as Op, WallPerchStatus as Wall, CeilingAttachmentStatus as Ceiling
+from px4_wall_ceiling_control.domain.momentary_switch import MomentarySwitch, AttachmentModeSelector
 
 path = pathlib.Path(__file__).resolve().parents[1] / 'scripts/operator/terminal_operator_node.py'
 spec = importlib.util.spec_from_file_location('ch12_terminal', str(path))
@@ -52,6 +52,7 @@ class MixedOperatorTest(unittest.TestCase):
         self.get_param = self.params.start(); self.addCleanup(self.params.stop)
         n = self.node = Terminal.__new__(Terminal)
         n.intent_lock = threading.RLock()
+        n.pilot_handover_request_time = rospy.Time(0)
         n.mode = Op.MODE_STANDBY
         n.detaching = n.detach_pulse = n.was_offboard = False
         n.front_sensor_masked = False
@@ -221,6 +222,171 @@ class MixedOperatorTest(unittest.TestCase):
         n._kill_report = lambda: {'valid': False, 'active': False}
         n._on_wall_toggle()
         self.assertEqual(n.mode, Op.MODE_STANDBY)
+
+
+class SelectorTest(unittest.TestCase):
+    def test_calibrated_directions_and_mid_position(self):
+        s = AttachmentModeSelector()
+        self.assertIsNone(s.update(999, 0.))
+        self.assertEqual(s.update(999, .1), 'ceiling')
+        self.assertIsNone(s.update(1999, .2))
+        self.assertEqual(s.update(1999, .3), 'wall')
+        self.assertIsNone(s.update(1500, .4))
+        self.assertIsNone(s.selected)
+
+    def test_reverse_bounce_invalid_and_reconnect(self):
+        s = AttachmentModeSelector(up_is_high=True)
+        s.update(1999, 0.)
+        self.assertEqual(s.update(1999, .1), 'ceiling')
+        self.assertIsNone(s.update(999, .2))
+        self.assertIsNone(s.update(1999, .21))
+        self.assertEqual(s.update(1999, .3), 'ceiling')
+        for invalid in (None, float('nan'), 0, 2400):
+            self.assertIsNone(s.update(invalid, .4))
+        s.update(999, .5)
+        self.assertEqual(s.update(999, .6), 'wall')
+        self.assertIsNone(s.update(999, 2.))
+        self.assertEqual(s.update(999, 2.1), 'wall')
+        self.assertIsNone(s.update(999, 1.))
+
+
+class ModeSelectionTest(unittest.TestCase):
+    def setUp(self):
+        self.fx = MixedOperatorTest()
+        self.fx.setUp()
+        self.addCleanup(self.fx.doCleanups)
+        self.fx.posctl()
+        self.n = n = self.fx.node
+        n.rc_mode_selector_enabled = True
+        n.rc_mode_channel_index = 7
+        n.mode_selector = AttachmentModeSelector(up_is_high=False)
+        n.rc_selected_mode = None
+        n.selected_mode_pub = mock.Mock()
+        n.kill_pub = mock.Mock()
+        n.kill_guard_enabled = True
+        n._kill_report = lambda: {'valid': True, 'active': False}
+        self.ceiling(Ceiling.STATE_NORMAL_FLIGHT)
+
+    def ceiling(self, state, **kwargs):
+        m = Ceiling(state=state, odom_fresh=True, **kwargs)
+        m.header.stamp = rospy.Time.from_sec(self.fx.now)
+        self.n._on_ceiling_status(m)
+
+    def frame(self, ch8, ch12=999, refresh=True):
+        n = self.n
+        if refresh:
+            n.flight_at = rospy.Time.from_sec(self.fx.now)
+            for m in (n.wall_status, n.ceiling_status):
+                m.header.stamp = rospy.Time.from_sec(self.fx.now)
+            n.wall_status_at = n.ceiling_status_at = rospy.Time.from_sec(self.fx.now)
+        channels = [1500]*12
+        channels[7], channels[11] = ch8, ch12
+        with mock.patch.object(module.time, 'monotonic', return_value=self.fx.now):
+            n._on_rc(RCIn(channels=channels))
+        self.fx.now += .1
+
+    def press(self, ch8):
+        for ch12 in (999, 999, 1999, 1999):
+            self.frame(ch8, ch12)
+
+    def test_ch8_alone_never_starts_and_ch12_uses_selection(self):
+        self.frame(999); self.frame(999)
+        self.assertEqual(self.n.mode, Op.MODE_STANDBY)
+        self.assertEqual(self.n.selected_mode_pub.publish.call_args.args[0].data, 'ceiling')
+        self.press(999)
+        self.assertEqual(self.n.mode, Op.MODE_CEILING)
+        self.assertTrue(self.n.front_sensor_masked)
+
+    def test_down_starts_wall_with_posctl_idle_aggregate_fault(self):
+        self.n.wall_status.fault_detected = True
+        self.press(1999)
+        self.assertEqual(self.n.mode, Op.MODE_WALL)
+
+    def test_invalid_or_middle_selector_blocks_start(self):
+        for invalid in (1500, 0, float('nan')):
+            self.press(invalid)
+            self.assertEqual(self.n.mode, Op.MODE_STANDBY)
+        # Missing CH8 must not reuse a previous selection.
+        self.frame(1999); self.frame(1999)
+        self.n._on_rc(RCIn(channels=[1500]*7))
+        self.assertIsNone(self.n.mode_selector.selected)
+        self.n._on_wall_toggle()
+        self.assertEqual(self.n.mode, Op.MODE_STANDBY)
+
+    def test_ceiling_cycle_detaches_active_mode_after_ch8_changed(self):
+        n = self.n
+        self.press(999)
+        n._on_state(State(connected=True, armed=True, mode='OFFBOARD'))
+        self.ceiling(Ceiling.STATE_APPROACH)
+        self.press(1999)
+        self.assertEqual(n.mode, Op.MODE_CEILING)
+        self.assertFalse(n.detach_pulse)
+        self.ceiling(Ceiling.STATE_SURFACE_HOLD)
+        self.press(1999)
+        n._on_timer(None)
+        n.ceiling_detach_pub.publish.assert_called_once()
+        n.wall_detach_pub.publish.assert_not_called()
+        self.ceiling(Ceiling.STATE_DETACH)
+        self.press(1999); n._on_timer(None)
+        self.assertEqual(n.ceiling_detach_pub.publish.call_count, 1)
+        self.ceiling(Ceiling.STATE_RECOVERY_HOVER)
+        n._on_state(State(connected=True, armed=True, mode='POSCTL'))
+        self.ceiling(Ceiling.STATE_NORMAL_FLIGHT)
+        self.press(1999)
+        self.assertEqual(n.mode, Op.MODE_WALL)
+
+    def test_wall_detach_ignores_new_ceiling_selection(self):
+        n = self.n
+        self.press(1999)
+        n._on_state(State(connected=True, armed=True, mode='OFFBOARD'))
+        self.fx.status(Wall.STATE_WALL_HOLD)
+        self.press(999); n._on_timer(None)
+        n.wall_detach_pub.publish.assert_called_once()
+        n.ceiling_detach_pub.publish.assert_not_called()
+        self.assertEqual(n.mode, Op.MODE_WALL)
+
+    def test_stale_ceiling_does_not_add_a_wall_start_gate(self):
+        self.n.ceiling_status = None
+        self.n.ceiling_status_at = None
+        self.press(1999)
+        self.assertEqual(self.n.mode, Op.MODE_WALL)
+
+    def test_unsafe_inputs_and_stale_status_still_block(self):
+        n = self.n
+        self.frame(999); self.frame(999)
+        for fault in ('kill', 'disarmed', 'disconnected', 'ceiling_stale', 'odom', 'wrong_mode'):
+            with self.subTest(fault=fault):
+                n._kill_report = lambda: {'valid': True, 'active': fault == 'kill'}
+                n.flight_armed = fault != 'disarmed'
+                n.flight_connected = fault != 'disconnected'
+                n.flight_mode = 'ALTCTL' if fault == 'wrong_mode' else 'POSCTL'
+                n.ceiling_status.odom_fresh = fault != 'odom'
+                n.ceiling_status_at = rospy.Time.from_sec(self.fx.now - (1. if fault == 'ceiling_stale' else 0.))
+                n.flight_at = n.rc_at = rospy.Time.from_sec(self.fx.now)
+                n._on_wall_toggle()
+                self.assertEqual(n.mode, Op.MODE_STANDBY)
+
+    def test_ceiling_fault_or_stale_hold_cannot_detach(self):
+        n = self.n
+        self.press(999)
+        n._on_state(State(connected=True, armed=True, mode='OFFBOARD'))
+        self.ceiling(Ceiling.STATE_SURFACE_HOLD, fault_detected=True)
+        self.press(999)
+        self.assertFalse(n.detaching)
+        n.ceiling_status.fault_detected = False
+        n.ceiling_status.header.stamp = rospy.Time.from_sec(self.fx.now - 1.)
+        n._on_wall_toggle()
+        self.assertFalse(n.detaching)
+
+    def test_startup_high_and_reconnect_high_never_start(self):
+        for _ in range(4): self.frame(999, 1999)
+        self.assertEqual(self.n.mode, Op.MODE_STANDBY)
+        self.frame(999); self.frame(999)
+        self.fx.now += 1.
+        self.frame(999, 1999); self.frame(999, 1999)
+        self.assertEqual(self.n.mode, Op.MODE_STANDBY)
+        self.press(999)
+        self.assertEqual(self.n.mode, Op.MODE_CEILING)
 
 
 if __name__ == '__main__':
