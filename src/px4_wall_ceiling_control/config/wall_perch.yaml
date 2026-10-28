@@ -186,6 +186,7 @@ wall_perch_decision_node:
   recovery_max_thrust: 0.60
   # 仅用于台架脱离／恢复支撑；退出阶段仍保留，直到飞控进入定高模式。
   bench_detach_hover_thrust: 0.48
+  bench_detach_release_thrust: 0.48
   # 脱离开始时记录里程计高度。机体回平过程中，使用高度／垂直速度反馈
   # 及实测倾角，计算所需的垂直悬停推力分量。
   # 车轮沿墙滚动时保持压墙推力。倾角接近 90 度时，
