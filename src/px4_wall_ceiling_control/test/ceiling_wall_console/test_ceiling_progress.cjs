@@ -19,7 +19,8 @@ s=state();assert.match(ceilingDetailView(s).manual,/等待协调字段/);
 s=state({state_name:'DETACH',baro_fresh:true,baro_reference_ready:true,descended_height_m:.49,detach_height_ready:false});
 assert.match(ceilingDetailView(s).descent,/0.490/);assert.match(ceilingDetailView(s).descent,/等待高度及速度稳定/);
 s.status.ceiling_status.value.baro_fresh=false;assert.match(ceilingDetailView(s).descent,/无法确认/);
-s=state({state_name:'RECOVERY_HOVER',recovery_ready:true,recovery_attitude_locked:true});assert.match(ceilingDetailView(s).recovery,/第三次 CH12/);assert.match(ceilingDetailView(s).manual,/关闭摇杆/);assert.match(view(s).stage,/等待 CH12/);
+s=state({state_name:'RECOVERY_HOVER',recovery_ready:true,recovery_attitude_locked:true});assert.match(ceilingDetailView(s).recovery,/CH12/);assert.match(ceilingDetailView(s).manual,/允许遥控修正/);assert.match(view(s).stage,/等待 CH12/);
+s.status.ceiling_status.value.recovery_ready=false;assert.match(view(s).stage,/等待稳定/);assert.match(ceilingDetailView(s).recovery,/回中/);
 s.status.phase.value='RETURNING';assert.equal(view(s).stage,'等待遥控接管');
 for(const mutate of [s=>s.ssh.connected=false,s=>s.session.feedback_live=false,s=>s.session.push=false,s=>s.status.ceiling_status.fresh=false]){
  s=state({rc_manual_coordination_enabled:true,rc_manual_feedback_ready:true,hold_elapsed_s:2,hold_timeout_s:5});mutate(s);

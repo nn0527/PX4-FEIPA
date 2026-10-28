@@ -1792,7 +1792,9 @@ class FlightModeManagerNode(RCTakeoverManager):
                 elif (self.selected_mode == OperatorCommand.MODE_CEILING
                         and getattr(self, "ceiling", None) is not None and is_fresh(self.ceiling_at, self.status_timeout_s, now)
                         and self.ceiling.recovery_attitude_locked and not self._ceiling_handover_confirmed(now)):
-                    self.phase_reason = "顶吸恢复姿态已锁定，高度闭环继续；等待第三次CH12确认交回POSCTL"
+                    self.phase_reason = ("顶吸持续XY闭环及高度范围保持；" + (
+                        "等待CH12确认交回POSCTL" if self.ceiling.recovery_ready
+                        else "实时稳定条件未满足，暂不可交回POSCTL"))
                 elif self._ceiling_baro_handover_ready(now):
                     self._set_phase(self.RETURNING, reason=self.ceiling.reason)
                     if self._handover_ready(now):

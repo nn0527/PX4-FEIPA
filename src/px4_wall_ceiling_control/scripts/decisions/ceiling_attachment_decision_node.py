@@ -1125,7 +1125,7 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
                     self._enter_state(CeilingAttachmentStatus.STATE_ABORT, now, "recovery feedback or flight state lost")
                 elif self._ceiling_recovery_ready(now):
                     self.motion_recovery_ready = True
-                    self.last_reason = "离顶恢复已稳定，锁定姿态并持续高度闭环；等待第三次CH12确认后交回POSCTL"
+                    self.last_reason = "离顶恢复确认已锁存，持续XY闭环及高度范围保持；交回仍需实时稳定与CH12确认"
                 elif self._state_age_s(now) >= timeout and getattr(self, "motion_recovery_attitude", None) is None:
                     self.detach_failed = True
                     self._enter_state(CeilingAttachmentStatus.STATE_ABORT, now, "recovery did not stabilize before timeout")
@@ -1348,7 +1348,7 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
             if self.approach_flow_error:
                 status.reason += '; ' + self.approach_flow_error
         if not status.range_fresh and not self._flow_approach_active():
-            action = (((("按PX4融合高度" if self._fused_height_enabled() else "按气压高度")+"从脱离入口下降%.2fm" % self.detach_drop_m)+"，恢复稳定锁定姿态，等待第三次CH12确认交回POSCTL" if self._height_handover_enabled() else "按PX4高度下降20cm并交回POSCTL") if self.state == CeilingAttachmentStatus.STATE_DETACH
+            action = (((("按PX4融合高度" if self._fused_height_enabled() else "按气压高度")+"从脱离入口下降%.2fm" % self.detach_drop_m)+"，保持高度范围与XY闭环，回中稳定后CH12确认交回POSCTL" if self._height_handover_enabled() else "按PX4高度下降20cm并交回POSCTL") if self.state == CeilingAttachmentStatus.STATE_DETACH
                       else "ABORT等待PX4 AUTO.LAND确认" if status.abort_land_requested
                       else "ABORT受限支撑，等待POSCTL接管" if self.state == CeilingAttachmentStatus.STATE_ABORT
                       else "保持推力0.50" if self.state == CeilingAttachmentStatus.STATE_SURFACE_HOLD
@@ -1384,8 +1384,7 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
         candidate.keep_ownership = status.keep_ownership
         candidate.ceiling_abort_land_requested = status.abort_land_requested
         candidate.ceiling_rc_assist_blocked = bool(
-            status.recovery_attitude_locked
-            or status.state in (CeilingAttachmentStatus.STATE_NORMAL_FLIGHT, CeilingAttachmentStatus.STATE_CEILING_ARMED,
+            status.state in (CeilingAttachmentStatus.STATE_NORMAL_FLIGHT, CeilingAttachmentStatus.STATE_CEILING_ARMED,
                              CeilingAttachmentStatus.STATE_ABORT)
             or not self.motion_ready or self.motion_fatal
             or (status.state == CeilingAttachmentStatus.STATE_DETACH and (

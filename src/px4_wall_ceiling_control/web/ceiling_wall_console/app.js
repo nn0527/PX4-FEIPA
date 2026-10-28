@@ -67,9 +67,9 @@ function ceilingDetailView(s){
     else if(Number.isFinite(c.rc_position_weight)&&c.rc_position_weight<1-1e-9)manual="摇杆回中，位置回拉恢复中："+number(c.rc_position_weight)+" / 1.00";
     else manual="本轮遥控反馈有效；人工修正已消退；位置回拉权重 "+number(c.rc_position_weight);
   }
-  if(c.recovery_attitude_locked)manual="姿态锁定保持中：已关闭摇杆姿态微调及水平姿态修正";
+  if(c.recovery_attitude_locked)manual="高度参考保持中：XY闭环继续，允许遥控修正；回中稳定后可确认交回";
   let recovery="下降达标后检查悬停稳定与交回条件";
-  if(c.state_name==="RECOVERY_HOVER")recovery=c.recovery_attitude_locked?(c.recovery_ready?"姿态已锁定，高度闭环继续；等待第三次 CH12 确认交回 POSCTL":"姿态锁定保持，交回条件暂未满足；等待新鲜稳定反馈"):"恢复确认中：检查高度、速度、姿态、漂移及遥控修正反馈";
+  if(c.state_name==="RECOVERY_HOVER")recovery=c.recovery_attitude_locked?(c.recovery_ready?"高度范围保持、XY闭环继续；等待 CH12 确认交回 POSCTL":"高度范围保持、XY闭环继续；交回条件暂未满足，等待回中及稳定反馈"):"恢复确认中：检查高度、速度、姿态、漂移及遥控修正反馈";
   const selected=fresh(s,"owner")===1||fresh(s,"operator")?.mode===2;
   if(selected&&fresh(s,"phase")==="RETURNING")recovery="正在交回 POSCTL；等待飞控实际模式和输出释放";
   if(c.state_name==="ABORT")recovery=c.abort_land_requested?"中止降落流程；不使用正常下降/悬停交回判据":"顶吸中止："+(c.reason||"等待管理器及飞控反馈");
@@ -95,7 +95,7 @@ function view(s,busy=false){
   const steps={NORMAL_FLIGHT:0,CEILING_ARMED:1,APPROACH:2,ATTACH_CONTROL:2,SURFACE_HOLD:3,DETACH:4,RECOVERY_HOVER:5};
   if(s.starting){stage="基础链路启动中";reason="等待 MAVROS、雷达和控制节点就绪";}
   else if(enabled && ceiling){stage=names[ceiling.state_name]||ceiling.state_name;reason=ceiling.reason||"等待节点反馈";step=steps[ceiling.state_name]??-1;}
-  if(enabled && ceiling?.state_name==="RECOVERY_HOVER" && ceiling.recovery_attitude_locked){stage="姿态锁定 · 等待 CH12";reason=ceiling.reason||"高度闭环继续；第三次 CH12 确认后请求 POSCTL";step=5;}
+  if(enabled && ceiling?.state_name==="RECOVERY_HOVER" && ceiling.recovery_attitude_locked){stage=ceiling.recovery_ready?"高度保持 · 等待 CH12":"XY闭环 · 等待稳定";reason=ceiling.reason||"高度范围保持、XY闭环继续；回中稳定后 CH12 确认交回 POSCTL";step=5;}
   if(ceilingSelected && phase==="WAITING_CEILING"){stage="等待顶吸入口条件";reason=fresh(s,"reason")||"等待有效顶距、估计器和平衡基准";step=1;}
   if(ceilingSelected && ["PRESTREAM","ENTERING"].includes(phase)){stage="正在接管飞行";reason=fresh(s,"reason")||"等待飞控确认 OFFBOARD";step=1;}
   if(ceilingSelected && phase==="RETURNING"){stage="等待遥控接管";reason="等待飞控确认 POSCTL，当前尚未完成交接";step=6;}

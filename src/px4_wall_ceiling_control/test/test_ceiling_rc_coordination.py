@@ -141,6 +141,38 @@ class ManualCoordinationTests(unittest.TestCase):
         for _ in range(22): status = self.tick(distance=.6, drop=.51)
         self.assertTrue(status.recovery_ready)
 
+    def test_recovery_lock_keeps_manual_trim_xy_control_and_height_reference(self):
+        self.n.rc_manual_coordination_enabled = False
+        self.fx.hold(); self.n.detach_requested = True
+        self.fx.feed(distance=.055)
+        for _ in range(12): status = self.fx.feed(distance=.6, drop=.51)
+        self.assertTrue(status.recovery_attitude_locked)
+        height, stamp = self.n.motion_recovery_height, status.recovery_lock_time
+        self.n.rc_manual_coordination_enabled = True
+        for _ in range(12): status = self.tick(active=True, trim=.01, distance=.6, drop=.51, x=.20, y=.10, vx=.1)
+        self.assertTrue(status.rc_manual_active)
+        self.assertFalse(status.recovery_ready)
+        self.assertFalse(self.n._build_control_candidate(status).ceiling_rc_assist_blocked)
+        self.assertLess(self.n.motion_controller.horizontal.acceleration[0], 0.)
+        self.assertEqual(self.n.motion_controller.xy, (.20, .10))
+        self.assertEqual(self.n.motion_recovery_height, height)
+        self.assertEqual(status.recovery_lock_time, stamp)
+        self.assertTrue(status.keep_ownership)
+        # Centered sticks first brake residual motion, then hold the new endpoint.
+        for _ in range(12): status = self.tick(distance=.6, drop=.51, x=.23, y=.12, vx=.25)
+        self.assertTrue(self.n.motion_recovery_xy_adjusting)
+        self.assertFalse(status.recovery_ready)
+        for _ in range(25): status = self.tick(distance=.6, drop=.51, x=.26, y=.13)
+        self.assertTrue(status.recovery_ready)
+        self.assertEqual(self.n.motion_controller.xy, (.26, .13))
+        self.assertFalse(self.n.motion_recovery_xy_adjusting)
+        self.assertEqual(self.n.motion_recovery_height, height)
+        # Invalid RC must not move the reference or authorize handover.
+        self.feedback(active=True, valid=False)
+        status = self.fx.feed(dt=.05, distance=.6, drop=.51, x=.28, y=.14)
+        self.assertEqual(self.n.motion_controller.xy, (.26, .13))
+        self.assertFalse(status.recovery_ready)
+
     def test_detach_blocks_trim_until_clearance_and_release_confirmed(self):
         self.n.rc_manual_coordination_enabled = False
         self.fx.hold(); self.n.detach_requested = True

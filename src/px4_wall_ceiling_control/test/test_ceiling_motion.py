@@ -61,6 +61,13 @@ class CeilingEnvelopeTests(unittest.TestCase):
         self.assertAlmostEqual(c.vertical_target(.15, .02), .003)
         self.assertAlmostEqual(c.vertical_target(-.15, .02), 0.)
 
+    def test_recovery_brakes_anywhere_in_ten_cm_band(self):
+        c = CeilingMotionController(self.s)
+        for error in (-.10, -.096, 0., .096, .10):
+            self.assertEqual(c.recovery_velocity(error, .15), 0.)
+        self.assertLess(c.recovery_velocity(.11, .15), 0.)
+        self.assertGreater(c.recovery_velocity(-.11, .15), 0.)
+
 
 class CeilingMotionLifecycleTests(unittest.TestCase):
     def setUp(self):
@@ -72,6 +79,7 @@ class CeilingMotionLifecycleTests(unittest.TestCase):
             '~approach_settle_time_s': 0.,
             '~contact_distance_m': .056, '~target_compression_m': .006,
             '~surface_hold_thrust': .55, '~detach_drop_m': .50,
+            '~recovery_height_tolerance_m': .05,
             '~detach_timeout_s': 20.}
         params.update(getattr(self, "extra_params", {}))
         with mock.patch.object(rospy, 'get_param', side_effect=lambda k, d=None: params.get(k, d)), \

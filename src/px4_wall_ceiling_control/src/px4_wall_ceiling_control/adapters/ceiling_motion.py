@@ -66,6 +66,7 @@ class CeilingMotionMixin:
         self.motion_contact_unsafe = False
         self.motion_recovery_ready = False
         self.motion_recovery_attitude = None
+        self.motion_recovery_xy_adjusting = False
         self.motion_recovery_lock_time = rospy.Time(0)
         self.motion_recovery_since = self.motion_recovery_last = None
         self.motion_processed_recovery = self.motion_processed_pause = None
@@ -180,8 +181,8 @@ class CeilingMotionMixin:
         self.motion_rc_active = bool(self.motion_rc_ready and (message.stick_active
             or max(abs(message.roll_trim_rad), abs(message.pitch_trim_rad))
                > math.radians(self.motion_settings.rc_manual_zero_deg)))
-        # Keep the original position reference. Manual input only reduces its
-        # pull; velocity damping and the drift/tilt/rate guards remain active.
+        # Approach keeps its original reference. Once recovery has qualified,
+        # manual correction may move the XY reference without moving height.
         allowed = self.state in (S.STATE_APPROACH, S.STATE_RECOVERY_HOVER) or (
             self.state == S.STATE_DETACH and self.motion_contact_released)
         target = (self.motion_settings.rc_manual_position_weight
@@ -191,10 +192,37 @@ class CeilingMotionMixin:
         self.motion_rc_weight += max(-step, min(step, target-self.motion_rc_weight))
         if self.motion_rc_active and allowed:
             self.motion_controller.horizontal.clear_integral()
+        self._update_recovery_manual_position(now)
+
+    def _update_recovery_manual_position(self, now):
+        recovering = (self.state == S.STATE_RECOVERY_HOVER
+                      and self.motion_recovery_attitude is not None)
+        if not recovering or not self.motion_rc_ready:
+            self.motion_recovery_xy_adjusting = False
+            return
+        if not (self.motion_rc_active or self.motion_recovery_xy_adjusting):
+            return
+        # Never treat stale/unsafe feedback as an intentional position change.
+        if (not self.motion_ready or self.motion_paused or self.motion_fatal
+                or not self._odom_fresh(now) or not self._flight_ready(now)):
+            self.motion_recovery_xy_adjusting = False
+            return
+        p = self.odom.pose.pose.position
+        self.motion_controller.xy = (p.x, p.y)
+        self.motion_drift = 0.
+        self.motion_controller.horizontal.clear_integral()
+        s = self.motion_settings
+        # With zero position error the velocity loop still brakes motion. Follow
+        # the braking endpoint, then retain that new XY reference after release.
+        self.motion_recovery_xy_adjusting = bool(self.motion_rc_active
+            or self.motion_speed > s.recovery_horizontal_speed_mps
+            or self.motion_tilt > s.recovery_max_tilt_deg
+            or self.motion_rate > s.recovery_max_rate_deg_s)
 
     def _ceiling_manual_settled(self):
-        return (not self.rc_manual_coordination_enabled or (
-            self.motion_rc_ready and not self.motion_rc_active and self.motion_rc_weight >= 1.-1e-9))
+        return (not getattr(self, 'motion_recovery_xy_adjusting', False)
+            and (not self.rc_manual_coordination_enabled or (
+            self.motion_rc_ready and not self.motion_rc_active and self.motion_rc_weight >= 1.-1e-9)))
 
     @locked_ceiling_callback
     def _on_ceiling_manager_phase(self, message):
@@ -436,6 +464,7 @@ class CeilingMotionMixin:
         self.motion_integrated_output = None
         self.motion_recovery_ready = False
         self.motion_recovery_attitude = None
+        self.motion_recovery_xy_adjusting = False
         self.motion_recovery_lock_time = rospy.Time(0)
         self.motion_recovery_since = self.motion_recovery_last = None
         if new_state == S.STATE_DETACH:
@@ -554,10 +583,9 @@ class CeilingMotionMixin:
             free = self._motion_release_ready(now)
         q = tuple(getattr(self.q_hover, k) for k in 'xyzw')
         velocity = linear_velocity_parent_frame(self.odom, self.odom_twist_in_child_frame)
-        if locked:
-            controller.horizontal.reset()
-            q = self.motion_recovery_attitude
-        elif free and self.motion_ready and not self.motion_fatal:
+        # The lock records readiness/consent chronology, not an open-loop attitude.
+        # Keep position pull and velocity braking alive until POSCTL is confirmed.
+        if free and self.motion_ready and not self.motion_fatal:
             p = self.odom.pose.pose.position
             sample = self.odom.header.stamp
             integral_dt = min(.05, max(0., (sample-self.motion_control_sample).to_sec())) if self.motion_control_sample is not None else 0.
@@ -593,9 +621,11 @@ class CeilingMotionMixin:
             target = (self.motion_recovery_height if self.state == S.STATE_RECOVERY_HOVER
                       else self.detach_start_height_m-self.detach_drop_m if self.detach_start_height_m is not None else None)
             if z is not None and target is not None:
-                gain = s.recovery_height_kp if self.state == S.STATE_RECOVERY_HOVER else self.detach_height_kp
-                desired_vz = (controller.descent_velocity(z-target, self.detach_down_speed_mps, gain)
-                    if self.detach_height_velocity_enabled else clamp(gain*(target-z), -self.detach_down_speed_mps, .10))
+                if self.state == S.STATE_RECOVERY_HOVER:
+                    desired_vz = controller.recovery_velocity(z-target, self.detach_down_speed_mps)
+                else:
+                    desired_vz = (controller.descent_velocity(z-target, self.detach_down_speed_mps, self.detach_height_kp)
+                        if self.detach_height_velocity_enabled else clamp(self.detach_height_kp*(target-z), -self.detach_down_speed_mps, .10))
                 if self.state == S.STATE_DETACH and not self.baro_handover_reached and not self.detach_height_velocity_enabled:
                     # Reach the separation threshold in finite time, then brake in RECOVERY.
                     desired_vz = min(desired_vz, -min(s.detach_min_down_speed_mps, self.detach_down_speed_mps))
@@ -609,6 +639,14 @@ class CeilingMotionMixin:
             controller.vz_target = 0.
         if self.state in (S.STATE_ATTACH_CONTROL, S.STATE_SURFACE_HOLD):
             controller.vz_target = 0.  # Contact pressure control must not keep integrating an ascent target.
+        braking = (self.state in (S.STATE_DETACH, S.STATE_RECOVERY_HOVER)
+            and velocity[2] < -s.detach_brake_speed_mps
+            and self.motion_ready and not self.motion_fatal
+            and self._flight_ready(now) and self._height_feedback(now) is not None
+            and self._mechanism_release_confirmed(now))
+        if braking:
+            desired_vz = max(0., desired_vz)
+            controller.vz_target = max(0., controller.vz_target)
         target_vz = controller.vertical_target(desired_vz, dt)
         self.motion_last_target_vz = target_vz
         status.target_vertical_speed_mps = target_vz
@@ -646,18 +684,25 @@ class CeilingMotionMixin:
                         ramp_dt = max(0., (now-getattr(self,'motion_detach_transition_tick',now)).to_sec())
                         self.motion_detach_transition_tick = now
                         thrust = controller.detach_transition_thrust(thrust,ramp_dt,advance=active,
-                            brake=active and velocity[2] < -self.detach_down_speed_mps)
+                            brake=braking or (active and velocity[2] < -self.detach_down_speed_mps))
                 else:
                     thrust = (support+s.vertical_speed_kp*(target_vz-velocity[2]))/axis_z
                 entry_transition = self.detach_height_velocity_enabled and self.state in (S.STATE_DETACH,S.STATE_RECOVERY_HOVER) and controller.detach_transition_active
+                if braking:
+                    thrust = controller.descent_braking_thrust(thrust, velocity[2], axis_z,
+                        self.detach_min_thrust,
+                        self.max_thrust if entry_transition else min(self.max_thrust, support+.12))
                 status.thrust_body_z_normalized = (-clamp(thrust,self.detach_min_thrust,self.max_thrust) if contact_pressure or entry_transition else
                     -clamp(thrust, self.detach_min_thrust, min(self.max_thrust, support+.12)))
                 status.attitude_setpoint = Quaternion(*q)
                 status.attitude_setpoint_valid = True
+        if braking:
+            status.reason += '; 下降速度超过%.2fm/s，增加推力制动' % s.detach_brake_speed_mps
         if controller.detach_transition_active:
             status.reason += '; 脱离推力快速过渡，暂不累积下降积分'
         if locked:
-            status.reason += '; 姿态已锁定，高度闭环继续；等待第三次CH12确认交回POSCTL'
+            status.reason += ('; 恢复确认已锁存，XY闭环与高度范围保持继续；'
+                              + ('等待CH12确认交回POSCTL' if status.recovery_ready else '实时稳定条件未满足，暂不可交回POSCTL'))
         elif self.rc_manual_coordination_enabled:
             status.reason += ('; 遥控修正中：暂停水平积分，位置回拉权重%.2f' % self.motion_rc_weight
                               if self.motion_rc_active else '; 位置回拉平滑恢复中'

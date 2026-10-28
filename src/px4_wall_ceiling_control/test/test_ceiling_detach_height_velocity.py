@@ -41,6 +41,21 @@ class DescentControllerTests(unittest.TestCase):
         self.assertEqual(self.c.descent_velocity(0.,.15,.5),0.)
         self.assertGreater(self.c.descent_velocity(-.02,.15,.5),0.)
 
+    def test_overspeed_brake_overrides_negative_integral_and_preserves_limits(self):
+        self.c.vertical_integral=-.12
+        requested=self.c.vertical_pi(-.20,1.,.30,.64)
+        thrust=self.c.descent_braking_thrust(requested,-.20,1.,.30,.64)
+        self.assertAlmostEqual(thrust,.55)
+        self.assertGreater(thrust,requested)
+        self.assertEqual(self.c.vertical_integral,-.12)
+        self.assertEqual(self.c.descent_braking_thrust(.40,-2.,.8,.30,.64),.64)
+        self.assertEqual(self.c.descent_braking_thrust(.60,-.20,1.,.30,.64),.60)
+
+    def test_brake_only_activates_above_ten_cm_per_second_downward(self):
+        for measured in (-.10,-.099,0.,.20):
+            self.assertEqual(self.c.descent_braking_thrust(.40,measured,1.,.30,.64),.40)
+        self.assertGreater(self.c.descent_braking_thrust(.40,-.101,1.,.30,.64),.52)
+
     def test_quick_entry_ramp_reaches_baseline_in_point_three_seconds(self):
         self.c.begin_detach_transition(.55,.52)
         self.assertEqual(self.c.detach_transition_thrust(.46,0.),.55)
@@ -82,6 +97,27 @@ class DescentLifecycleTests(unittest.TestCase):
         self.n.detach_requested=True
         self.fx.feed(distance=.055,drop=drop)
         self.assertEqual(self.n.state,S.STATE_DETACH)
+
+    def test_fast_descent_brakes_without_waiting_for_entry_ramp_or_integral(self):
+        self.begin()
+        self.n.motion_controller.vertical_integral=-.12
+        status=self.fx.feed(distance=.6,drop=.1,vz=-.20)
+        support=self.n.motion_controller.vertical_support
+        self.assertGreaterEqual(-status.thrust_body_z_normalized,support+.03-1e-6)
+        self.assertGreaterEqual(status.target_vertical_speed_mps,0.)
+        self.assertIn('增加推力制动',status.reason)
+
+    def test_recovery_overspeed_brake_preserves_xy_control_and_ownership(self):
+        self.begin()
+        for drop in (.1,.2,.3,.4):self.fx.feed(distance=.6,drop=drop)
+        for _ in range(8):self.fx.feed(distance=.6,drop=.4)
+        self.assertEqual(self.n.state,S.STATE_RECOVERY_HOVER)
+        self.n.motion_controller.vertical_integral=-.12
+        status=self.fx.feed(distance=.6,drop=.45,vz=-.20,x=.15)
+        self.assertGreater(-status.thrust_body_z_normalized,self.n.motion_controller.vertical_support)
+        self.assertGreaterEqual(status.target_vertical_speed_mps,0.)
+        self.assertTrue(status.keep_ownership)
+        self.assertIn('增加推力制动',status.reason)
 
     def applied(self,owner=1):
         target=AttitudeTarget(thrust=.47,orientation=Quaternion(w=1.))

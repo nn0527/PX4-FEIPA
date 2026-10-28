@@ -51,6 +51,7 @@ class CeilingMotionSettings:
     motion_fcu_target_timeout_s: float = .35
     motion_capture_timeout_s: float = 2.
     vertical_speed_kp: float = .30
+    detach_brake_speed_mps: float = .10
     detach_velocity_ki: float = .10
     detach_integral_limit: float = .12
     detach_thrust_transition_s: float = .30
@@ -58,7 +59,7 @@ class CeilingMotionSettings:
     vertical_target_acceleration_mps2: float = .15
     detach_min_down_speed_mps: float = .05
     recovery_height_kp: float = .50
-    recovery_height_tolerance_m: float = .05
+    recovery_height_tolerance_m: float = .10
     recovery_vertical_speed_mps: float = .15
     recovery_horizontal_speed_mps: float = .15
     recovery_max_tilt_deg: float = 10.
@@ -154,6 +155,13 @@ class CeilingMotionController:
         return -min(speed_limit, height_kp*height_error,
                     math.sqrt(2.*self.settings.vertical_target_acceleration_mps2*height_error))
 
+    def recovery_velocity(self, height_error, speed_limit):
+        """Brake inside the accepted height band; return to its nearest edge outside."""
+        tolerance = self.settings.recovery_height_tolerance_m
+        excess = max(0., abs(height_error)-tolerance)
+        error = math.copysign(excess, height_error)
+        return self.descent_velocity(error, speed_limit, self.settings.recovery_height_kp)
+
     def vertical_pi(self, measured, axis_z, minimum, maximum, integral_dt=0.):
         """Sample-gated PI with conditional anti-windup at the final thrust limits."""
         error = self.vz_target-measured
@@ -167,6 +175,15 @@ class CeilingMotionController:
             self.vertical_integral = candidate
         raw = (self.vertical_support+self.settings.vertical_speed_kp*error+self.vertical_integral)/axis_z
         return max(minimum, min(maximum, raw))
+
+    def descent_braking_thrust(self, requested, measured, axis_z, minimum, maximum):
+        """Enforce upward braking support without clipping measured ENU velocity."""
+        excess = -measured-self.settings.detach_brake_speed_mps
+        if excess <= 0.:
+            return requested
+        # A negative descent integral must not cancel the overspeed brake.
+        floor = (self.vertical_support+self.settings.vertical_speed_kp*excess)/axis_z
+        return max(minimum, min(maximum, max(requested, floor)))
 
     def capture(self, xy, yaw, axis, thrust):
         self.reset()

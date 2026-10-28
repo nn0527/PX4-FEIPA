@@ -84,6 +84,8 @@ bool rc_manual_active
 float32 rc_position_weight
 
 # Stable recovery attitude is held until a later CH12 handover confirmation.
+# Legacy field name: recovery readiness/CH12 epoch latched, NOT a frozen attitude.
+# Height reference stays fixed; XY feedback and bounded RC trim remain active.
 bool recovery_attitude_locked
 time recovery_lock_time
 

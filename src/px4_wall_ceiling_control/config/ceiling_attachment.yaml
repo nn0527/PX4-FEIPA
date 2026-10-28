@@ -113,7 +113,8 @@ ceiling_attachment_decision_node:
   detach_height_velocity_enabled: true
   detach_drop_m: 0.40
   detach_max_drop_m: 1.50
-  detach_height_tolerance_m: 0.02
+  # 接受下降30–50cm；达到范围且竖直速度稳定后进入恢复。
+  detach_height_tolerance_m: 0.10
   detach_height_hold_s: 0.30
   detach_settled_speed_mps: 0.05
   contact_settled_speed_mps: 0.10
@@ -164,10 +165,13 @@ ceiling_attachment_decision_node:
   motion_equilibrium_max_spread_deg: 3.0
   motion_capture_timeout_s: 2.0
   vertical_speed_kp: 0.3
+  # ENU竖直速度小于-0.10m/s时制动；保留真实反馈及原推力上限。
+  detach_brake_speed_mps: 0.10
   vertical_target_acceleration_mps2: 0.15
   detach_min_down_speed_mps: 0.05
   recovery_height_kp: 0.5
-  recovery_height_tolerance_m: 0.05
+  # 范围内制动竖直速度并保持XY，不强制追到40cm中心。
+  recovery_height_tolerance_m: 0.10
   recovery_vertical_speed_mps: 0.15
   recovery_horizontal_speed_mps: 0.15
   recovery_max_tilt_deg: 10.0

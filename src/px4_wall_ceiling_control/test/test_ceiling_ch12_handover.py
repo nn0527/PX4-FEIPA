@@ -1,4 +1,4 @@
-"""Ceiling recovery holds attitude until a new CH12 edge; no live transports."""
+"""Ceiling recovery keeps position control until a new CH12 edge; no live transports."""
 import unittest
 from unittest import mock
 import rospy
@@ -29,20 +29,22 @@ class RecoveryHoldTests(unittest.TestCase):
         self.assertTrue(status.recovery_attitude_locked)
         return status
 
-    def test_hold_freezes_attitude_but_keeps_height_feedback_and_ownership(self):
+    def test_wait_keeps_xy_feedback_and_ownership_after_readiness_lock(self):
         status = self.stable()
         locked, stamp = self.n.motion_recovery_attitude, status.recovery_lock_time
         for _ in range(10):
-            status = self.fx.feed(distance=.6, drop=.48, tilt=.05, x=.10, vx=.05)
-            self.assertEqual(tuple(getattr(status.attitude_setpoint,k) for k in 'xyzw'), locked)
+            status = self.fx.feed(distance=.6, drop=.48, tilt=.05, x=.30, vx=.15)
             self.assertTrue(status.keep_ownership)
             self.assertEqual(status.recovery_lock_time, stamp)
-            self.assertEqual(self.n.motion_controller.horizontal.integral, (0.,0.))
+        from px4_wall_ceiling_control.domain.geometry import rotate_vector
+        self.assertLess(rotate_vector(tuple(getattr(status.attitude_setpoint,k) for k in 'xyzw'), (0.,0.,1.))[0], 0.)
+        self.assertNotEqual(tuple(getattr(status.attitude_setpoint,k) for k in 'xyzw'), locked)
+        self.assertEqual(self.n.motion_controller.xy, (0., 0.))
         above = status.target_vertical_speed_mps
-        for _ in range(10): status = self.fx.feed(distance=.6, drop=.53)
+        for _ in range(10): status = self.fx.feed(distance=.6, drop=.58)
         self.assertGreater(status.target_vertical_speed_mps, above)
         candidate = self.n.control_candidate_publisher.publish.call_args.args[0]
-        self.assertTrue(candidate.ceiling_rc_assist_blocked)
+        self.assertFalse(candidate.ceiling_rc_assist_blocked)
 
     def test_healthy_wait_does_not_timeout_or_auto_release_after_fifteen_seconds(self):
         self.stable()
@@ -69,6 +71,44 @@ class RecoveryHoldTests(unittest.TestCase):
         self.n._enter_state(S.STATE_ABORT,rospy.Time.now(),'test fault')
         self.assertIsNone(self.n.motion_recovery_attitude)
         self.assertEqual(self.n.motion_recovery_lock_time,at(0))
+
+
+class RecoveryBandTests(unittest.TestCase):
+    def setUp(self):
+        self.fx = motion.CeilingMotionLifecycleTests()
+        self.fx.extra_params = {'~detach_fused_height_enabled': True,
+            '~detach_height_velocity_enabled': True, '~detach_drop_m': .4,
+            '~detach_height_tolerance_m': .1, '~recovery_height_tolerance_m': .1}
+        self.fx.setUp(); self.addCleanup(self.fx.doCleanups)
+        self.n = self.fx.n
+        self.fx.hold(); self.n.detach_requested = True
+        self.fx.feed(distance=.6)
+
+    def test_thirty_to_fifty_cm_can_enter_recovery_and_wait_without_centre_pull(self):
+        for drop in (.1, .2): self.fx.feed(distance=.6, drop=drop, vz=-.1)
+        for _ in range(15): status = self.fx.feed(distance=.6, drop=.31)
+        self.assertEqual(self.n.state, S.STATE_RECOVERY_HOVER)
+        self.assertTrue(status.recovery_ready)
+        stamp = status.recovery_lock_time
+        for drop in (.30, .304, .4, .496, .50):
+            for _ in range(12): status = self.fx.feed(distance=.6, drop=drop)
+            self.assertTrue(status.recovery_ready)
+            self.assertAlmostEqual(status.target_vertical_speed_mps, 0.)
+            self.assertEqual(status.recovery_lock_time, stamp)
+            self.assertTrue(status.keep_ownership)
+        for drop in (.29, .51):
+            for _ in range(12): status = self.fx.feed(distance=.6, drop=drop)
+            self.assertFalse(status.recovery_ready)
+            self.assertTrue(status.keep_ownership)
+            if drop < .3: self.assertLess(status.target_vertical_speed_mps, 0.)
+            else: self.assertGreater(status.target_vertical_speed_mps, 0.)
+
+    def test_height_band_does_not_authorize_drifting_or_moving_handover(self):
+        for drop in (.1, .2, .3): self.fx.feed(distance=.6, drop=drop, vz=-.1)
+        for _ in range(15): self.fx.feed(distance=.6, drop=.4)
+        for _ in range(12): status = self.fx.feed(distance=.6, drop=.4, vx=.3)
+        self.assertFalse(status.recovery_ready)
+        self.assertTrue(status.keep_ownership)
 
 
 class CeilingConsentTests(unittest.TestCase):
