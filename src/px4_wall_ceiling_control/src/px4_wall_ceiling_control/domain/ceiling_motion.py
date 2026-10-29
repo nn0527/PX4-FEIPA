@@ -212,7 +212,7 @@ class CeilingMotionController:
         return self.vz_target
 
 
-def limit_ceiling_attitude(desired, previous, dt, yaw_reference, settings, contact=False):
+def limit_ceiling_attitude(desired, previous, dt, yaw_reference, settings, contact=False, follow_hold_yaw=False):
     """Limit the FINAL target, after RC trim; a hard cone overrides slew on entry."""
     from px4_wall_ceiling_control.domain.geometry import rotate_vector, euler_from_quaternion
     yaw = euler_from_quaternion(desired)[2]
@@ -221,5 +221,8 @@ def limit_ceiling_attitude(desired, previous, dt, yaw_reference, settings, conta
                  min(math.radians(settings.yaw_max_offset_deg), offset))
     tilt = math.radians(settings.contact_max_tilt_deg if contact else settings.attitude_max_tilt_deg)
     target = attitude_from_axis_yaw(cone_axis(rotate_vector(desired, (0., 0., 1.)), tilt), yaw_reference+offset)
+    if follow_hold_yaw and previous is not None:
+        # HOLD follows measured wheel rotation; keep the tilt slew/cone intact.
+        previous = attitude_from_axis_yaw(rotate_vector(previous, (0., 0., 1.)), yaw_reference+offset)
     return limit_recovery_attitude(target, previous, min(.05, max(0., dt)), tilt,
         math.radians(settings.attitude_tilt_slew_deg_s), math.radians(settings.attitude_yaw_slew_deg_s))[0]

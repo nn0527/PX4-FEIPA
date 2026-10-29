@@ -61,6 +61,17 @@ class CeilingEnvelopeTests(unittest.TestCase):
         self.assertAlmostEqual(c.vertical_target(.15, .02), .003)
         self.assertAlmostEqual(c.vertical_target(-.15, .02), 0.)
 
+    def test_hold_yaw_follows_wheels_without_releasing_tilt_envelope(self):
+        yaw = math.radians(90.)
+        desired = attitude_from_axis_yaw((.5, 0., math.sqrt(.75)), yaw)
+        previous = (0., 0., 0., 1.)
+        q = limit_ceiling_attitude(desired, previous, .02, yaw, self.s,
+                                  contact=True, follow_hold_yaw=True)
+        self.assertAlmostEqual(euler_from_quaternion(q)[2], yaw)
+        self.assertLessEqual(math.degrees(math.acos(rotate_vector(q, (0., 0., 1.))[2])), .30+1e-6)
+        ordinary = limit_ceiling_attitude(desired, previous, .02, yaw, self.s, contact=True)
+        self.assertAlmostEqual(math.degrees(euler_from_quaternion(ordinary)[2]), .30, places=5)
+
     def test_recovery_brakes_anywhere_in_ten_cm_band(self):
         c = CeilingMotionController(self.s)
         for error in (-.10, -.096, 0., .096, .10):
@@ -95,15 +106,16 @@ class CeilingMotionLifecycleTests(unittest.TestCase):
     def feed(self, dt=.10, distance=.5, x=0., y=0., vx=0., vz=0., drop=0., thrust=.53,
              flow=True, state=True, tilt=0., rate=0., estimator=True,
              pressure_drop=None, baro=True, vertical_position=True, flow_distance=None, frame="map", owner=1,
-             range_min=.03):
+             range_min=.03, yaw=0., yaw_rate=0.):
         self.clock += dt
         now = rospy.Time.now()
         odom = Odometry(); odom.header.stamp = now; odom.header.frame_id = frame
-        odom.pose.pose.orientation = Quaternion(*attitude_from_axis_yaw((math.sin(tilt), 0., math.cos(tilt)), 0.))
+        odom.pose.pose.orientation = Quaternion(*attitude_from_axis_yaw((math.sin(tilt), 0., math.cos(tilt)), yaw))
         odom.pose.pose.position.x = x; odom.pose.pose.position.y = y
         odom.pose.pose.position.z = 2.-drop
         odom.twist.twist.linear.x = vx; odom.twist.twist.linear.z = vz
         odom.twist.twist.angular.y = rate
+        odom.twist.twist.angular.z = yaw_rate
         self.n._on_odom(odom)
         if estimator:
             e = EstimatorStatus(attitude_status_flag=True, velocity_horiz_status_flag=True,
@@ -338,6 +350,22 @@ class CeilingMotionLifecycleTests(unittest.TestCase):
         for _ in range(4):
             self.feed(distance=.055, rate=math.radians(35.))
         self.assertEqual(self.n.state, S.STATE_DETACH)
+
+    def test_hold_wheel_turn_follows_heading_without_contact_fault(self):
+        self.hold()
+        for i in range(1, 21):
+            yaw = math.radians(4.5*i)
+            status = self.feed(distance=.055, yaw=yaw, yaw_rate=math.radians(45.))
+            self.assertEqual(self.n.state, S.STATE_SURFACE_HOLD)
+            self.assertFalse(self.n.motion_contact_unsafe)
+            self.assertAlmostEqual(euler_from_quaternion(tuple(
+                getattr(status.attitude_setpoint, k) for k in 'xyzw'))[2], yaw)
+        self.assertAlmostEqual(-status.thrust_body_z_normalized, .55)
+
+    def test_hold_wheel_turn_keeps_contact_loss_protection(self):
+        self.hold()
+        status = self.feed(distance=.3, yaw=.05, yaw_rate=math.radians(45.))
+        self.assertNotEqual(self.n.state, S.STATE_SURFACE_HOLD)
 
     def test_replayed_pressure_cannot_qualify_recovery_height(self):
         self.hold(); self.n.detach_requested=True; self.feed()

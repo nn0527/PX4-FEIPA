@@ -12,7 +12,7 @@ from mavros_msgs.msg import AttitudeTarget, EstimatorStatus, OpticalFlowRad, Mav
 from px4_wall_ceiling_control.adapters.odometry import linear_velocity_parent_frame, odometry_is_finite
 from px4_wall_ceiling_control.domain.ceiling_motion import CeilingMotionController, CeilingMotionSettings
 from px4_wall_ceiling_control.domain.flow_timestamps import FlowTimestampGuard
-from px4_wall_ceiling_control.domain.geometry import euler_from_quaternion, rotate_vector
+from px4_wall_ceiling_control.domain.geometry import euler_from_quaternion, rotate_vector, follow_rotation_about_body_z
 from px4_wall_ceiling_control.domain.horizontal_equilibrium import HorizontalEquilibrium
 from px4_wall_ceiling_control.domain.recovery_attitude_limits import attitude_from_axis_yaw
 from px4_wall_ceiling_control.domain.sample_hold import held_samples, record_hold_sample
@@ -397,6 +397,16 @@ class CeilingMotionMixin:
                         and self.motion_rate <= 30. and self._motion_target_fresh(now))
             self.motion_equilibrium.observe(self.motion_fcu_at.to_sec() if self.motion_fcu_at is not None else 0.,
                 tuple(getattr(self.motion_fcu.orientation, k) for k in 'xyzw') if self.motion_fcu is not None else (0., 0., 0., 1.), eligible)
+        if (self.state == S.STATE_SURFACE_HOLD and not self.motion_fatal
+                and self._odom_fresh(now) and self._flight_ready(now)
+                and self.odom is not None and odometry_is_finite(self.odom)):
+            # Like wall HOLD, follow wheel-driven twist without following tilt.
+            followed = follow_rotation_about_body_z(
+                tuple(getattr(self.q_hover, k) for k in 'xyzw'),
+                tuple(getattr(self.odom.pose.pose.orientation, k) for k in 'xyzw'))
+            if followed is not None:
+                self.q_hover = Quaternion(*followed)
+                self.motion_controller.yaw = euler_from_quaternion(followed)[2]
         if self.motion_controller.xy is not None:
             self._update_ceiling_pause(now)
         self._update_ceiling_manual(now)
@@ -412,7 +422,19 @@ class CeilingMotionMixin:
             self.motion_paused = False
             if self._odom_fresh(now) and self.odom.header.stamp != self.motion_processed_pause:
                 self.motion_processed_pause = self.odom.header.stamp
-                bad = self.motion_tilt > s.actual_tilt_pause_deg or self.motion_rate > s.actual_body_rate_pause_deg_s
+                contact_rate = self.motion_rate
+                if self.state == S.STATE_SURFACE_HOLD:
+                    # Only rotation about the contact normal is permitted.
+                    a = self.odom.twist.twist.angular
+                    if self.odom_twist_in_child_frame:
+                        contact_rate = math.degrees(math.hypot(a.x, a.y))
+                    else:
+                        q = tuple(getattr(self.odom.pose.pose.orientation, k) for k in 'xyzw')
+                        axis = rotate_vector(q, (0., 0., 1.))
+                        axial = a.x*axis[0] + a.y*axis[1] + a.z*axis[2]
+                        contact_rate = math.degrees(math.sqrt(max(0.,
+                            a.x*a.x+a.y*a.y+a.z*a.z-axial*axial)))
+                bad = self.motion_tilt > s.actual_tilt_pause_deg or contact_rate > s.actual_body_rate_pause_deg_s
                 self.motion_bad_since, last = record_hold_sample(bad, self.odom.header.stamp, self.motion_bad_since)
                 self.motion_contact_unsafe = held_samples(True, self.motion_bad_since, last, s.motion_limit_confirm_s)
             return

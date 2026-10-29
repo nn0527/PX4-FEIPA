@@ -1553,7 +1553,8 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
             contact = (candidate.control_phase in (CeilingAttachmentStatus.STATE_ATTACH_CONTROL, CeilingAttachmentStatus.STATE_SURFACE_HOLD)
                        or (candidate.control_phase == CeilingAttachmentStatus.STATE_ABORT and candidate.ceiling_abort_land_requested))
             q = limit_ceiling_attitude(tuple(getattr(target.orientation, k) for k in "xyzw"), previous,
-                dt, candidate.ceiling_yaw_reference_rad, self.ceiling_motion_settings, contact)
+                dt, candidate.ceiling_yaw_reference_rad, self.ceiling_motion_settings, contact,
+                follow_hold_yaw=candidate.control_phase == CeilingAttachmentStatus.STATE_SURFACE_HOLD)
             target.orientation = Quaternion(*q)
             snapshot = self.ceiling_candidate_snapshot
             published = rospy.Time.now()
