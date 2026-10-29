@@ -11,7 +11,7 @@ flowchart LR
 
     RC[遥控器] --> PX4[PX4]
     PX4 <-->|MAVLink| MAVROS[MAVROS]
-    MAVROS --> GATE[operator_gate_node]
+    MAVROS --> GATE[terminal_operator_node]
     MAVROS --> CD[ceiling_attachment_decision_node]
     MAVROS --> WD[wall_perch_decision_node]
     MANAGER --> CD
@@ -43,7 +43,7 @@ FSM/controller/setpoint-mux 链路已从本包移除，仅保留在 git 历史�
 | Boundary adapters | `src/.../adapters` | Convert odometry frames and build bounded MAVROS messages |
 | Sensor I/O | `scripts/sensors` | Parse each L1 independently and publish raw ranges |
 | Sensor management | `scripts/sensors` | Validate, age and fan out both channels without mode selection |
-| Operator input | `scripts/operator` | Debounce two RC switches and reject conflicting requests |
+| Operator input | `scripts/operator` | CH8 mode selection plus CH12 start/detach, terminal and web requests |
 | Decisions | `scripts/decisions` | Own ceiling/wall state machines and produce bounded candidates |
 | Flight output | `scripts/outputs` | Lock one owner, validate freshness/state/odom and publish MAVROS setpoints |
 | Mechanism output | `scripts/outputs` | Gate physical commands by owner and matching sequence acknowledgement |
@@ -58,7 +58,7 @@ FSM/controller/setpoint-mux 链路已从本包移除，仅保留在 git 历史�
 | `/sensor/ceiling/range` | `sensor_msgs/Range` | range manager | both decisions |
 | `/sensor/front/range` | `sensor_msgs/Range` | range manager | wall decision |
 | `/sensor/health` | `SensorHealth` | range manager | wall decision, diagnostics |
-| `/operator/command` | `OperatorCommand` | operator gate | decisions, output mux |
+| `/operator/command` | `OperatorCommand` | terminal operator | decisions, output mux |
 | `/ceiling_attachment/status` | `CeilingAttachmentStatus` | ceiling decision | diagnostics |
 | `/wall_perch/status` | `WallPerchStatus` | wall decision | diagnostics |
 | `/ceiling_attachment/control_candidate` | `AttachmentControlCandidate` | ceiling decision | output mux |
@@ -82,8 +82,8 @@ Deprecated aliases such as `/sensor/wall/range`, `/sensor/wall/top_range` and
    `attachment_output_mux_node`.
 2. Owner can only be acquired from NONE. Ending or timing out an owner starts a
    neutral-switch dwell before another behavior can acquire it.
-3. Both RC switches active is an immediate ABORT request and cannot acquire a
-   new owner.
+3. Only one operator request governs at a time: a new start is rejected while a
+   cycle is active, and stale operator intent cannot acquire a new owner.
 4. Range, state, odom, operator and candidate freshness are checked using local
    receive time; stale data is never treated as a new sample.
 5. `candidate_valid=false` stops new setpoint publication while the current

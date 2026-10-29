@@ -7,8 +7,6 @@
 
   <rosparam command="load"
             file="$(find px4_wall_ceiling_control)/config/sensors.yaml" />
-  <rosparam command="load"
-            file="$(find px4_wall_ceiling_control)/config/operator.yaml" />
 
   <node pkg="px4_wall_ceiling_control" type="lidar_distance_node.py"
         name="ceiling_lidar_node" output="screen">
@@ -23,9 +21,6 @@
     <param name="range_topic" value="/sensor/front/raw" />
     <param name="frame_id" value="front_lidar_link" />
   </node>
-
-  <node pkg="px4_wall_ceiling_control" type="operator_gate_node.py"
-        name="operator_gate_node" output="screen" />
 
   <node pkg="px4_wall_ceiling_control" type="sensor_range_manager_node.py"
         name="sensor_range_manager_node" output="screen" />

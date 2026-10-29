@@ -13,8 +13,6 @@
   <rosparam command="load"
             file="$(find px4_wall_ceiling_control)/config/sensors.yaml" />
   <rosparam command="load"
-            file="$(find px4_wall_ceiling_control)/config/operator.yaml" />
-  <rosparam command="load"
             file="$(find px4_wall_ceiling_control)/config/wall_perch.yaml" />
   <rosparam command="load"
             file="$(find px4_wall_ceiling_control)/config/attachment_output.yaml" />
@@ -35,14 +33,12 @@
 
   <node pkg="px4_wall_ceiling_control" type="mock_flight_inputs_node.py"
         name="mock_flight_inputs_node" output="screen">
-    <param name="ceiling_switch_pwm" value="1000" />
-    <param name="wall_switch_pwm" value="1800" />
     <param name="altitude_m" value="1.0" />
   </node>
 
-  <node pkg="px4_wall_ceiling_control" type="operator_gate_node.py"
-        name="operator_gate_node" output="screen">
-    <param name="rc_topic" value="/mock_mavros/rc/in" />
+  <node pkg="px4_wall_ceiling_control" type="mock_operator_node.py"
+        name="mock_operator_node" output="screen">
+    <param name="mode" value="wall" />
   </node>
 
   <node pkg="px4_wall_ceiling_control" type="sensor_range_manager_node.py"

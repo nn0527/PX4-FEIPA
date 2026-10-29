@@ -57,7 +57,7 @@ rosnode list | rg 'mavros|ceiling_lidar|front_lidar|sensor_range_manager|termina
 
 本流程不应出现：
 
-/operator_gate_node
+任何非 terminal 通道的操作员节点（旧 operator_gate_node 已移除）
 
 
 终端 3：检查飞控连接
@@ -354,7 +354,7 @@ operator enable_control: True
 
 rosnode list
 
-如果只有雷达、sensor_range_manager_node 和 operator_gate_node，说明启动入口错误。
+如果只有雷达和 sensor_range_manager_node，说明启动入口错误。
 停止 lidar_dual.launch，然后启动 wall_motor_bench.launch。
 
 

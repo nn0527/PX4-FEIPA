@@ -1,2 +1,3 @@
 # Deprecated compatibility marker. Internal launches now load the explicit
-# sensors.yaml, operator.yaml, attachment_output.yaml and legacy.yaml files.
+# sensors.yaml, ceiling_attachment.yaml, wall_perch.yaml and
+# attachment_output.yaml files.

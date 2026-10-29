@@ -14,8 +14,6 @@
   <rosparam command="load"
             file="$(find px4_wall_ceiling_control)/config/sensors.yaml" />
   <rosparam command="load"
-            file="$(find px4_wall_ceiling_control)/config/operator.yaml" />
-  <rosparam command="load"
             file="$(find px4_wall_ceiling_control)/config/ceiling_attachment.yaml" />
   <rosparam command="load"
             file="$(find px4_wall_ceiling_control)/config/attachment_output.yaml" />
@@ -44,8 +42,14 @@
     <param name="max_range_m" value="40.0" />
   </node>
 
-  <node pkg="px4_wall_ceiling_control" type="operator_gate_node.py"
-        name="operator_gate_node" output="screen" />
+  <node pkg="px4_wall_ceiling_control" type="terminal_operator_node.py"
+        name="terminal_operator_node" output="screen">
+    <param name="rc_wall_toggle_enabled" value="true" />
+    <param name="rc_wall_channel_index" value="11" />
+    <param name="rc_mode_selector_enabled" value="true" />
+    <param name="rc_mode_channel_index" value="7" />
+    <param name="rc_mode_up_is_high" value="false" />
+  </node>
 
   <node pkg="px4_wall_ceiling_control" type="sensor_range_manager_node.py"
         name="sensor_range_manager_node" output="screen" />

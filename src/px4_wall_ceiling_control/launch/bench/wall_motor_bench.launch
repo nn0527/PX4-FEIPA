@@ -27,7 +27,6 @@
     <arg name="wall_enabled" value="true" />
     <arg name="output_enabled" value="$(arg output_enabled)" />
     <arg name="mechanism_output_enabled" value="false" />
-    <arg name="operator_source" value="terminal" />
     <arg name="flight_mode_enabled" value="$(arg flight_mode_enabled)" />
     <arg name="flight_estimator_timeout_s" value="$(arg estimator_timeout_s)" />
     <arg name="flight_state_timeout_s" value="$(arg state_timeout_s)" />

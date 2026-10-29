@@ -58,7 +58,6 @@ catkin_install_python(PROGRAMS
   scripts/bench/ceiling_motor_bench_output_node.py
   scripts/decisions/ceiling_attachment_decision_node.py
   scripts/decisions/wall_perch_decision_node.py
-  scripts/operator/operator_gate_node.py
   scripts/operator/rc_takeover.py
   scripts/operator/terminal_operator_node.py
   scripts/operator/ceiling_failsafe_guard_node.py
@@ -73,6 +72,7 @@ catkin_install_python(PROGRAMS
   scripts/standalone/ceiling_attachment_output_node.py
   scripts/test_support/mock_attachment_mechanism_node.py
   scripts/test_support/mock_flight_inputs_node.py
+  scripts/test_support/mock_operator_node.py
   scripts/test_support/ceiling_attachment_state_monitor.py
   scripts/test_support/wall_perch_state_monitor.py
   scripts/test_support/replay_range_height.py

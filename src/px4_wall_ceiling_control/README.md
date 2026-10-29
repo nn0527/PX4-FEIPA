@@ -17,7 +17,7 @@ ceiling L1 -> /sensor/ceiling/raw --┐
                                     ├-> sensor_range_manager
 front L1   -> /sensor/front/raw ----┘       ├-> ceiling_attachment_decision --┐
                                             └-> wall_perch_decision ---------┤
-RC -> PX4 -> MAVROS -> operator_gate ----------------------------------------┤
+RC -> PX4 -> MAVROS -> terminal_operator ------------------------------------┤
 PX4 state/odom ---------------------------------------------------------------┤
                                                                               v
                                                         attachment_output_mux
@@ -51,7 +51,7 @@ px4_wall_ceiling_control/
 ├── scripts/
 │   ├── sensors/             hardware adapters and range validation
 │   ├── bench/               ceiling-only bounded bench output
-│   ├── operator/            RC command gate
+│   ├── operator/            RC/terminal command gate
 │   ├── decisions/           ceiling and wall behavior decisions
 │   ├── outputs/             owner mux and mechanism safety gate
 │   ├── standalone/          ceiling-only MAVROS adapter
@@ -114,7 +114,6 @@ roslaunch px4_wall_ceiling_control attachment_system_mavros.launch \
 | File | Owns |
 |---|---|
 | `config/sensors.yaml` | Sensor drivers and two-channel range manager |
-| `config/operator.yaml` | RC operator gate |
 | `config/ceiling_attachment.yaml` | Ceiling decision and controller parameters |
 | `config/wall_perch.yaml` | Wall decision and attitude planner parameters |
 | `config/attachment_output.yaml` | Owner mux, MAVROS adapters and mechanism output gate |

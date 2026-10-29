@@ -20,7 +20,6 @@
   <arg name="wall_sensor_fusion_restore_tilt_deg" default="80.0" />
   <arg name="output_enabled" default="false" />
   <arg name="mechanism_output_enabled" default="false" />
-  <arg name="operator_source" default="rc" />
   <arg name="flight_mode_enabled" default="false" />
   <!-- PX4 ESTIMATOR_STATUS is normally emitted at 1 Hz. -->
   <arg name="flight_estimator_timeout_s" default="1.5" />
@@ -67,8 +66,6 @@
   <rosparam command="load"
             file="$(find px4_wall_ceiling_control)/config/sensors.yaml" />
   <rosparam command="load"
-            file="$(find px4_wall_ceiling_control)/config/operator.yaml" />
-  <rosparam command="load"
             file="$(find px4_wall_ceiling_control)/config/ceiling_attachment.yaml" />
   <rosparam command="load"
             file="$(find px4_wall_ceiling_control)/config/wall_perch.yaml" />
@@ -99,11 +96,7 @@
     <param name="frame_id" value="front_lidar_link" />
   </node>
 
-  <node if="$(eval arg('operator_source') == 'rc')"
-        pkg="px4_wall_ceiling_control" type="operator_gate_node.py"
-        name="operator_gate_node" output="$(arg node_output)" />
-  <node if="$(eval arg('operator_source') == 'terminal')"
-        pkg="px4_wall_ceiling_control" type="terminal_operator_node.py"
+  <node pkg="px4_wall_ceiling_control" type="terminal_operator_node.py"
         name="terminal_operator_node" output="screen">
     <param name="rc_wall_toggle_enabled" value="$(arg rc_wall_toggle_enabled)" />
     <param name="rc_wall_channel_index" value="$(arg rc_wall_channel_index)" />

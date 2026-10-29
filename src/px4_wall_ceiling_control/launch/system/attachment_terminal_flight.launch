@@ -27,7 +27,6 @@
     <arg name="test_log_directory" value="$(arg test_log_directory)" />
     <arg name="ceiling_serial_port" value="$(arg ceiling_serial_port)" />
     <arg name="front_serial_port" value="$(arg front_serial_port)" />
-    <arg name="operator_source" value="terminal" />
     <arg name="rc_wall_toggle_enabled" value="$(arg rc_wall_toggle_enabled)" />
     <arg name="rc_wall_channel_index" value="$(arg rc_wall_channel_index)" />
     <arg name="rc_mode_selector_enabled" value="$(arg rc_mode_selector_enabled)" />

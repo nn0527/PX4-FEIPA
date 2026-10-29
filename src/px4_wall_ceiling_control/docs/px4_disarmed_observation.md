@@ -66,12 +66,13 @@
    缓慢移动板并以 `/bench/ceiling_attachment/status` 里的
    `ceiling_distance_filtered_m` 和 `reason` 为准。
 
-遥控器吸顶开关位于 `RCIn.channels[4]`（第五个通道），PWM 至少 1700；
-侧吸开关 `channels[5]` 应保持关闭。先关闭两个开关，再打开吸顶开关。
+本入口改用台架操作员节点 `mock_operator_node`，不再使用遥控器开关：
+默认 `mode=standby`，提交吸顶意图执行
+`rostopic pub -1 /bench/operator/request std_msgs/String "data: 'ceiling'"`。
 如果传感器日志出现 `E=255` 且测距话题没有数据，请调整平面板位置和朝向，
 直到 `/bench/sensor/ceiling/range` 持续更新。
 如果 `/mavros/local_position/odom` 不更新，这个真实 PX4 观察入口不会触发；
 可先用 `ceiling_attachment_sensor_test.launch` 的模拟飞行反馈检查传感器和状态机。
-测试结束后关闭吸顶开关并停止两个 launch。
-若已到 `SURFACE_HOLD`，关闭开关后会进入 `DETACH`；本入口没有机构反馈模拟器，
+测试结束后把操作员请求改回 `data: 'standby'` 并停止两个 launch。
+若已到 `SURFACE_HOLD`，撤除吸顶请求后会进入 `DETACH`；本入口没有机构反馈模拟器，
 因此随后出现机构释放超时 `FAULT` 是预期的观察结果。

@@ -9,16 +9,6 @@ from nav_msgs.msg import Odometry
 class MockFlightInputsNode:
     def __init__(self):
         rate_hz = float(rospy.get_param("~publish_rate_hz", 30.0))
-        self.ceiling_switch_channel_index = int(
-            rospy.get_param("~ceiling_switch_channel_index", 4)
-        )
-        self.wall_switch_channel_index = int(
-            rospy.get_param("~wall_switch_channel_index", 5)
-        )
-        self.ceiling_switch_pwm = int(
-            rospy.get_param("~ceiling_switch_pwm", 1800)
-        )
-        self.wall_switch_pwm = int(rospy.get_param("~wall_switch_pwm", 1000))
         self.altitude_m = float(rospy.get_param("~altitude_m", 1.0))
 
         self.state_publisher = rospy.Publisher(
@@ -49,12 +39,9 @@ class MockFlightInputsNode:
         state.system_status = 4
         self.state_publisher.publish(state)
 
-        channel_count = max(
-            self.ceiling_switch_channel_index, self.wall_switch_channel_index, 7
-        ) + 1
-        channels = [1500] * channel_count
-        channels[self.ceiling_switch_channel_index] = self.ceiling_switch_pwm
-        channels[self.wall_switch_channel_index] = self.wall_switch_pwm
+        # Neutral RC frame: operator intent comes from mock_operator_node, so no
+        # bench switch channel may look like a real flight-mode channel.
+        channels = [1500] * 12
         rc = RCIn()
         rc.header.stamp = now
         rc.rssi = 255
