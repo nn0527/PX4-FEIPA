@@ -52,8 +52,7 @@ roslaunch mavros px4.launch \
 
 终端 B 先启动统一链路的观察模式。这里的 `flight_enabled:=false` 不会向 PX4
 发送实际姿态设定值，也不会请求 OFFBOARD；确认传感器和遥控通道后，先关闭这个
-launch，再用下文的实飞命令重启。不要同时启动 `ceiling_motor_bench.launch` 或
-旧的输出节点：
+launch，再用下文的实飞命令重启。不要同时启动旧的输出节点：
 
 ```bash
 cd ~/catkin_ws

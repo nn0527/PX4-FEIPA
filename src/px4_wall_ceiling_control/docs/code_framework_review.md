@@ -48,7 +48,7 @@ flowchart LR
 | 输出仲裁 | `scripts/outputs/attachment_output_mux_node.py`、`src/.../domain/owner_arbiter.py` | 唯一 MAVROS 发布者、互斥 owner、限幅和新鲜度检查 |
 | 协议适配 | `src/.../adapters/mavros_setpoint.py`、`odometry.py` | ROS ENU/FLU 边界、MAVROS 消息生成、odom 数值校验 |
 | 参数/接口 | `config/*.yaml`、`msg/*.msg` | 行为增益、阈值、话题契约 |
-| 测试 | `test/*.py`、`launch/bench/*.launch` | 状态机安全门、模式交接和台架输出 |
+| 测试 | `test/*.py` | 状态机安全门、模式交接和输出边界 |
 
 `scripts/standalone` 是顶吸兼容路径，不能和统一生产入口同时运行。
 `attachment_mechanism_output_node.py` 为独立机构保留；

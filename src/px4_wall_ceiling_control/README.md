@@ -8,7 +8,7 @@ wall perching, owner arbitration and one MAVROS command outlet.
 > Safety: controller and physical mechanism outputs default to disabled. This
 > package never arms PX4. The terminal flight entry can switch between ALTCTL
 > and OFFBOARD when `flight_enabled:=true`. Validate frames, signs, limits and
-> failsafes in isolated bench tests and SITL/HITL before powered use.
+> failsafes in SITL/HITL before powered use.
 
 ## Active runtime chain
 
@@ -45,12 +45,10 @@ px4_wall_ceiling_control/
 ├── launch/
 │   ├── system/              primary combined runtime
 │   ├── sensors/             sensor-only utilities
-│   ├── bench/               isolated observation and fixed-frame motor tests
 │   └── standalone/          ceiling-only compatibility runtime
 ├── msg/                     ROS interface contracts
 ├── scripts/
 │   ├── sensors/             hardware adapters and range validation
-│   ├── bench/               ceiling-only bounded bench output
 │   ├── operator/            RC/terminal command gate
 │   ├── decisions/           ceiling and wall behavior decisions
 │   ├── outputs/             owner mux and mechanism safety gate
@@ -84,11 +82,6 @@ catkin_test_results
 | Unified ceiling + wall runtime | `launch/system/attachment_system_mavros.launch` | Disabled by default |
 | Terminal triggered ALTCTL/OFFBOARD flight | `launch/system/attachment_terminal_flight.launch` | Enabled with `flight_enabled:=true` |
 | Dual sensor input only | `launch/sensors/lidar_dual.launch` | None |
-| Wall bench test | `launch/bench/wall_perch_sensor_test.launch` | Mock namespace only |
-| Ceiling bench test | `launch/bench/ceiling_attachment_sensor_test.launch` | Mock namespace only |
-| Disarmed PX4 + real L1 observation | `launch/bench/ceiling_attachment_px4_observe.launch` | No MAVROS output node |
-| Fixed, propeller-free PX4 motor bench | `launch/bench/ceiling_motor_bench.launch` | Bounded attitude setpoints; disabled by default |
-| Fixed, propeller-free wall motor bench | `launch/bench/wall_motor_bench.launch` | Production chain, terminal trigger with real MAVROS/L1 data, hover thrust and mux cap both 0.45; disabled by default |
 | Standalone ceiling runtime | `launch/standalone/ceiling_attachment_mavros.launch` | Disabled by default |
 
 Typical sensor-only test:
@@ -129,8 +122,6 @@ should not acquire additional deployment-specific topic names.
 - [System architecture](docs/architecture.md)
 - [Ceiling behavior](docs/behaviors/ceiling_attachment.md)
 - [Wall behavior](docs/behaviors/wall_perch.md)
-- [Disarmed PX4 observation](docs/px4_disarmed_observation.md)
-- [Real PX4 motor bench procedure](../../bench_test_procedure.txt)
 - [Terminal flight handover](docs/terminal_flight.md)
 - [Code framework and readiness review](docs/code_framework_review.md)
 

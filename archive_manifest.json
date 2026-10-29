@@ -38,26 +38,6 @@
       "sha256": "66904ae935239f3574b42b1e32dfe3ff126c52d7531dec10d941fa75f8810f26"
     },
     {
-      "path": "src/px4_wall_ceiling_control/scripts/test_support/mock_attachment_mechanism_node.py",
-      "sha256": "80d1269863f3f2966421a559ba6b7ce2243b0f99f5035997f9d095193ae93bdd"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/scripts/test_support/mock_flight_inputs_node.py",
-      "sha256": "851ef447c308227f74e9ca4dd1f16d2f446569858e2f076041dab7d08dd9f781"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/scripts/test_support/wall_perch_state_monitor.py",
-      "sha256": "33c546cb4ffd1f72e5e4ec3515f64d3830d72f12c778f24004d694674423166f"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/scripts/test_support/ceiling_attachment_state_monitor.py",
-      "sha256": "f74f80a9b17d23d02ffe4091572c878646546d45b472ef73423bc0c605f3d5e0"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/scripts/bench/ceiling_motor_bench_output_node.py",
-      "sha256": "702da00d4400de1a47772d2b5651cbf1ec412eea15b86a310d4b95c1c808f52a"
-    },
-    {
       "path": "src/px4_wall_ceiling_control/package.xml",
       "sha256": "6973ab785c17daae9738e654fbe143503d425ff2fd511f33bddebcc567a29036"
     },
@@ -142,26 +122,6 @@
       "sha256": "ed2d191883c324fdb973543e9610bff352682ee09087bf9a34543cd3d505b337"
     },
     {
-      "path": "src/px4_wall_ceiling_control/launch/bench/ceiling_attachment_sensor_test.launch",
-      "sha256": "fa6227e35c5ea33d99daf8a7efbaf310a3f1af619c6aff9a6828cb092a4fb4de"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/launch/bench/wall_perch_sensor_test.launch",
-      "sha256": "b37d94f98a81b65b6db202693d52749a2f5dea5d31f97c65240cbddc2ba7f841"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/launch/bench/ceiling_attachment_px4_observe.launch",
-      "sha256": "f5d4a0cd0b8e4cddb1ebef68f62e382bdc0055759f82b64650218da5af2b6e71"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/launch/bench/ceiling_motor_bench.launch",
-      "sha256": "ffdc4625068faf5e87ca73d09e7e9ac32fe4a284d65bbaea0086ad621c3e70af"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/launch/bench/wall_motor_bench.launch",
-      "sha256": "97275b80f1e038c76d2a3969ded1927e9463b979c0a11903cf8b09eef0db5f61"
-    },
-    {
       "path": "src/px4_wall_ceiling_control/launch/sensors/lidar_dual.launch",
       "sha256": "96c9bde6568f877aa16028c1cd575f492f01bbb87212363e6ed87fddb119a0b2"
     },
@@ -192,10 +152,6 @@
     {
       "path": "src/px4_wall_ceiling_control/docs/archive/bench_test_procedure_previous.txt",
       "sha256": "6262b2a423406ee2ae59ef62403216c0c73b7d66eb380b43f19ae64422f1171b"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/docs/px4_disarmed_observation.md",
-      "sha256": "d84037e289e4e211bf0e7f1875a7d1fe2524076750201e011ed55d671cee7694"
     },
     {
       "path": "src/px4_wall_ceiling_control/src/px4_wall_ceiling_control/__init__.py",
@@ -248,14 +204,6 @@
     {
       "path": "src/px4_wall_ceiling_control/test/test_flight_handover.py",
       "sha256": "87c4699f5ecc7c8edcbddbacda21178ae1804907c970719853cc3be4e7030b9b"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/test/test_ceiling_state_monitor.py",
-      "sha256": "fded8dad020c760666589959112eae6c6b1afc83de4d5647eefaf856e921641f"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/test/test_ceiling_motor_bench.py",
-      "sha256": "2be2a6ebc8924df3a2dea61901630a9a9553a03893cbbab4f844e1fdd5dc45d1"
     },
     {
       "path": "src/px4_wall_ceiling_control/CMakeLists.txt",
@@ -8580,10 +8528,6 @@
     {
       "path": ".gitignore",
       "sha256": "9d30e0430766e0314739e1b22286a1407fb9c851096ec5638c2045c1d339f583"
-    },
-    {
-      "path": "bench_test_procedure.txt",
-      "sha256": "1d2c5915a265848da34ed181a48ffce6fe5c6a2aa80ca0a4fe2bc61fc0ddd9b4"
     }
   ]
 }

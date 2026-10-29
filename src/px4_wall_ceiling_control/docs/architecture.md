@@ -47,7 +47,6 @@ FSM/controller/setpoint-mux 链路已从本包移除，仅保留在 git 历史�
 | Decisions | `scripts/decisions` | Own ceiling/wall state machines and produce bounded candidates |
 | Flight output | `scripts/outputs` | Lock one owner, validate freshness/state/odom and publish MAVROS setpoints |
 | Mechanism output | `scripts/outputs` | Gate physical commands by owner and matching sequence acknowledgement |
-| Bench support | `scripts/test_support` | Provide isolated mock PX4 and mechanism feedback |
 
 ## 3. Topic contract
 
@@ -71,7 +70,6 @@ FSM/controller/setpoint-mux 链路已从本包移除，仅保留在 git 历史�
 | `/mavros/rc/in` | `mavros_msgs/RCIn` | MAVROS | output mux, mode manager when enabled |
 | `/mavros/setpoint_raw/attitude` | `mavros_msgs/AttitudeTarget` | output mux | MAVROS/PX4 |
 | `/attachment/rc_input_age_ms` | `std_msgs/Float32` | output mux | diagnostics |
-| `/attachment/rc_preview_deg` | `geometry_msgs/Vector3Stamped` | output mux | bench diagnostics |
 
 Deprecated aliases such as `/sensor/wall/range`, `/sensor/wall/top_range` and
 `/sensor/selected_source` are not part of the current contract.
@@ -113,7 +111,6 @@ Deprecated aliases such as `/sensor/wall/range`, `/sensor/wall/top_range` and
 
 - Primary: `launch/system/attachment_system_mavros.launch`
 - Sensor utility: `launch/sensors/lidar_dual.launch`
-- Bench: `launch/bench/*.launch`
 - Standalone ceiling compatibility: `launch/standalone/*.launch`
 
-See `docs/bench_test_procedure.txt` before enabling any physical output.
+See `docs/terminal_flight.md` and `docs/rc_wall_momentary.md` before enabling any physical output.

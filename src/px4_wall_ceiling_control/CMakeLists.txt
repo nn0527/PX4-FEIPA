@@ -55,7 +55,6 @@ catkin_package(
 
 catkin_install_python(PROGRAMS
   # Unified runtime.
-  scripts/bench/ceiling_motor_bench_output_node.py
   scripts/decisions/ceiling_attachment_decision_node.py
   scripts/decisions/wall_perch_decision_node.py
   scripts/operator/rc_takeover.py
@@ -70,12 +69,6 @@ catkin_install_python(PROGRAMS
   scripts/sensors/sensor_range_manager_node.py
   scripts/sensors/wall_sensor_fusion_manager_node.py
   scripts/standalone/ceiling_attachment_output_node.py
-  scripts/test_support/mock_attachment_mechanism_node.py
-  scripts/test_support/mock_flight_inputs_node.py
-  scripts/test_support/mock_operator_node.py
-  scripts/test_support/ceiling_attachment_state_monitor.py
-  scripts/test_support/wall_perch_state_monitor.py
-  scripts/test_support/replay_range_height.py
   scripts/test_support/attachment_flight_logger.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
@@ -123,8 +116,6 @@ if(CATKIN_ENABLE_TESTING)
   catkin_add_nosetests(test/test_hold_range_loss.py)
   catkin_add_nosetests(test/test_sensor_error_reporting.py)
   catkin_add_nosetests(test/test_attachment_safety.py)
-  catkin_add_nosetests(test/test_ceiling_motor_bench.py)
-  catkin_add_nosetests(test/test_ceiling_state_monitor.py)
   catkin_add_nosetests(test/test_flight_handover.py)
   catkin_add_nosetests(test/test_ceiling_rc_assist.py)
   catkin_add_nosetests(test/test_auto_wall_approach.py)

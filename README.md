@@ -26,9 +26,6 @@ catkin_make
 source devel/setup.bash
 ```
 
-The main bench procedure is
-[`bench_test_procedure.txt`](bench_test_procedure.txt).
-
 ## Collaboration
 
 Repository: https://gitee.com/yls2026/wall-climbing-robot

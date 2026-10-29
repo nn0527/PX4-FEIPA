@@ -107,17 +107,6 @@ launch 支持 `detach_range_height_enabled`、`detach_range_entry_tilt_deg`、`d
   但不能将合成用例或 21:11 的补充回放称作该原始历史验收已通过。
 - 初次修改时未执行 Docker 构建，后续已通过。指定 16:49 原始 bag、闭环动力学及实际 POSCTL 接管仍未验证。
 
-回放工具 `scripts/test_support/replay_range_height.py` 只读取本地 bag，不启动 ROS 或飞行程序。
-在有 `rosbags` 的分析 Python 环境设置包源码 `PYTHONPATH` 后，例如：
-
-```bash
-python3 scripts/test_support/replay_range_height.py /path/to/flight_0.bag \
-  --rotation-source-time <实际脱离开始的ROS源时间> \
-  --device-min-m 0.02 --device-max-m 6 --entry-tilt-deg 10
-```
-
-回放仅验证数据处理、选帧、源时间和速度计算；不等于新控制下的动力学重演。
-
 ## 2026-10-22：异常恢复的竖直阻尼
 
 快速相邻测距速度现在用于所有仍由测距支撑的脱离/恢复路径：
