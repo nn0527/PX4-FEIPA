@@ -241,15 +241,15 @@ class CeilingMotionLifecycleTests(unittest.TestCase):
         status=self.feed(dt=.01,distance=.09)
         self.assertEqual(self.n.state,S.STATE_ATTACH_CONTROL)
 
-    def test_recovery_accepts_five_cm_band_after_reaching_half_metre(self):
+    def test_recovery_handover_accepts_fifteen_cm_band_after_reaching_half_metre(self):
         self.hold();self.n.detach_requested=True;self.feed()
         self.feed(distance=.6,drop=.5)
         self.assertEqual(self.n.state,S.STATE_RECOVERY_HOVER)
-        for drop in (.45,.55):
+        for drop in (.35,.65):
             for _ in range(8):
                 status=self.feed(distance=.6,drop=drop)
             self.assertTrue(status.recovery_ready)
-        for drop in (.449,.551):
+        for drop in (.349,.651):
             status=self.feed(distance=.6,drop=drop)
             self.assertFalse(status.recovery_ready)
 

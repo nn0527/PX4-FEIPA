@@ -60,6 +60,7 @@ class CeilingMotionSettings:
     detach_min_down_speed_mps: float = .05
     recovery_height_kp: float = .50
     recovery_height_tolerance_m: float = .10
+    recovery_handover_height_tolerance_m: float = .15
     recovery_vertical_speed_mps: float = .15
     recovery_horizontal_speed_mps: float = .15
     recovery_max_tilt_deg: float = 10.

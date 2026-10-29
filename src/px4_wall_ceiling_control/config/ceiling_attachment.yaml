@@ -138,10 +138,10 @@ ceiling_attachment_decision_node:
   horizontal_target_acceleration_mps2: 0.1
   horizontal_drift_warn_m: 0.3
   horizontal_drift_pause_m: 1.0
-  horizontal_drift_resume_m: 0.6
+  horizontal_drift_resume_m: 0.7
   attitude_max_tilt_deg: 10.0
   contact_max_tilt_deg: 5.0
-  yaw_max_offset_deg: 10.0
+  yaw_max_offset_deg: 12.0
   attitude_tilt_slew_deg_s: 15.0
   attitude_yaw_slew_deg_s: 15.0
   actual_tilt_pause_deg: 15.0
@@ -170,13 +170,15 @@ ceiling_attachment_decision_node:
   vertical_target_acceleration_mps2: 0.15
   detach_min_down_speed_mps: 0.05
   recovery_height_kp: 0.5
-  # 范围内制动竖直速度并保持XY，不强制追到40cm中心。
+  # RECOVERY高度控制：目标高度±10cm内制动竖直速度并保持XY。
   recovery_height_tolerance_m: 0.10
-  recovery_vertical_speed_mps: 0.15
-  recovery_horizontal_speed_mps: 0.15
-  recovery_max_tilt_deg: 10.0
-  recovery_max_rate_deg_s: 20.0
-  recovery_stable_time_s: 0.5
+  # 交回判定：允许目标高度±15cm，仍需满足速度、姿态及连续稳定条件。
+  recovery_handover_height_tolerance_m: 0.15
+  recovery_vertical_speed_mps: 0.20
+  recovery_horizontal_speed_mps: 0.20
+  recovery_max_tilt_deg: 12.0
+  recovery_max_rate_deg_s: 25.0
+  recovery_stable_time_s: 0.4
   recovery_timeout_s: 15.0
   contact_release_distance_m: 0.1
   contact_release_hold_s: 0.2

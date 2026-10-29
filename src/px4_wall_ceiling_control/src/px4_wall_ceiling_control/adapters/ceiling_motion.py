@@ -538,7 +538,7 @@ class CeilingMotionMixin:
             vz = linear_velocity_parent_frame(self.odom, self.odom_twist_in_child_frame)[2]
             yaw = euler_from_quaternion(tuple(getattr(self.odom.pose.pose.orientation, k) for k in 'xyzw'))[2]
             yaw_error = abs(math.atan2(math.sin(yaw-self.motion_controller.yaw), math.cos(yaw-self.motion_controller.yaw)))
-            good = (abs(z-self.motion_recovery_height) <= s.recovery_height_tolerance_m + 1e-9
+            good = (abs(z-self.motion_recovery_height) <= s.recovery_handover_height_tolerance_m + 1e-9
                     and abs(vz) <= s.recovery_vertical_speed_mps
                     and self.motion_speed <= s.recovery_horizontal_speed_mps
                     and self.motion_drift <= s.horizontal_drift_resume_m
