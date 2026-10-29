@@ -490,6 +490,19 @@ class CeilingMotionMixin:
         self.motion_recovery_lock_time = rospy.Time(0)
         self.motion_recovery_since = self.motion_recovery_last = None
         if new_state == S.STATE_DETACH:
+            # Wheel motion during HOLD must not pull us back to the takeover XY.
+            # Capture once at the detach request; retain velocity braking and
+            # keep this reference through descent and automatic recovery.
+            if (self.motion_controller.xy is not None and self.motion_ready
+                    and not self.motion_fatal and self._odom_fresh(now)
+                    and self._flight_ready(now) and self.odom is not None
+                    and odometry_is_finite(self.odom)):
+                p = self.odom.pose.pose.position
+                self.motion_controller.xy = (p.x, p.y)
+                self.motion_drift = 0.
+                self.motion_controller.horizontal.reset()
+            else:
+                self.motion_fatal = self.motion_fatal or 'detach XY reference unavailable: abort instead of returning to takeover point'
             if self.detach_height_velocity_enabled and self.motion_controller.vertical_support is not None:
                 entry = self.last_control_thrust
                 output = self.motion_output

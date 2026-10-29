@@ -171,6 +171,47 @@ class CeilingMotionLifecycleTests(unittest.TestCase):
             self.feed(distance=.055)
         self.assertEqual(self.n.state, S.STATE_SURFACE_HOLD)
 
+    def test_detach_captures_current_xy_once_and_keeps_vertical_baseline(self):
+        self.hold()
+        # Model valid wheel travel using separate odometry samples.
+        for i in range(1, 11):
+            self.feed(distance=.055, x=.05*i, y=-.03*i)
+        baseline = self.n.motion_controller.vertical_support
+        yaw = self.n.motion_controller.yaw
+        self.n.motion_controller.horizontal.integral = (.1, -.1)
+        self.n._enter_state(S.STATE_DETACH, rospy.Time.now(), 'detach requested')
+        self.assertEqual(self.n.motion_controller.xy, (.5, -.3))
+        self.assertEqual(self.n.motion_drift, 0.)
+        self.assertEqual(self.n.motion_controller.horizontal.integral, (0., 0.))
+        self.assertEqual(self.n.motion_controller.vertical_support, baseline)
+        self.assertEqual(self.n.motion_controller.yaw, yaw)
+        for _ in range(5):
+            self.feed(distance=.25, x=.55, y=-.30, vx=.12)
+        self.assertEqual(self.n.motion_controller.xy, (.5, -.3))
+        self.assertLess(self.n.motion_controller.horizontal.acceleration[0], 0.)
+        self.n._enter_state(S.STATE_RECOVERY_HOVER, rospy.Time.now(), 'safe separation')
+        self.assertEqual(self.n.motion_controller.xy, (.5, -.3))
+
+    def test_detach_rejects_stale_or_invalid_xy_without_rebasing(self):
+        for invalid in ('stale', 'nan', 'unready', 'fatal'):
+            with self.subTest(invalid=invalid):
+                self.setUp()
+                self.hold()
+                old = self.n.motion_controller.xy
+                if invalid == 'stale':
+                    self.clock += 2.
+                elif invalid == 'nan':
+                    self.n.odom.pose.pose.position.x = float('nan')
+                elif invalid == 'unready':
+                    self.n.motion_ready = False
+                else:
+                    self.n.motion_fatal = 'existing estimator fault'
+                self.n._enter_state(S.STATE_DETACH, rospy.Time.now(), 'detach requested')
+                self.assertEqual(self.n.motion_controller.xy, old)
+                self.assertTrue(self.n.motion_fatal)
+                if invalid == 'fatal':
+                    self.assertEqual(self.n.motion_fatal, 'existing estimator fault')
+
     def test_capture_inherits_posctl_thrust_and_reference_and_no_echo_learning(self):
         self.takeover()
         self.assertAlmostEqual(self.n.motion_controller.vertical_support, .53)
