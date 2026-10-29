@@ -6,23 +6,23 @@
 <main>
 <section id="offlinePanel" class="panel offlinePanel" hidden><strong>离线模拟 · 不连接 ROS、Docker 或树莓派</strong><p>用于页面和接口开发，模拟值不代表真实飞行效果。申请控制权后可切换场景。</p><label for="mockScenario">预览场景</label><select id="mockScenario" disabled></select></section>
 <section class="session"><span id="session">等待控制服务</span><div class="sessionActions"><button id="push" disabled>暂停实时反馈</button><button id="control" disabled>申请控制权</button></div></section>
-<p id="attachmentSelection" class="muted" role="status">遥控选择 / 当前任务：等待反馈</p>
+<p id="attachmentSelection" class="muted" role="status">遥控选择 / 当前任务：等待实时反馈</p>
 <section class="operations" aria-label="测试操作">
 <div class="preparationColumn">
 <details class="panel preparation"><summary>配置初始条件</summary><p>应用下方配置并启动基础链路。</p><button id="start" disabled>一键配置并启动</button><small id="configStatus">等待连接，配置尚未应用</small><button id="repairMavros" class="secondary" disabled>重启 MAVROS（地面恢复）</button><small id="repairStatus" role="status">先确认落地、上锁且电机停止；自动清理旧控制、雷达和日志，再重启 MAVROS。成功后手动启动基础链路。</small></details>
-<details class="panel maintenance"><summary>测试结束与维护</summary><p class="muted">先由飞手接管、落地并停止电机，再停止基础链路。关闭页面不会停止飞行程序。</p><button id="stop" class="secondary" disabled>停止基础链路</button><small id="stopStatus" role="status">落地上锁后可停止；飞控反馈过期时需人工确认电机已停止。</small></details>
+<details class="panel maintenance"><summary>测试结束与维护</summary><p class="muted">先由飞手接管、落地并停止电机，再停止基础链路。已启用遥控启动时，停止后仍保留遥控监听。关闭页面不会停止飞行程序。</p><button id="stop" class="secondary" disabled>停止基础链路</button><small id="stopStatus" role="status">落地上锁后可停止；飞控反馈过期时需人工确认电机已停止。</small></details>
 <section class="panel compactTelemetry" aria-label="实时飞行反馈"><div class="sectionHeading"><h2>实时飞行反馈</h2><span id="recording" class="muted">日志状态未知</span></div><div class="readings telemetryReadings"><div><label>顶部距离</label><strong id="distance">—</strong><small>m</small></div><div><label>前向距离</label><strong id="front">—</strong><small>m</small></div><div><label>实际输出推力</label><strong id="thrust">—</strong><small>%</small></div><div><label>脱离下降量</label><strong id="descent">—</strong><small>m</small></div><div><label id="velocityLabel">融合竖直速度</label><strong id="velocity">—</strong><small>m/s</small></div><div><label>相对起飞高度</label><strong id="height">—</strong><small>m</small></div></div><p id="rangeWarning" class="muted" role="status"></p><div class="readings attitudeReadings" aria-label="实时姿态角度">
 <div><label>俯仰 · Pitch</label><strong id="pitch">—</strong><small>°</small></div>
 <div><label>翻滚 · Roll</label><strong id="roll">—</strong><small>°</small></div>
 <div><label>偏航 · Yaw</label><strong id="yaw">—</strong><small>°</small></div>
-</div><p class="muted">实时测量姿态 · 单位为度，反馈过期时显示 —</p><div class="metrics"><span>飞控模式 <b id="mode">—</b></span><span>解锁状态 <b id="armed">—</b></span><span>电池 <b id="battery">—</b> V</span><span>输出归属 <b id="owner">—</b></span><span>气压参考 <b id="baro">—</b></span></div><p id="kill" class="muted">急停反馈未知</p></section>
+</div><p class="muted">实时测量姿态 · 单位为度，反馈过期时显示 —</p><div class="metrics"><span>飞控模式 <b id="mode">—</b></span><span>解锁状态 <b id="armed">—</b></span><span>电池 <b id="battery">—</b> V</span><span>输出归属 <b id="owner">—</b></span><span>高度反馈 <b id="baro">—</b></span></div><p id="kill" class="muted">急停反馈未知</p></section>
 </div>
-<section class="panel wallExecution" aria-label="贴墙执行与离墙条件"><div class="sectionHeading"><h2>贴墙执行与离墙条件</h2><span id="wallPhase" class="badge">等待反馈</span></div><h3 id="wallStage">等待贴墙状态</h3><p id="wallReason">等待节点反馈</p><p id="wallHorizontalState" class="muted" role="status">水平速度闭环：等待反馈</p><details><summary>侧吸水平控制条件</summary><p class="muted">翻转、捕获、贴墙保持及大角度回正暂停树莓派水平闭环；回正末段实际倾角≤10°、角速度≤45°/s，收到新光流及水平估计连续有效≥0.30秒后恢复制动。实测总倾角≤5°、水平速度≤0.10 m/s、角速度≤10°/s持续1秒，且原恢复条件满足后请求POSCTL，实际确认后交接。固定右倾补偿取消，目标总倾角和变化率限制保留。光流失效暂停接近并报错；首次进入贴墙保持后暂停PX4光流和测距融合，离墙回平时实测总倾角≤80°请求恢复原值，等待读回和应用缓冲。目标限制不保证实际速度、倾角绝不超限。</p></details><p id="rangeHeightState" role="status">测距离墙任务：未开始</p><p id="rangeHeightEvidence" class="muted">等待首帧证据</p><p id="rangeHeightGate" class="muted">等待测距及交回条件</p><p id="wallFusionState" class="muted">光流 / 测距融合：等待反馈</p><p id="wallFusionReason" class="muted"></p><ol class="steps wallSteps"><li>待命</li><li>预发送</li><li>接管</li><li>接近墙面</li><li>翻转接触</li><li>保持</li><li>离墙旋转</li><li>恢复水平</li><li>遥控接管</li></ol><p id="wallMilestone" class="muted" role="status">本轮尚未确认贴墙保持</p><p id="wallDetachCondition" role="status">等待离墙旋转条件</p></section>
+
 </section>
-<section class="panel wallOperations"><div class="sectionHeading"><h2>侧吸 / 贴墙测试</h2><span class="badge">与顶吸共用控制链路</span></div><p class="muted">飞手在 POSCTL 稳定飞行后请求贴墙；OFFBOARD 后前向目标0.05 m/s、横向0。原雷达阈值触发翻转，脱离回正稳定后交回 POSCTL。</p><div class="wallActions"><button id="wallAction" disabled>一键贴墙</button><button id="wallDetach" disabled>一键离墙</button></div><p id="wallBlockReason" class="muted" role="status">等待贴墙反馈</p><p id="wallDetachReason" class="muted" role="status">等待离墙条件</p><button id="cancelWait" class="secondary" hidden disabled>取消贴墙等待</button></section>
+<section class="testPanels" aria-label="顶吸与侧吸测试">
 <section class="panel ceilingOperations taskPanel" aria-label="顶吸吸附与脱离操作">
 <div class="sectionHeading taskHeading"><h2>顶吸 / 吸附与脱离</h2><span class="badge">POSCTL 入口与交回</span></div>
-<p class="taskIntro">POSCTL 稳定后启动；脱离下降并恢复稳定后锁定姿态，第三次 CH12 确认交回。</p>
+<p class="taskIntro">POSCTL 稳定后启动；离顶恢复后保持高度与 XY 闭环，稳定后由 CH12 确认交回。</p>
 <div class="taskActions">
 <article><h3>启动吸附</h3><p>飞手在 POSCTL 下起飞并稳定后提交顶吸请求。</p><button id="attach" disabled>一键启动顶吸</button><small id="attachReason">等待有效飞行反馈</small></article>
 <article><h3>启动脱离</h3><p>保持时请求脱离，下降恢复后等待 CH12 确认。</p><button id="detach" disabled>一键启动脱离</button><small id="detachReason">等待顶吸保持</small></article>
@@ -37,14 +37,36 @@
 <div><label>控制反馈</label><strong id="ceilingManual">等待协调反馈</strong></div>
 <div><label>恢复与交回</label><strong id="ceilingRecovery">等待恢复反馈</strong></div>
 </div>
-
-<p id="ceilingMotion" class="muted" role="status">水平稳定控制：等待反馈</p>
+<p id="ceilingMotion" class="muted taskDiagnostic" role="status">水平稳定控制：等待反馈</p>
 <div class="taskDetails" aria-label="飞控失联保护核验"><strong>飞控失联保护：<span id="ceilingFailsafeState">未核验</span></strong><p id="ceilingFailsafeRC" class="muted">COM_OBL_RC_ACT：目标 4，等待读回</p><p id="ceilingFailsafeLoss" class="muted">COM_OF_LOSS_T：目标 2.0 s，等待读回</p><p id="ceilingFailsafeReason" class="muted" role="status">等待核验反馈</p></div>
-<details class="taskDetails"><summary>顶吸流程与遥控操作说明</summary><p>CH8低值（≤1200）选顶吸、高值（≥1800）选侧吸；CH12第一次提交所选请求、保持时第二次请求脱离，也可使用上方对应按钮。提交顶吸请求后仍由飞手控制POSCTL，控制节点等待有效顶部测距及估计器、平衡基准等接管条件，不限制在1 m以内。接管后从当前高度按顶距闭环上升，最大目标速度0.15 m/s，接近顶部连续减速；有效顶距≤6.7 cm时直接使用保持推力0.55，停止主动上升，不因顶距更小而减推力；速度、姿态及新鲜距离反馈持续稳定后进入保持。保持推力目标0.55，保持时等待遥控器脱离请求；已发出的脱离请求或反馈异常时进入安全降落流程，以飞控实际模式确认。</p><p>脱离先请求机构释放，以脱离开始时的当前PX4融合高度锁定下降0.40 m目标，按剩余距离减速、速度PI调节推力，高度和速度连续稳定后恢复悬停；仅在DETACH阶段下降超过1.50 m时中止。高度与竖直速度采用 PX4 融合里程计，测距参与有效性检查，气压仅作辅助对照，不作为正常达标门槛。允许阶段摇杆可微调横滚/俯仰：人工修正时减弱位置回拉、暂停积分；回中后平滑恢复。恢复交回还需本轮遥控反馈有效、微调消退和位置权重恢复。恢复稳定后锁定姿态、高度闭环继续；第三次 CH12 确认后才请求交回，最终以飞控 POSCTL 及控制权释放确认完成。</p></details>
+<details class="taskDetails"><summary>顶吸流程与遥控操作说明</summary><p>CH8低值（≤1200）选顶吸、高值（≥1800）选侧吸；CH12第一次提交所选请求、保持时第二次请求脱离，也可使用上方对应按钮。提交顶吸请求后仍由飞手控制POSCTL，控制节点等待有效顶部测距及估计器、平衡基准等接管条件，不限制在1 m以内。接管后从当前高度按顶距闭环上升，最大目标速度0.15 m/s，接近顶部连续减速；有效顶距≤6.7 cm时直接使用保持推力0.55，停止主动上升，不因顶距更小而减推力；速度、姿态及新鲜距离反馈持续稳定后进入保持。保持推力目标0.55，保持时等待遥控器脱离请求；已发出的脱离请求或反馈异常时进入安全降落流程，以飞控实际模式确认。</p><p>脱离先请求机构释放，以脱离开始时的当前PX4融合高度锁定下降0.40 m目标，按剩余距离减速、速度PI调节推力，高度和速度连续稳定后恢复悬停；仅在DETACH阶段下降超过1.50 m时中止。高度与竖直速度采用 PX4 融合里程计，测距参与有效性检查，气压仅作辅助对照，不作为正常达标门槛。允许阶段摇杆可微调横滚/俯仰：人工修正时减弱位置回拉、暂停积分；回中后平滑恢复。恢复交回还需本轮遥控反馈有效、微调消退和位置权重恢复。恢复后保持高度与 XY 闭环，允许受限遥控修正；高度控制范围为目标 ±10 cm，交回允许 ±15 cm，并同时满足速度、姿态与连续稳定条件；第三次 CH12 确认后才请求交回，最终以飞控 POSCTL 及控制权释放确认完成。</p></details>
 </section>
-
+<section class="panel wallOperations taskPanel" aria-label="侧吸吸附与脱离操作">
+<div class="sectionHeading taskHeading"><h2>侧吸 / 吸附与脱离</h2><span class="badge">POSCTL 入口与交回</span></div>
+<p class="taskIntro">POSCTL 稳定后启动；保持时请求离墙，脱离回正稳定后自动请求交回 POSCTL。</p>
+<div class="taskActions">
+<article><h3>启动吸附</h3><p>飞手在 POSCTL 下起飞并稳定后提交侧吸请求。</p><button id="wallAction" disabled>一键贴墙</button><small id="wallBlockReason">等待贴墙反馈</small></article>
+<article><h3>启动脱离</h3><p>保持时请求离墙，回正并满足稳定条件后交回 POSCTL。</p><button id="wallDetach" disabled>一键离墙</button><small id="wallDetachReason">等待离墙条件</small></article>
+</div>
+<button id="cancelWait" class="secondary" hidden disabled>取消贴墙等待</button>
+<section class="wallExecution taskExecution" aria-label="侧吸执行状态">
+<div class="sectionHeading"><h2>执行状态</h2><span id="wallPhase" class="badge">等待反馈</span></div><h3 id="wallStage">等待贴墙状态</h3><p id="wallReason" class="taskReason">等待节点反馈</p><p id="wallMilestone" class="muted taskReceipt" role="status">本轮尚未确认贴墙保持</p>
+<ol class="steps wallSteps"><li>待命</li><li>预发送</li><li>接管</li><li>接近墙面</li><li>翻转接触</li><li>保持</li><li>离墙旋转</li><li>恢复 / 保持</li><li>确认交回</li></ol>
+</section>
+<div class="taskStatusGrid" aria-label="侧吸实时进度">
+<div><label>吸附保持</label><strong id="wallDetachCondition" role="status">等待离墙旋转条件</strong></div>
+<div><label>脱离高度</label><strong id="rangeHeightState" role="status">测距离墙任务：未开始</strong></div>
+<div><label>控制反馈</label><strong id="wallHorizontalState" role="status">水平速度闭环：等待反馈</strong></div>
+<div><label>恢复与交回</label><strong id="rangeHeightGate">等待测距及交回条件</strong></div>
+</div>
+<p id="wallFusionState" class="muted taskDiagnostic">光流 / 测距融合：等待反馈</p>
+<details class="taskDetails"><summary>侧吸流程与遥控操作说明</summary><p class="muted">翻转、捕获、贴墙保持及大角度回正暂停树莓派水平闭环；回正末段实际倾角≤10°、角速度≤45°/s，收到新光流及水平估计连续有效≥0.30秒后恢复制动。实测总倾角≤5°、水平速度≤0.10 m/s、角速度≤10°/s持续1秒，且原恢复条件满足后请求POSCTL，实际确认后交接。固定右倾补偿取消，目标总倾角和变化率限制保留。光流失效暂停接近并报错；首次进入贴墙保持后暂停PX4光流和测距融合，离墙回平时实测总倾角≤80°请求恢复原值，等待读回和应用缓冲。目标限制不保证实际速度、倾角绝不超限。</p><p id="rangeHeightEvidence" class="muted">等待首帧证据</p><p id="wallFusionReason" class="muted"></p></details>
+</section>
+</section>
 <p id="message" role="status" aria-live="polite">基础程序不会自动解锁或起飞。动作以控制节点反馈为准。</p>
 <div class="layout"><div>
+
+
 <section class="panel"><h2>操作记录</h2><div id="events" role="log"><p class="muted">等待实时反馈</p></div></section>
 </div><aside>
 <section class="panel"><div class="sectionHeading"><h2>飞行初始条件</h2><span id="source" class="badge">启动配置</span></div><form id="config">
@@ -55,7 +77,7 @@
 <label for="ceiling_port">顶部雷达串口</label><input name="ceiling_port" id="ceiling_port" value="/dev/serial/by-path/wall-top" required>
 <label for="front_port">前向雷达串口</label><input name="front_port" id="front_port" value="/dev/serial/by-path/wall-front" required>
 </form><p class="muted">启动请求通过后保存，下次自动载入。运行时显示现场配置；更改参数需先落地并停止链路。悬停推力使用实测值。</p></section>
-<section class="panel"><h2>顶吸入口检查</h2><div id="checks"><p class="muted">等待反馈</p></div><p class="muted">顶吸采用光流基准接近与融合高度下降控制，正常下降目标0.40 m；恢复后由CH12确认交回，以飞控POSCTL反馈为准。</p></section>
+<section class="panel"><h2>顶吸入口检查</h2><div id="checks"><p class="muted">等待反馈</p></div><p class="muted">顶吸、脱离沿用现有程序参数。有效顶部测距支持任意距离准入，按顶距减速上升，≤6.7 cm进入接触确认，稳定后才保持；离顶以当前高度减0.40 m为目标，高度与速度连续稳定后恢复悬停，继续高度与 XY 闭环；DETACH阶段下降超过1.50 m进入ABORT；第三次 CH12 确认后请求交回，以飞控确认 POSCTL 为准。</p></section>
 <section class="panel"><h2>贴墙就绪检查</h2><div id="wallChecks"><p class="muted">等待反馈</p></div></section><section class="panel"><h2>数据新鲜度</h2><div id="ages"><p class="muted">等待反馈</p></div><p id="bridgeError" class="error" role="status"></p></section>
 </aside></div></main><footer>ceiling_wall_console · 顶吸与侧吸测试台 · 实时 ROS 反馈 · 断线不重放动作</footer>
 </body></html>
