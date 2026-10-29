@@ -99,5 +99,5 @@ IDLE
 进入 DETACH/RECOVER/ABORT 后，即使 RC 开关释放，owner 仍保持到决策安全退出；
 退出后必须先进入 owner=0，并等待两个开关关闭达到 `handoff_dwell_s`，才能授权
 下一模式。
-不要同时运行旧 `ceiling_attachment_output_node`、`setpoint_mux_node` 或其他 MAVROS
+不要同时运行 `ceiling_attachment_output_node` 或其他 MAVROS
 setpoint 发布器。

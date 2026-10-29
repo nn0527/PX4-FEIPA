@@ -33,8 +33,7 @@ flowchart LR
 ```
 
 当前生产方向是接触式吸顶与侧吸统一链路。旧的通用
-FSM/controller/setpoint-mux 链路保留在 `scripts/legacy` 和
-`launch/legacy`，只用于回归与兼容，不得与统一链路同时运行。
+FSM/controller/setpoint-mux 链路已从本包移除，仅保留在 git 历史中查询。
 
 ## 2. 分层职责
 
@@ -49,7 +48,6 @@ FSM/controller/setpoint-mux 链路保留在 `scripts/legacy` 和
 | Flight output | `scripts/outputs` | Lock one owner, validate freshness/state/odom and publish MAVROS setpoints |
 | Mechanism output | `scripts/outputs` | Gate physical commands by owner and matching sequence acknowledgement |
 | Bench support | `scripts/test_support` | Provide isolated mock PX4 and mechanism feedback |
-| Legacy | `scripts/legacy` | Preserve the earlier generic distance-control prototype |
 
 ## 3. Topic contract
 
@@ -117,6 +115,5 @@ Deprecated aliases such as `/sensor/wall/range`, `/sensor/wall/top_range` and
 - Sensor utility: `launch/sensors/lidar_dual.launch`
 - Bench: `launch/bench/*.launch`
 - Standalone ceiling compatibility: `launch/standalone/*.launch`
-- Legacy generic chain: `launch/legacy/*.launch`
 
 See `docs/bench_test_procedure.txt` before enabling any physical output.

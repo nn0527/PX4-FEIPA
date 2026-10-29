@@ -77,13 +77,6 @@ catkin_install_python(PROGRAMS
   scripts/test_support/wall_perch_state_monitor.py
   scripts/test_support/replay_range_height.py
   scripts/test_support/attachment_flight_logger.py
-  # Legacy generic distance-control chain.
-  scripts/legacy/ceiling_controller_node.py
-  scripts/legacy/ceiling_fsm_node.py
-  scripts/legacy/flight_supervisor_node.py
-  scripts/legacy/setpoint_mux_node.py
-  scripts/legacy/wall_controller_node.py
-  scripts/legacy/wall_fsm_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

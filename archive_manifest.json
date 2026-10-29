@@ -2,30 +2,6 @@
   "archive_sha256": "910e60bfe19a9750126e0dc045cadf7b8256a6e3f437fa7f2a541e6572a49d5f",
   "files": [
     {
-      "path": "src/px4_wall_ceiling_control/scripts/legacy/ceiling_controller_node.py",
-      "sha256": "7d1ee11b0e6a05f50b39f363f0c859740671794f0904f831a1e022e15fc153dc"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/scripts/legacy/flight_supervisor_node.py",
-      "sha256": "517d328c8b1dbd48cf155362d0100949b04888322059433cb7e89589506507b6"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/scripts/legacy/setpoint_mux_node.py",
-      "sha256": "9a760ceb2afe9aea665f879dacbb21c8125c87281d04a93d8e908d48573e80fd"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/scripts/legacy/ceiling_fsm_node.py",
-      "sha256": "7d7689eb9fdf492d92cbf3f7cf6f7e92e421a68d9a57457adafc043a6b5d68aa"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/scripts/legacy/wall_controller_node.py",
-      "sha256": "879ce70f3549c04ab0123c3e6caab68564b0e15ae129fe1611c2d3df854ce012"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/scripts/legacy/wall_fsm_node.py",
-      "sha256": "24053948b786e1e40ca79d6a9ea8adc58850a0fcb0d5985f7634eea7e0537948"
-    },
-    {
       "path": "src/px4_wall_ceiling_control/scripts/sensors/lidar_distance_node.py",
       "sha256": "8e36cb93fbb30c537979df3e97fb28c4373a41fe5c0752931979c73e959c5ce6"
     },
@@ -146,10 +122,6 @@
       "sha256": "0d073dbc579126cb68b3eb545f3da51267f67d5930054f41b2108f3af9fc944e"
     },
     {
-      "path": "src/px4_wall_ceiling_control/config/legacy.yaml",
-      "sha256": "c5eedbb0250374273c3b757e49c53255c3fe4d19eabaa73c940c295dc446e46c"
-    },
-    {
       "path": "src/px4_wall_ceiling_control/config/common.yaml",
       "sha256": "5af8f12f3a9b9d0e7dfaa73436cb1e9b0c72b67593ca135c4d2890efea77792f"
     },
@@ -200,18 +172,6 @@
     {
       "path": "src/px4_wall_ceiling_control/launch/sensors/lidar_dual.launch",
       "sha256": "96c9bde6568f877aa16028c1cd575f492f01bbb87212363e6ed87fddb119a0b2"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/launch/legacy/ceiling_sensor_chain_test.launch",
-      "sha256": "9ee4fca5a9531c512eb7aa7d8b492512ab2c609e0c8d314f88314ad239707b42"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/launch/legacy/legacy_sensor_topics.launch",
-      "sha256": "a16dacbdace802996c4d391498a0a669e5096094421b631d8a18b2fd2f9125d7"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/launch/legacy/system.launch",
-      "sha256": "c6a0274688e4422f52d2314d2ae17c5f1109ad686985d0ed263b8c2bd1e2ce97"
     },
     {
       "path": "src/px4_wall_ceiling_control/docs/terminal_flight.md",
@@ -276,18 +236,6 @@
     {
       "path": "src/px4_wall_ceiling_control/src/px4_wall_ceiling_control/domain/safety.py",
       "sha256": "9efd0674fd42dd6a6efbdd08d9c371624370fd6578c170cd508d2afa857fa817"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/src/px4_wall_ceiling_control/legacy/behavior_fsm.py",
-      "sha256": "f581e7b1d6a2853618169d242b6de819fa995ec837ce8814dbe0d9a5f0e95e25"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/src/px4_wall_ceiling_control/legacy/surface_controller.py",
-      "sha256": "cd547d7c8c3cca5b18c5b2e87fa7ea0c03bf71530cff435723d2c7bf5c2c0949"
-    },
-    {
-      "path": "src/px4_wall_ceiling_control/src/px4_wall_ceiling_control/legacy/__init__.py",
-      "sha256": "9fead3bf2c6a10d647f37a72e6ad867f7aae2a85bad658a10befec304f76bd11"
     },
     {
       "path": "src/px4_wall_ceiling_control/src/px4_wall_ceiling_control/adapters/__init__.py",
@@ -842,28 +790,12 @@
       "sha256": "47e7ff8f9c934992ac8ca69ad3cbb55397ce3b087954a3510d5ebbec8db12574"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.Iq9cN",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.MhXGT",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.jAx94",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.svJY0",
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
     },
     {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.2z5T5",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.jfhq1",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.zsh.9W1A4",
@@ -898,22 +830,6 @@
       "sha256": "bce986d8ef71c57e8761cfe9bf6adde73cfede68dfada9688e6ede101e0ac8d5"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.hHnV3",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.CMNuy",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.KeS0m",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.gR8Fh",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/local_setup.bash.xRG4r",
       "sha256": "e8752004627b2638cbc06cb168569474543d6afb6d5c1b54d0018dc118d66f66"
     },
@@ -944,22 +860,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/attachment_mechanism_output_node.py.NkDxh",
       "sha256": "74eeab35c48eb0076f62e3a2c2e1da31c556358d0951db99746780c550daeba6"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.aLyAN",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.Ze93G",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.JzMzq",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.5Rsb9",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
     },
     {
       "path": "build.from_home_cry/atomic_configure/env.sh.GbcTQ",
@@ -998,18 +898,6 @@
       "sha256": "8762dbc9eab830fa1a285c3f72edc5427ee80438991ec34cd1df8648a966792a"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.g4Bfy",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.8gDXZ",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.cBv8U",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.jjVOT",
       "sha256": "f5f341fd88d5624f8969fb7a8e40218794cbca5a0ec6bc7f3a18e5ff9d2e11cf"
     },
@@ -1042,24 +930,12 @@
       "sha256": "f77dd8ed0cc130c1b17600e0753163e7d945ffd815b63c2b97e3527aa7988ba7"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.IL0T5",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.ygkzh",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.Roy55",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/attachment_output_mux_node.py.OAT9O",
       "sha256": "367618e39caa0f3ee20718f2badbf179126fdfe96cec34f6bff7023c9c57564c"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.FliEk",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
     },
     {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.U1zq1",
@@ -1090,10 +966,6 @@
       "sha256": "a0fdabdef6b0ca81398fa90e47f484890d335d5e5d33769d6c3d51829d152a5d"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.zog5D",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/mock_flight_inputs_node.py.UmJos",
       "sha256": "a3c5bca472621112baa511ab568cdd06fda2d4b6b549c6546494309aa5a499be"
     },
@@ -1114,28 +986,12 @@
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.lnq8m",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.EudgP",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.OZMJg",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.8VVU4",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/attachment_output_mux_node.py.pPNVe",
       "sha256": "367618e39caa0f3ee20718f2badbf179126fdfe96cec34f6bff7023c9c57564c"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.e55NW",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/mock_flight_inputs_node.py.rNNT9",
@@ -1144,10 +1000,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/sensor_range_manager_node.py.QRygQ",
       "sha256": "1d7afb14a7141a35ff367460287bfd05cf0bc62749a3a5a0bb329934c20d5ecf"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.gjcpy",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.sh.bjPsv",
@@ -1198,16 +1050,8 @@
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.pfoSA",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.JofAt",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.lZR8U",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
     },
     {
       "path": "build.from_home_cry/atomic_configure/mock_attachment_mechanism_node.py.YoQBk",
@@ -1216,14 +1060,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.9vyPn",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.FwhuQ",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.dftVQ",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.mhX8P",
@@ -1238,28 +1074,12 @@
       "sha256": "cd3b702886ebd09d67b40439ac8db490842e7703574a15e5f860307e4e956c2a"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.XFPjA",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.gcdzj",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.NaYl8",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.4n023",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/attachment_output_mux_node.py.oHSSo",
       "sha256": "367618e39caa0f3ee20718f2badbf179126fdfe96cec34f6bff7023c9c57564c"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.VmzkK",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
     },
     {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.TT9uy",
@@ -1268,14 +1088,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.WjtOC",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.S6yAe",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.aZ5Ha",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.zsh.xuxWE",
@@ -1332,14 +1144,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/mock_attachment_mechanism_node.py.1FfLc",
       "sha256": "93849701e5a91086ef15c6770be0ae9f8f66f9421b0a64d911c68f0528d092f4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.lCxyC",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.01W74",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
     },
     {
       "path": "build.from_home_cry/atomic_configure/env.sh.61Xnd",
@@ -1430,14 +1234,6 @@
       "sha256": "93849701e5a91086ef15c6770be0ae9f8f66f9421b0a64d911c68f0528d092f4"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.vPrEh",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.hmvZ7",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/ceiling_motor_bench_output_node.py.MeEfQ",
       "sha256": "0359519de928a424af92c6e9c2832e2533539ed6d135785bf94148837fa49e4a"
     },
@@ -1462,14 +1258,6 @@
       "sha256": "ad578bf02207effa2c1a72985538854b24b0e5abf3dcc5beb4688b93e4aafaf1"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.kdHd3",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.N5zeE",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/setup.bash.LAqG9",
       "sha256": "42e35f97c20127488ca0b80af92e9711e37a5cadcd381e5a8b7968dba58864a9"
     },
@@ -1492,14 +1280,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/sensor_range_manager_node.py.lgaB2",
       "sha256": "4323bb016c20d1b6416e87e891baf0edea9f9ffc6bf6af33746655d909560eec"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.pOdJ4",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.CHPAi",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
     },
     {
       "path": "build.from_home_cry/atomic_configure/env.sh.xWImb",
@@ -1542,18 +1322,6 @@
       "sha256": "ad578bf02207effa2c1a72985538854b24b0e5abf3dcc5beb4688b93e4aafaf1"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.Jza2w",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.OQE49",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.VJLqB",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.nNziP",
       "sha256": "87396717a0c553c9406918b4c8d1dbfd4c70ef2c56373b4127fec804bf885f8f"
     },
@@ -1584,10 +1352,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.ODfi1",
       "sha256": "44278b7b54fea00b9a930f75e6da82c4760af4e48b7b2b019daa2f9ea6e36080"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.cZaO1",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.bash.jc0md",
@@ -1622,18 +1386,6 @@
       "sha256": "4c9e1ebb16aa715de76287c6055553488dd2aa735c949f16f7f208bd5a006425"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.ErBTP",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.RXfgr",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.1iAAK",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.8e9rY",
       "sha256": "f5f341fd88d5624f8969fb7a8e40218794cbca5a0ec6bc7f3a18e5ff9d2e11cf"
     },
@@ -1660,22 +1412,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_output_node.py.MegLW",
       "sha256": "e0cb1a76170fa06731bbf6fb3555794090a9566c58ce958f0a96c51ae27ff8d0"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.HEDng",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.IBry0",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.naEVs",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.40OT7",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
     },
     {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.ZiptU",
@@ -1728,14 +1464,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/wall_perch_state_monitor.py.3oGo1",
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.DtflU",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.z5laK",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
     },
     {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.KRPYb",
@@ -1794,18 +1522,6 @@
       "sha256": "44278b7b54fea00b9a930f75e6da82c4760af4e48b7b2b019daa2f9ea6e36080"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.7ITW0",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.KoGKa",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.GLfPV",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/env.sh.d3D7A",
       "sha256": "0f26a769a4f335d1b41c990508fc8e5a801f7b75833285cfc6188ac54de24ee4"
     },
@@ -1832,14 +1548,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/sensor_range_manager_node.py.5pxXm",
       "sha256": "4323bb016c20d1b6416e87e891baf0edea9f9ffc6bf6af33746655d909560eec"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.nXaIy",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.Bfofk",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
     },
     {
       "path": "build.from_home_cry/atomic_configure/env.sh.dzVls",
@@ -1890,10 +1598,6 @@
       "sha256": "8762dbc9eab830fa1a285c3f72edc5427ee80438991ec34cd1df8648a966792a"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.oZP13",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/env.sh.0wYay",
       "sha256": "0f26a769a4f335d1b41c990508fc8e5a801f7b75833285cfc6188ac54de24ee4"
     },
@@ -1932,10 +1636,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/wall_perch_state_monitor.py.s7cSX",
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.owUlK",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
     },
     {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.b87GN",
@@ -1980,10 +1680,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_state_monitor.py.M8Fyn",
       "sha256": "8762dbc9eab830fa1a285c3f72edc5427ee80438991ec34cd1df8648a966792a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.3f1Iz",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
     },
     {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.iPvQR",
@@ -2054,10 +1750,6 @@
       "sha256": "ad578bf02207effa2c1a72985538854b24b0e5abf3dcc5beb4688b93e4aafaf1"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.SSF0U",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/local_setup.bash.Ez6l0",
       "sha256": "e8752004627b2638cbc06cb168569474543d6afb6d5c1b54d0018dc118d66f66"
     },
@@ -2126,32 +1818,8 @@
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.SXFaq",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.yIsY2",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.ObQiv",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.wqJ1s",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/wall_perch_state_monitor.py.XycKX",
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.pw2qC",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.SlErv",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.bash.JVOeh",
@@ -2176,18 +1844,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_state_monitor.py.VQH5J",
       "sha256": "8762dbc9eab830fa1a285c3f72edc5427ee80438991ec34cd1df8648a966792a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.Q1m7X",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.22kIN",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.7UeiD",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.sh.vlrPn",
@@ -2238,14 +1894,6 @@
       "sha256": "93849701e5a91086ef15c6770be0ae9f8f66f9421b0a64d911c68f0528d092f4"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.JGRS5",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.ZnwNX",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/env.sh.15Rhd",
       "sha256": "0f26a769a4f335d1b41c990508fc8e5a801f7b75833285cfc6188ac54de24ee4"
     },
@@ -2272,14 +1920,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/sensor_range_manager_node.py.SLI8s",
       "sha256": "4323bb016c20d1b6416e87e891baf0edea9f9ffc6bf6af33746655d909560eec"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.Nwk8x",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.HfwC5",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.fish.cGESZ",
@@ -2318,18 +1958,6 @@
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.ypA6n",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.fJVBB",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.MIwh8",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_decision_node.py.jgdg7",
       "sha256": "89c32fe15292b2c7e2826fe57403dc5d81419c02288ff6edc1c1a73c0535fd02"
     },
@@ -2348,10 +1976,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/wall_perch_state_monitor.py.oMgBY",
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.Gfidl",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.bash.q5hK7",
@@ -2388,14 +2012,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/attachment_mechanism_output_node.py.01yUc",
       "sha256": "74eeab35c48eb0076f62e3a2c2e1da31c556358d0951db99746780c550daeba6"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.tpNGz",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.kjzF9",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.bash.FPgwe",
@@ -2446,14 +2062,6 @@
       "sha256": "ad578bf02207effa2c1a72985538854b24b0e5abf3dcc5beb4688b93e4aafaf1"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.OekfU",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.A5JWK",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/env.sh.rdoWi",
       "sha256": "0f26a769a4f335d1b41c990508fc8e5a801f7b75833285cfc6188ac54de24ee4"
     },
@@ -2494,22 +2102,6 @@
       "sha256": "ad578bf02207effa2c1a72985538854b24b0e5abf3dcc5beb4688b93e4aafaf1"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.gWzzR",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.tlWrM",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.NjQbz",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.TmjLx",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/setup.bash.u9dTK",
       "sha256": "42e35f97c20127488ca0b80af92e9711e37a5cadcd381e5a8b7968dba58864a9"
     },
@@ -2534,10 +2126,6 @@
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.pq4wc",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.ByhwH",
       "sha256": "f5f341fd88d5624f8969fb7a8e40218794cbca5a0ec6bc7f3a18e5ff9d2e11cf"
     },
@@ -2558,22 +2146,6 @@
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.4l5jj",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.JLaUo",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.AhEUU",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.jHCDT",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.dzfbM",
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
     },
@@ -2590,32 +2162,8 @@
       "sha256": "4b32882f0234e384478b806c4dc070680db5f09a8255eadf766438e4e072b32f"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.v2J9u",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.9OpkN",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.bYw6Q",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.CRi5C",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.QlXT0",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.57Dr2",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.n9sH7",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
     },
     {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.juz2V",
@@ -2638,10 +2186,6 @@
       "sha256": "bce986d8ef71c57e8761cfe9bf6adde73cfede68dfada9688e6ede101e0ac8d5"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.PDGs4",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/attachment_output_mux_node.py.339Gg",
       "sha256": "367618e39caa0f3ee20718f2badbf179126fdfe96cec34f6bff7023c9c57564c"
     },
@@ -2654,10 +2198,6 @@
       "sha256": "a0fdabdef6b0ca81398fa90e47f484890d335d5e5d33769d6c3d51829d152a5d"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.7ROQy",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.8z988",
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
     },
@@ -2668,10 +2208,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.qAJcp",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.AJy1y",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
     },
     {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.HGwIv",
@@ -2698,28 +2234,8 @@
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.mBvK6",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.CvkmP",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.pf2xg",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_decision_node.py.KAct6",
       "sha256": "973b9f41d2287b6aa7dfcb97a83e26c65061cd940b2e07e04a8a657455d2c2bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.86kNx",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.unabd",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
     },
     {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.jjTkU",
@@ -2738,10 +2254,6 @@
       "sha256": "bce986d8ef71c57e8761cfe9bf6adde73cfede68dfada9688e6ede101e0ac8d5"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.WcDZZ",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/attachment_output_mux_node.py.A3jiu",
       "sha256": "367618e39caa0f3ee20718f2badbf179126fdfe96cec34f6bff7023c9c57564c"
     },
@@ -2752,18 +2264,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_output_node.py.jQxDD",
       "sha256": "a0fdabdef6b0ca81398fa90e47f484890d335d5e5d33769d6c3d51829d152a5d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.LMevY",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.pDHoC",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.E0STf",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.bash.E65f7",
@@ -2790,14 +2290,6 @@
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.hbace",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.LKkd6",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/wall_perch_decision_node.py.pxctB",
       "sha256": "d53e69658e4b98e0b96bb721c898e5dd129468adafa1cbe26ae91d2b619a946c"
     },
@@ -2818,10 +2310,6 @@
       "sha256": "367618e39caa0f3ee20718f2badbf179126fdfe96cec34f6bff7023c9c57564c"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.DfPHA",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.CeJJy",
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
     },
@@ -2832,10 +2320,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/sensor_range_mux_node.py.VMVgE",
       "sha256": "200bab759a7f0468f01ad8714aa70bdad00aca25c7070bdbe68fd622101b7bdf"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.AuPvE",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
     },
     {
       "path": "build.from_home_cry/atomic_configure/env.sh.MJfIk",
@@ -2850,16 +2334,8 @@
       "sha256": "cd3b702886ebd09d67b40439ac8db490842e7703574a15e5f860307e4e956c2a"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.09R50",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.oqrcg",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.NQSjB",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_decision_node.py.P66Dl",
@@ -2868,10 +2344,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_output_node.py.abvBK",
       "sha256": "a0fdabdef6b0ca81398fa90e47f484890d335d5e5d33769d6c3d51829d152a5d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.TnBuH",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.AXVb2",
@@ -2894,32 +2366,12 @@
       "sha256": "b9bc38dc4a27434734944ad0804eda6fb4cf9443fc9064900b19793fa85d0a11"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.lpLz0",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.Ard1O",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.GqBm7",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/mock_attachment_mechanism_node.py.27liA",
       "sha256": "7fe652c5563ae17cca9b867823bb91bbef6b6918ce10381e00b30761f59c2ffd"
     },
     {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.cxVEX",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.LKH2R",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.uBAiF",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
     },
     {
       "path": "build.from_home_cry/atomic_configure/wall_perch_decision_node.py.DWL5P",
@@ -2932,26 +2384,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/setup.fish.ZvRGn",
       "sha256": "bce986d8ef71c57e8761cfe9bf6adde73cfede68dfada9688e6ede101e0ac8d5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.2PCCE",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.WTN5p",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.WCVfL",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.p8eLM",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.syDrw",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/mock_flight_inputs_node.py.XZSVE",
@@ -2986,32 +2418,12 @@
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.9baIA",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.YcqMU",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.daIcI",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.3x4t1",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_decision_node.py.GoKkk",
       "sha256": "973b9f41d2287b6aa7dfcb97a83e26c65061cd940b2e07e04a8a657455d2c2bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.cVDcS",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.pmO6c",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.KpUgT",
@@ -3024,18 +2436,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.JEgCY",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.NQGYK",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.51TOf",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.uKDHG",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.BeS3Y",
@@ -3062,20 +2462,8 @@
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.piw6R",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.mpX3n",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_decision_node.py.36sYm",
       "sha256": "973b9f41d2287b6aa7dfcb97a83e26c65061cd940b2e07e04a8a657455d2c2bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.nUYhn",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.zsh.r1gMD",
@@ -3084,10 +2472,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/.rosinstall.Yoc40",
       "sha256": "f77dd8ed0cc130c1b17600e0753163e7d945ffd815b63c2b97e3527aa7988ba7"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.86ZvH",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
     },
     {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.ofO84",
@@ -3100,14 +2484,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_output_node.py.ryxyx",
       "sha256": "a0fdabdef6b0ca81398fa90e47f484890d335d5e5d33769d6c3d51829d152a5d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.Z85aY",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.PZ9ae",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/mock_attachment_mechanism_node.py.rYhdH",
@@ -3134,24 +2510,8 @@
       "sha256": "bce986d8ef71c57e8761cfe9bf6adde73cfede68dfada9688e6ede101e0ac8d5"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.HQgdj",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.rgSTK",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/attachment_output_mux_node.py.Bp6wc",
       "sha256": "367618e39caa0f3ee20718f2badbf179126fdfe96cec34f6bff7023c9c57564c"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.IAKRU",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.3YvE2",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
     },
     {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.9kD5z",
@@ -3160,10 +2520,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/mock_flight_inputs_node.py.7oP4H",
       "sha256": "a3c5bca472621112baa511ab568cdd06fda2d4b6b549c6546494309aa5a499be"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.q8OD4",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
     },
     {
       "path": "build.from_home_cry/atomic_configure/wall_perch_decision_node.py.K1YZt",
@@ -3230,28 +2586,8 @@
       "sha256": "f77dd8ed0cc130c1b17600e0753163e7d945ffd815b63c2b97e3527aa7988ba7"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.MB8Pt",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.6MZx0",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.vCxTd",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.NtSSb",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.h2whf",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.bZen9",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.bash.8ufsL",
@@ -3268,10 +2604,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.mdwFy",
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.p0LBi",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.bash.0Tjbl",
@@ -3292,10 +2624,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.PXDe4",
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.2nyJY",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/env.sh.1bOty",
@@ -3346,20 +2674,8 @@
       "sha256": "93849701e5a91086ef15c6770be0ae9f8f66f9421b0a64d911c68f0528d092f4"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.2kJiP",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/setup.zsh.5B6dX",
       "sha256": "cd3b702886ebd09d67b40439ac8db490842e7703574a15e5f860307e4e956c2a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.SIQ8o",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.zPM8U",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_decision_node.py.GOU51",
@@ -3368,14 +2684,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/sensor_range_manager_node.py.4LSGz",
       "sha256": "1d7afb14a7141a35ff367460287bfd05cf0bc62749a3a5a0bb329934c20d5ecf"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.CBRtN",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.x6ET5",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.bash.jPKe2",
@@ -3390,28 +2698,12 @@
       "sha256": "b9bc38dc4a27434734944ad0804eda6fb4cf9443fc9064900b19793fa85d0a11"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.zKhlA",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.7GP0s",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.BhP78",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.J3STZ",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/attachment_output_mux_node.py.ZBQ9u",
       "sha256": "367618e39caa0f3ee20718f2badbf179126fdfe96cec34f6bff7023c9c57564c"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.vM6Vf",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.bash.Vcv68",
@@ -3442,10 +2734,6 @@
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.V0WSx",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/env.sh.THJpr",
       "sha256": "0f26a769a4f335d1b41c990508fc8e5a801f7b75833285cfc6188ac54de24ee4"
     },
@@ -3462,18 +2750,6 @@
       "sha256": "f77dd8ed0cc130c1b17600e0753163e7d945ffd815b63c2b97e3527aa7988ba7"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.HqENL",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.K1JBc",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.Hc026",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_decision_node.py.5ZkpP",
       "sha256": "973b9f41d2287b6aa7dfcb97a83e26c65061cd940b2e07e04a8a657455d2c2bb"
     },
@@ -3484,10 +2760,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.qOGof",
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.si90j",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.bash.houyD",
@@ -3534,10 +2806,6 @@
       "sha256": "93849701e5a91086ef15c6770be0ae9f8f66f9421b0a64d911c68f0528d092f4"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.9vFt4",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/setup.sh.h1l5w",
       "sha256": "56ad66484d7aaee949fa4a7ca077e4e456d6b742c071bdcd168c0f55c3a21e2d"
     },
@@ -3564,10 +2832,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_output_node.py.02UUB",
       "sha256": "e0cb1a76170fa06731bbf6fb3555794090a9566c58ce958f0a96c51ae27ff8d0"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.Jx7d1",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.bash.Ah2y1",
@@ -3618,18 +2882,6 @@
       "sha256": "8762dbc9eab830fa1a285c3f72edc5427ee80438991ec34cd1df8648a966792a"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.eo4JY",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.2zZqe",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.7iNaH",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/setup.zsh.aG87d",
       "sha256": "cd3b702886ebd09d67b40439ac8db490842e7703574a15e5f860307e4e956c2a"
     },
@@ -3648,14 +2900,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/sensor_range_manager_node.py.GTyH4",
       "sha256": "4323bb016c20d1b6416e87e891baf0edea9f9ffc6bf6af33746655d909560eec"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.hNN4O",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.7eANs",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
     },
     {
       "path": "build.from_home_cry/atomic_configure/.rosinstall.dvVsy",
@@ -3678,14 +2922,6 @@
       "sha256": "8762dbc9eab830fa1a285c3f72edc5427ee80438991ec34cd1df8648a966792a"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.CUKsj",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.ZFpRr",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/setup.sh.W3bH8",
       "sha256": "56ad66484d7aaee949fa4a7ca077e4e456d6b742c071bdcd168c0f55c3a21e2d"
     },
@@ -3706,10 +2942,6 @@
       "sha256": "93849701e5a91086ef15c6770be0ae9f8f66f9421b0a64d911c68f0528d092f4"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.wdFQq",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.uDdOk",
       "sha256": "f5f341fd88d5624f8969fb7a8e40218794cbca5a0ec6bc7f3a18e5ff9d2e11cf"
     },
@@ -3724,10 +2956,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.fish.6ZYRv",
       "sha256": "47e7ff8f9c934992ac8ca69ad3cbb55397ce3b087954a3510d5ebbec8db12574"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.PuF0u",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
     },
     {
       "path": "build.from_home_cry/atomic_configure/env.sh.5kjhC",
@@ -3754,10 +2982,6 @@
       "sha256": "ad578bf02207effa2c1a72985538854b24b0e5abf3dcc5beb4688b93e4aafaf1"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.mrrsn",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.AuJQS",
       "sha256": "f5f341fd88d5624f8969fb7a8e40218794cbca5a0ec6bc7f3a18e5ff9d2e11cf"
     },
@@ -3768,14 +2992,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/mock_flight_inputs_node.py.chZx3",
       "sha256": "ad578bf02207effa2c1a72985538854b24b0e5abf3dcc5beb4688b93e4aafaf1"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.zEpTu",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.MSoU1",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.sh.GoYrA",
@@ -3814,14 +3030,6 @@
       "sha256": "89c32fe15292b2c7e2826fe57403dc5d81419c02288ff6edc1c1a73c0535fd02"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.nVi49",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.DdHjx",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.OXMw4",
       "sha256": "87396717a0c553c9406918b4c8d1dbfd4c70ef2c56373b4127fec804bf885f8f"
     },
@@ -3844,22 +3052,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/mock_attachment_mechanism_node.py.9iFXb",
       "sha256": "93849701e5a91086ef15c6770be0ae9f8f66f9421b0a64d911c68f0528d092f4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.kUmXY",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.zZF7T",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.qKjvf",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.gPk5g",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
     },
     {
       "path": "build.from_home_cry/atomic_configure/env.sh.nAG2R",
@@ -3888,18 +3080,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/wall_perch_state_monitor.py.we4tf",
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.UMJyM",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.FpxHY",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.4HV9L",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
     },
     {
       "path": "build.from_home_cry/atomic_configure/attachment_mechanism_output_node.py.FesbV",
@@ -3946,10 +3126,6 @@
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.wipMZ",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.FWTq5",
       "sha256": "87396717a0c553c9406918b4c8d1dbfd4c70ef2c56373b4127fec804bf885f8f"
     },
@@ -3976,10 +3152,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/wall_perch_state_monitor.py.tPFRU",
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.p0pCs",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.bash.423VD",
@@ -4010,14 +3182,6 @@
       "sha256": "8762dbc9eab830fa1a285c3f72edc5427ee80438991ec34cd1df8648a966792a"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.q1SRR",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.rG1rU",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/env.sh.7WMtx",
       "sha256": "0f26a769a4f335d1b41c990508fc8e5a801f7b75833285cfc6188ac54de24ee4"
     },
@@ -4042,14 +3206,6 @@
       "sha256": "ad578bf02207effa2c1a72985538854b24b0e5abf3dcc5beb4688b93e4aafaf1"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.PUtyg",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.Xqxb2",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/attachment_mechanism_output_node.py.IQoAx",
       "sha256": "74eeab35c48eb0076f62e3a2c2e1da31c556358d0951db99746780c550daeba6"
     },
@@ -4060,18 +3216,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_state_monitor.py.m1c7M",
       "sha256": "8762dbc9eab830fa1a285c3f72edc5427ee80438991ec34cd1df8648a966792a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.rukk3",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.lJ9bH",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.eVUbZ",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
     },
     {
       "path": "build.from_home_cry/atomic_configure/env.sh.Pfkor",
@@ -4130,14 +3274,6 @@
       "sha256": "93849701e5a91086ef15c6770be0ae9f8f66f9421b0a64d911c68f0528d092f4"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.hBzeJ",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.dkmu0",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/env.sh.fE62K",
       "sha256": "0f26a769a4f335d1b41c990508fc8e5a801f7b75833285cfc6188ac54de24ee4"
     },
@@ -4170,18 +3306,6 @@
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.Vxbsi",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.Qru6H",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.6Eedw",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/setup.bash.9NEH2",
       "sha256": "42e35f97c20127488ca0b80af92e9711e37a5cadcd381e5a8b7968dba58864a9"
     },
@@ -4210,10 +3334,6 @@
       "sha256": "ad578bf02207effa2c1a72985538854b24b0e5abf3dcc5beb4688b93e4aafaf1"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.DG4q7",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/terminal_operator_node.py.evHY8",
       "sha256": "76be2c9dbdbc4660e085b3305364499909d8996c7be302e641139510b1250514"
     },
@@ -4228,10 +3348,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_state_monitor.py.2AhjQ",
       "sha256": "8762dbc9eab830fa1a285c3f72edc5427ee80438991ec34cd1df8648a966792a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.fC6ix",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
     },
     {
       "path": "build.from_home_cry/atomic_configure/.rosinstall.9u5m4",
@@ -4256,14 +3372,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/sensor_range_manager_node.py.fcgui",
       "sha256": "4323bb016c20d1b6416e87e891baf0edea9f9ffc6bf6af33746655d909560eec"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.uw0xo",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.abwms",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.bash.sHvDY",
@@ -4302,10 +3410,6 @@
       "sha256": "ad578bf02207effa2c1a72985538854b24b0e5abf3dcc5beb4688b93e4aafaf1"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.Ga0Sk",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/local_setup.zsh.7ZLOR",
       "sha256": "b9bc38dc4a27434734944ad0804eda6fb4cf9443fc9064900b19793fa85d0a11"
     },
@@ -4342,10 +3446,6 @@
       "sha256": "8762dbc9eab830fa1a285c3f72edc5427ee80438991ec34cd1df8648a966792a"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.ZGuYW",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/env.sh.uFGEr",
       "sha256": "0f26a769a4f335d1b41c990508fc8e5a801f7b75833285cfc6188ac54de24ee4"
     },
@@ -4378,36 +3478,12 @@
       "sha256": "8762dbc9eab830fa1a285c3f72edc5427ee80438991ec34cd1df8648a966792a"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.R1fDn",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.8Pvgg",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.NG5rv",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/local_setup.bash.nN52n",
       "sha256": "e8752004627b2638cbc06cb168569474543d6afb6d5c1b54d0018dc118d66f66"
     },
     {
       "path": "build.from_home_cry/atomic_configure/.rosinstall.3XMmR",
       "sha256": "f77dd8ed0cc130c1b17600e0753163e7d945ffd815b63c2b97e3527aa7988ba7"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.L0D03",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.pWLxp",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.Zhvcy",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
     },
     {
       "path": "build.from_home_cry/atomic_configure/env.sh.HhjxU",
@@ -4430,20 +3506,8 @@
       "sha256": "f77dd8ed0cc130c1b17600e0753163e7d945ffd815b63c2b97e3527aa7988ba7"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.Ej4yZ",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.ZXclS",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.7axrE",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.gmJpY",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_decision_node.py.1orIo",
@@ -4470,26 +3534,6 @@
       "sha256": "47e7ff8f9c934992ac8ca69ad3cbb55397ce3b087954a3510d5ebbec8db12574"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.6CUgQ",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.W2n0a",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.ysESQ",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.ayuO6",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.WNPqh",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/local_setup.bash.5S2jm",
       "sha256": "e8752004627b2638cbc06cb168569474543d6afb6d5c1b54d0018dc118d66f66"
     },
@@ -4498,28 +3542,12 @@
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.ST0HQ",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.nV55z",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.5AT6F",
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
     },
     {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.PSB4J",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.TlVmf",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.YzVqj",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/wall_perch_decision_node.py.QrNO7",
@@ -4538,48 +3566,20 @@
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.Y49q5",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.dwIfK",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.pufjI",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.Ur8oB",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
     },
     {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.9NELu",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.iVsUc",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/env.sh.q0Up6",
       "sha256": "0f26a769a4f335d1b41c990508fc8e5a801f7b75833285cfc6188ac54de24ee4"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.i5uHA",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.aexh4",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.MfsTr",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.0GFw9",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.bash.DbY4w",
@@ -4594,28 +3594,8 @@
       "sha256": "47e7ff8f9c934992ac8ca69ad3cbb55397ce3b087954a3510d5ebbec8db12574"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.4FjIV",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.n6cXJ",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.xS5MU",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.iBaVx",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.YchHo",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.6iTFN",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/wall_perch_decision_node.py.Pno2Z",
@@ -4642,10 +3622,6 @@
       "sha256": "367618e39caa0f3ee20718f2badbf179126fdfe96cec34f6bff7023c9c57564c"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.FAvN5",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.tYVWz",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
@@ -4658,18 +3634,6 @@
       "sha256": "56ad66484d7aaee949fa4a7ca077e4e456d6b742c071bdcd168c0f55c3a21e2d"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.gEPPF",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.I29RT",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.ALC7h",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_output_node.py.ddumt",
       "sha256": "a0fdabdef6b0ca81398fa90e47f484890d335d5e5d33769d6c3d51829d152a5d"
     },
@@ -4678,28 +3642,12 @@
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.VrhPX",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.CzO0p",
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
     },
     {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.BQeAF",
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.PG6pq",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.FdNNr",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.Ipuxp",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.MKd8i",
@@ -4718,40 +3666,12 @@
       "sha256": "f77dd8ed0cc130c1b17600e0753163e7d945ffd815b63c2b97e3527aa7988ba7"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.txZcP",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.wT12p",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.r6RVl",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.r5my1",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/local_setup.sh.iVKyc",
       "sha256": "4b32882f0234e384478b806c4dc070680db5f09a8255eadf766438e4e072b32f"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.U51Z5",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.ujXWv",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.0AyMX",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.iJa0B",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.sh.bRxoy",
@@ -4760,10 +3680,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/.rosinstall.FXQRF",
       "sha256": "f77dd8ed0cc130c1b17600e0753163e7d945ffd815b63c2b97e3527aa7988ba7"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.gSzAa",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.91ysi",
@@ -4810,10 +3726,6 @@
       "sha256": "e8752004627b2638cbc06cb168569474543d6afb6d5c1b54d0018dc118d66f66"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.lMvRa",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/env.sh.LT36K",
       "sha256": "0f26a769a4f335d1b41c990508fc8e5a801f7b75833285cfc6188ac54de24ee4"
     },
@@ -4830,14 +3742,6 @@
       "sha256": "f77dd8ed0cc130c1b17600e0753163e7d945ffd815b63c2b97e3527aa7988ba7"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.eZ7K8",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.rlnMG",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/setup.zsh.e4cj3",
       "sha256": "cd3b702886ebd09d67b40439ac8db490842e7703574a15e5f860307e4e956c2a"
     },
@@ -4848,10 +3752,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.dNlBF",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.Eo8fz",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
     },
     {
       "path": "build.from_home_cry/atomic_configure/attachment_output_mux_node.py.O5j4I",
@@ -4878,10 +3778,6 @@
       "sha256": "ad578bf02207effa2c1a72985538854b24b0e5abf3dcc5beb4688b93e4aafaf1"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.HyMeF",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/setup.zsh.J4BQA",
       "sha256": "cd3b702886ebd09d67b40439ac8db490842e7703574a15e5f860307e4e956c2a"
     },
@@ -4906,10 +3802,6 @@
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.MSnRW",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.w1j7u",
       "sha256": "f5f341fd88d5624f8969fb7a8e40218794cbca5a0ec6bc7f3a18e5ff9d2e11cf"
     },
@@ -4922,28 +3814,12 @@
       "sha256": "56ad66484d7aaee949fa4a7ca077e4e456d6b742c071bdcd168c0f55c3a21e2d"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.oEF96",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.YaZAu",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.GZPlL",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/mock_flight_inputs_node.py.1Fp9u",
       "sha256": "a3c5bca472621112baa511ab568cdd06fda2d4b6b549c6546494309aa5a499be"
     },
     {
       "path": "build.from_home_cry/atomic_configure/mock_attachment_mechanism_node.py.WFG7P",
       "sha256": "7fe652c5563ae17cca9b867823bb91bbef6b6918ce10381e00b30761f59c2ffd"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.KzekS",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
     },
     {
       "path": "build.from_home_cry/atomic_configure/env.sh.CEeJf",
@@ -4958,24 +3834,12 @@
       "sha256": "bce986d8ef71c57e8761cfe9bf6adde73cfede68dfada9688e6ede101e0ac8d5"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.poFcN",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.wwDVQ",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.YEacl",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
     {
       "path": "build.from_home_cry/atomic_configure/sensor_range_manager_node.py.IpleS",
       "sha256": "1d7afb14a7141a35ff367460287bfd05cf0bc62749a3a5a0bb329934c20d5ecf"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.FcZ1k",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
     },
     {
       "path": "build.from_home_cry/atomic_configure/env.sh.W4FnU",
@@ -4990,28 +3854,8 @@
       "sha256": "cd3b702886ebd09d67b40439ac8db490842e7703574a15e5f860307e4e956c2a"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.yIIib",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.r4FRc",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.5qauh",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.iEN6o",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.M7qGZ",
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.V9eBF",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
     },
     {
       "path": "build.from_home_cry/atomic_configure/wall_perch_decision_node.py.WEJeR",
@@ -5058,18 +3902,6 @@
       "sha256": "4b32882f0234e384478b806c4dc070680db5f09a8255eadf766438e4e072b32f"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.r8yTZ",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.aAY9I",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.0cfMk",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/attachment_mechanism_output_node.py.m6PII",
       "sha256": "c3d79e4ebcbb9f07530bc82dce069885af91fbbeae9e65adddc28adde1ef3bd8"
     },
@@ -5090,16 +3922,8 @@
       "sha256": "4b32882f0234e384478b806c4dc070680db5f09a8255eadf766438e4e072b32f"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.TQqvz",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/sensor_range_manager_node.py.CpDX1",
       "sha256": "1d7afb14a7141a35ff367460287bfd05cf0bc62749a3a5a0bb329934c20d5ecf"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.WgkWA",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.bash.Cvkv5",
@@ -5134,18 +3958,6 @@
       "sha256": "e0cb1a76170fa06731bbf6fb3555794090a9566c58ce958f0a96c51ae27ff8d0"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.v59g1",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.c4KgM",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.vKbwC",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/local_setup.bash.gsZPW",
       "sha256": "e8752004627b2638cbc06cb168569474543d6afb6d5c1b54d0018dc118d66f66"
     },
@@ -5160,18 +3972,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/mock_flight_inputs_node.py.2HieP",
       "sha256": "ad578bf02207effa2c1a72985538854b24b0e5abf3dcc5beb4688b93e4aafaf1"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.jDRvN",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.gUdRt",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.XrT8C",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.sh.WCnVM",
@@ -5218,14 +4018,6 @@
       "sha256": "ad578bf02207effa2c1a72985538854b24b0e5abf3dcc5beb4688b93e4aafaf1"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.SaGig",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.PL0dG",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/local_setup.fish.luxas",
       "sha256": "47e7ff8f9c934992ac8ca69ad3cbb55397ce3b087954a3510d5ebbec8db12574"
     },
@@ -5236,10 +4028,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/mock_attachment_mechanism_node.py.QASkh",
       "sha256": "93849701e5a91086ef15c6770be0ae9f8f66f9421b0a64d911c68f0528d092f4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.rFTG5",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
     },
     {
       "path": "build.from_home_cry/atomic_configure/env.sh.rRriV",
@@ -5266,14 +4054,6 @@
       "sha256": "ad578bf02207effa2c1a72985538854b24b0e5abf3dcc5beb4688b93e4aafaf1"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.e8odV",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.lOhm2",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/setup.sh.RF54t",
       "sha256": "56ad66484d7aaee949fa4a7ca077e4e456d6b742c071bdcd168c0f55c3a21e2d"
     },
@@ -5294,10 +4074,6 @@
       "sha256": "e0cb1a76170fa06731bbf6fb3555794090a9566c58ce958f0a96c51ae27ff8d0"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.tsnwm",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/local_setup.fish.jzk4O",
       "sha256": "47e7ff8f9c934992ac8ca69ad3cbb55397ce3b087954a3510d5ebbec8db12574"
     },
@@ -5308,14 +4084,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_output_node.py.UuJQi",
       "sha256": "e0cb1a76170fa06731bbf6fb3555794090a9566c58ce958f0a96c51ae27ff8d0"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.2JlOu",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.WU06t",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.bash.Nljaa",
@@ -5354,10 +4122,6 @@
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.556Gj",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/local_setup.sh.67xFv",
       "sha256": "4b32882f0234e384478b806c4dc070680db5f09a8255eadf766438e4e072b32f"
     },
@@ -5378,24 +4142,12 @@
       "sha256": "ad578bf02207effa2c1a72985538854b24b0e5abf3dcc5beb4688b93e4aafaf1"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.f43WF",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.NZkOM",
       "sha256": "44278b7b54fea00b9a930f75e6da82c4760af4e48b7b2b019daa2f9ea6e36080"
     },
     {
       "path": "build.from_home_cry/atomic_configure/mock_flight_inputs_node.py.agHEn",
       "sha256": "ad578bf02207effa2c1a72985538854b24b0e5abf3dcc5beb4688b93e4aafaf1"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.Fyurv",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.u2Wp5",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.zsh.j2hQS",
@@ -5424,10 +4176,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/wall_perch_state_monitor.py.0hJGb",
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.lq4yr",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.bash.gbWxD",
@@ -5478,10 +4226,6 @@
       "sha256": "e0cb1a76170fa06731bbf6fb3555794090a9566c58ce958f0a96c51ae27ff8d0"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.b3IuU",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/setup.bash.lZpqV",
       "sha256": "42e35f97c20127488ca0b80af92e9711e37a5cadcd381e5a8b7968dba58864a9"
     },
@@ -5514,18 +4258,6 @@
       "sha256": "93849701e5a91086ef15c6770be0ae9f8f66f9421b0a64d911c68f0528d092f4"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.CTXtc",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.cdtz4",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.WgRVM",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/setup.bash.5z1Ne",
       "sha256": "42e35f97c20127488ca0b80af92e9711e37a5cadcd381e5a8b7968dba58864a9"
     },
@@ -5550,14 +4282,6 @@
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.3TscW",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.hSDWu",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/setup.sh.qFXpS",
       "sha256": "56ad66484d7aaee949fa4a7ca077e4e456d6b742c071bdcd168c0f55c3a21e2d"
     },
@@ -5568,10 +4292,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/wall_perch_state_monitor.py.SQFUs",
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.ONVRN",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
     },
     {
       "path": "build.from_home_cry/atomic_configure/sensor_range_manager_node.py.zi1ZA",
@@ -5618,18 +4338,6 @@
       "sha256": "44278b7b54fea00b9a930f75e6da82c4760af4e48b7b2b019daa2f9ea6e36080"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.6t5EP",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.R6NmH",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.jism8",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.GriJp",
       "sha256": "f5f341fd88d5624f8969fb7a8e40218794cbca5a0ec6bc7f3a18e5ff9d2e11cf"
     },
@@ -5656,10 +4364,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/attachment_mechanism_output_node.py.AbDF2",
       "sha256": "74eeab35c48eb0076f62e3a2c2e1da31c556358d0951db99746780c550daeba6"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.lcHcA",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.bash.FUTk3",
@@ -5714,10 +4418,6 @@
       "sha256": "8762dbc9eab830fa1a285c3f72edc5427ee80438991ec34cd1df8648a966792a"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.ZaeZU",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/local_setup.zsh.hUJ1R",
       "sha256": "b9bc38dc4a27434734944ad0804eda6fb4cf9443fc9064900b19793fa85d0a11"
     },
@@ -5730,24 +4430,12 @@
       "sha256": "4e1352597cae45da8ba7f0524a7981836661a65c03f8a1c571ed771da82dc3c9"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.iw7GS",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/attachment_mechanism_output_node.py.PAM4g",
       "sha256": "74eeab35c48eb0076f62e3a2c2e1da31c556358d0951db99746780c550daeba6"
     },
     {
       "path": "build.from_home_cry/atomic_configure/mock_attachment_mechanism_node.py.mrIty",
       "sha256": "93849701e5a91086ef15c6770be0ae9f8f66f9421b0a64d911c68f0528d092f4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.8u7Nr",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.YBSgd",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.sh.MWyFg",
@@ -5774,32 +4462,12 @@
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.6pQo9",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.icPCa",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.JVmht",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/env.sh.xQAX6",
       "sha256": "0f26a769a4f335d1b41c990508fc8e5a801f7b75833285cfc6188ac54de24ee4"
     },
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_output_node.py.mRGT0",
       "sha256": "e0cb1a76170fa06731bbf6fb3555794090a9566c58ce958f0a96c51ae27ff8d0"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.IeIFB",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.mmGyP",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.bash.6aF20",
@@ -5866,14 +4534,6 @@
       "sha256": "4323bb016c20d1b6416e87e891baf0edea9f9ffc6bf6af33746655d909560eec"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.P2irK",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.sWrbz",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/local_setup.zsh.Arv7B",
       "sha256": "b9bc38dc4a27434734944ad0804eda6fb4cf9443fc9064900b19793fa85d0a11"
     },
@@ -5886,22 +4546,6 @@
       "sha256": "47e7ff8f9c934992ac8ca69ad3cbb55397ce3b087954a3510d5ebbec8db12574"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.BjaL1",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.MsiOU",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.koCZH",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.kE4FN",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.KZooe",
       "sha256": "f5f341fd88d5624f8969fb7a8e40218794cbca5a0ec6bc7f3a18e5ff9d2e11cf"
     },
@@ -5912,14 +4556,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.fish.afykG",
       "sha256": "47e7ff8f9c934992ac8ca69ad3cbb55397ce3b087954a3510d5ebbec8db12574"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.Q3jCs",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.6lj7h",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.KdHnc",
@@ -5938,24 +4574,12 @@
       "sha256": "f77dd8ed0cc130c1b17600e0753163e7d945ffd815b63c2b97e3527aa7988ba7"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.lPCxa",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.QbkFa",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.pujnv",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/sensor_range_mux_node.py.lMkI8",
       "sha256": "200bab759a7f0468f01ad8714aa70bdad00aca25c7070bdbe68fd622101b7bdf"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.G9OF7",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.sh.k0FsG",
@@ -5968,18 +4592,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/setup.fish.1TTA0",
       "sha256": "bce986d8ef71c57e8761cfe9bf6adde73cfede68dfada9688e6ede101e0ac8d5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.Wkt61",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.VvUIe",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.w7MnG",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/attachment_output_mux_node.py.CpwrP",
@@ -6014,18 +4626,6 @@
       "sha256": "b9bc38dc4a27434734944ad0804eda6fb4cf9443fc9064900b19793fa85d0a11"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.ao5zM",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.owcdd",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.8lg3D",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.k7mOy",
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
     },
@@ -6054,14 +4654,6 @@
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.7Jy2m",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.LXXHC",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/attachment_output_mux_node.py.yXeyG",
       "sha256": "367618e39caa0f3ee20718f2badbf179126fdfe96cec34f6bff7023c9c57564c"
     },
@@ -6070,32 +4662,12 @@
       "sha256": "973b9f41d2287b6aa7dfcb97a83e26c65061cd940b2e07e04a8a657455d2c2bb"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.CqBKL",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/local_setup.sh.8il9U",
       "sha256": "4b32882f0234e384478b806c4dc070680db5f09a8255eadf766438e4e072b32f"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.fish.Cvdkk",
       "sha256": "bce986d8ef71c57e8761cfe9bf6adde73cfede68dfada9688e6ede101e0ac8d5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.YF35H",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.aWHIj",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.HW458",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.WWVcv",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/mock_flight_inputs_node.py.Czlx8",
@@ -6118,40 +4690,12 @@
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.wQEve",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.Elaxf",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.XtDxr",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.oSama",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.m6zPv",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/mock_attachment_mechanism_node.py.nVCxm",
       "sha256": "7fe652c5563ae17cca9b867823bb91bbef6b6918ce10381e00b30761f59c2ffd"
     },
     {
       "path": "build.from_home_cry/atomic_configure/sensor_range_mux_node.py.T1jNW",
       "sha256": "200bab759a7f0468f01ad8714aa70bdad00aca25c7070bdbe68fd622101b7bdf"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.T9akb",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.einUx",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/wall_perch_decision_node.py.f4u9h",
@@ -6190,16 +4734,8 @@
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.LsLlC",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/attachment_output_mux_node.py.cA4t3",
       "sha256": "367618e39caa0f3ee20718f2badbf179126fdfe96cec34f6bff7023c9c57564c"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.CSVXy",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
     },
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_decision_node.py.j5hDe",
@@ -6230,10 +4766,6 @@
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.crV9j",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.Q8Orw",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
@@ -6254,18 +4786,6 @@
       "sha256": "bce986d8ef71c57e8761cfe9bf6adde73cfede68dfada9688e6ede101e0ac8d5"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.7fOIP",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.yoDoF",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.TwyrP",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/setup.sh.mfNCu",
       "sha256": "56ad66484d7aaee949fa4a7ca077e4e456d6b742c071bdcd168c0f55c3a21e2d"
     },
@@ -6278,10 +4798,6 @@
       "sha256": "cd3b702886ebd09d67b40439ac8db490842e7703574a15e5f860307e4e956c2a"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.1xDRn",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.AioXf",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
@@ -6290,16 +4806,8 @@
       "sha256": "a0fdabdef6b0ca81398fa90e47f484890d335d5e5d33769d6c3d51829d152a5d"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.CiqYq",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.Glcoy",
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.n5RnW",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.sh.W8mLq",
@@ -6312,14 +4820,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/setup.fish.680a5",
       "sha256": "bce986d8ef71c57e8761cfe9bf6adde73cfede68dfada9688e6ede101e0ac8d5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.4Rehn",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.2AWUF",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
     },
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_decision_node.py.S2pa1",
@@ -6346,28 +4846,12 @@
       "sha256": "47e7ff8f9c934992ac8ca69ad3cbb55397ce3b087954a3510d5ebbec8db12574"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.dj56u",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.dj6U0",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_decision_node.py.ivBq7",
       "sha256": "973b9f41d2287b6aa7dfcb97a83e26c65061cd940b2e07e04a8a657455d2c2bb"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.V9RTR",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/sensor_range_mux_node.py.FtDqU",
       "sha256": "200bab759a7f0468f01ad8714aa70bdad00aca25c7070bdbe68fd622101b7bdf"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.1AeWT",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.sh.P8iO2",
@@ -6390,32 +4874,12 @@
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.9UNhY",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.cWsxq",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/setup.bash.Q9VEl",
       "sha256": "42e35f97c20127488ca0b80af92e9711e37a5cadcd381e5a8b7968dba58864a9"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.fish.U2KXt",
       "sha256": "47e7ff8f9c934992ac8ca69ad3cbb55397ce3b087954a3510d5ebbec8db12574"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.pZFkx",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.TjVv1",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.Jspy3",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.95ZcI",
@@ -6434,10 +4898,6 @@
       "sha256": "89c32fe15292b2c7e2826fe57403dc5d81419c02288ff6edc1c1a73c0535fd02"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.RMfl3",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/local_setup.sh.UYExw",
       "sha256": "4b32882f0234e384478b806c4dc070680db5f09a8255eadf766438e4e072b32f"
     },
@@ -6450,16 +4910,8 @@
       "sha256": "28c44aeedfa21b45eed8f08a55a5eab7ab9f7832c8f5eb61ba198e6c5dce7c51"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.NDcXC",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/env.sh.VCvXm",
       "sha256": "0f26a769a4f335d1b41c990508fc8e5a801f7b75833285cfc6188ac54de24ee4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.NM50B",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
     },
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_output_node.py.CXKKA",
@@ -6478,20 +4930,8 @@
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.IVB0o",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.eYXmm",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_decision_node.py.wZySA",
       "sha256": "973b9f41d2287b6aa7dfcb97a83e26c65061cd940b2e07e04a8a657455d2c2bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.N9YEc",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
     },
     {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.7HQbG",
@@ -6502,20 +4942,12 @@
       "sha256": "7fe652c5563ae17cca9b867823bb91bbef6b6918ce10381e00b30761f59c2ffd"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.SzDkE",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/wall_perch_decision_node.py.BnDLA",
       "sha256": "d53e69658e4b98e0b96bb721c898e5dd129468adafa1cbe26ae91d2b619a946c"
     },
     {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.NtCuX",
       "sha256": "87396717a0c553c9406918b4c8d1dbfd4c70ef2c56373b4127fec804bf885f8f"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.atWar",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
     },
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_output_node.py.Z823t",
@@ -6546,10 +4978,6 @@
       "sha256": "47e7ff8f9c934992ac8ca69ad3cbb55397ce3b087954a3510d5ebbec8db12574"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.MnEn6",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/mock_flight_inputs_node.py.vNPfJ",
       "sha256": "a3c5bca472621112baa511ab568cdd06fda2d4b6b549c6546494309aa5a499be"
     },
@@ -6570,28 +4998,12 @@
       "sha256": "f77dd8ed0cc130c1b17600e0753163e7d945ffd815b63c2b97e3527aa7988ba7"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.CuERs",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.eeTUR",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.bji6U",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/attachment_mechanism_output_node.py.Ks13T",
       "sha256": "c3d79e4ebcbb9f07530bc82dce069885af91fbbeae9e65adddc28adde1ef3bd8"
     },
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_output_node.py.9siTK",
       "sha256": "a0fdabdef6b0ca81398fa90e47f484890d335d5e5d33769d6c3d51829d152a5d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.A18LN",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
     },
     {
       "path": "build.from_home_cry/atomic_configure/mock_flight_inputs_node.py.o2TWa",
@@ -6622,14 +5034,6 @@
       "sha256": "ad578bf02207effa2c1a72985538854b24b0e5abf3dcc5beb4688b93e4aafaf1"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.zkOED",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.Px41T",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/sensor_range_manager_node.py.WWgOR",
       "sha256": "4323bb016c20d1b6416e87e891baf0edea9f9ffc6bf6af33746655d909560eec"
     },
@@ -6656,10 +5060,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/wall_perch_state_monitor.py.Vv1VX",
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.DoHdK",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.sh.x0WCX",
@@ -6702,10 +5102,6 @@
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.UwQ5b",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_decision_node.py.2xYGM",
       "sha256": "89c32fe15292b2c7e2826fe57403dc5d81419c02288ff6edc1c1a73c0535fd02"
     },
@@ -6718,20 +5114,12 @@
       "sha256": "74eeab35c48eb0076f62e3a2c2e1da31c556358d0951db99746780c550daeba6"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.HYJip",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/local_setup.sh.U5xjg",
       "sha256": "4b32882f0234e384478b806c4dc070680db5f09a8255eadf766438e4e072b32f"
     },
     {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.ZwpuK",
       "sha256": "28c44aeedfa21b45eed8f08a55a5eab7ab9f7832c8f5eb61ba198e6c5dce7c51"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.JPooi",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.bash.CiGgJ",
@@ -6748,14 +5136,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/mock_attachment_mechanism_node.py.T6Cxb",
       "sha256": "93849701e5a91086ef15c6770be0ae9f8f66f9421b0a64d911c68f0528d092f4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.s4JaO",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.we4ad",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
     },
     {
       "path": "build.from_home_cry/atomic_configure/env.sh.fDpoI",
@@ -6782,10 +5162,6 @@
       "sha256": "93849701e5a91086ef15c6770be0ae9f8f66f9421b0a64d911c68f0528d092f4"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.cW5iS",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/local_setup.sh.k2G0g",
       "sha256": "4b32882f0234e384478b806c4dc070680db5f09a8255eadf766438e4e072b32f"
     },
@@ -6800,14 +5176,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/mock_attachment_mechanism_node.py.LCYfT",
       "sha256": "93849701e5a91086ef15c6770be0ae9f8f66f9421b0a64d911c68f0528d092f4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.B6AyY",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.QhsFa",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.sh.Bjsyd",
@@ -6832,10 +5200,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/mock_flight_inputs_node.py.XVcY4",
       "sha256": "ad578bf02207effa2c1a72985538854b24b0e5abf3dcc5beb4688b93e4aafaf1"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.sLXZe",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.fish.ntKPM",
@@ -6866,14 +5230,6 @@
       "sha256": "8762dbc9eab830fa1a285c3f72edc5427ee80438991ec34cd1df8648a966792a"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.QI7Ck",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.oCdxY",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_decision_node.py.8HtIY",
       "sha256": "89c32fe15292b2c7e2826fe57403dc5d81419c02288ff6edc1c1a73c0535fd02"
     },
@@ -6884,22 +5240,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_output_node.py.JgScA",
       "sha256": "e0cb1a76170fa06731bbf6fb3555794090a9566c58ce958f0a96c51ae27ff8d0"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.Kgva5",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.Xqktu",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.QpdRc",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.36RIm",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.bash.TpGgf",
@@ -6938,10 +5278,6 @@
       "sha256": "4c9e1ebb16aa715de76287c6055553488dd2aa735c949f16f7f208bd5a006425"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.rgFhl",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/local_setup.fish.Ra2Pv",
       "sha256": "47e7ff8f9c934992ac8ca69ad3cbb55397ce3b087954a3510d5ebbec8db12574"
     },
@@ -6952,10 +5288,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/terminal_operator_node.py.tFR7f",
       "sha256": "76be2c9dbdbc4660e085b3305364499909d8996c7be302e641139510b1250514"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.c9a9U",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
     },
     {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.Jrigr",
@@ -6984,18 +5316,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_output_node.py.vsmcv",
       "sha256": "e0cb1a76170fa06731bbf6fb3555794090a9566c58ce958f0a96c51ae27ff8d0"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.G0j0n",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.xljKq",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.FWy9p",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.bash.ZHjyX",
@@ -7046,10 +5366,6 @@
       "sha256": "f77dd8ed0cc130c1b17600e0753163e7d945ffd815b63c2b97e3527aa7988ba7"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.taQck",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/_setup_util.py.Pa7Vo",
       "sha256": "f5f341fd88d5624f8969fb7a8e40218794cbca5a0ec6bc7f3a18e5ff9d2e11cf"
     },
@@ -7066,14 +5382,6 @@
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.KFOhS",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.vywQi",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/setup.fish.jpD5B",
       "sha256": "bce986d8ef71c57e8761cfe9bf6adde73cfede68dfada9688e6ede101e0ac8d5"
     },
@@ -7086,10 +5394,6 @@
       "sha256": "28c44aeedfa21b45eed8f08a55a5eab7ab9f7832c8f5eb61ba198e6c5dce7c51"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.rJnl7",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/wall_perch_decision_node.py.yhhdO",
       "sha256": "12a026c3a02c2a5c8a6060188c4bdc981d4432044e66365556c3bfb5d6275f17"
     },
@@ -7100,10 +5404,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_state_monitor.py.49ZnP",
       "sha256": "8762dbc9eab830fa1a285c3f72edc5427ee80438991ec34cd1df8648a966792a"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.d962S",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
     },
     {
       "path": "build.from_home_cry/atomic_configure/env.sh.mWpCQ",
@@ -7142,24 +5442,12 @@
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.oZZsh",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.9Ku0S",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/local_setup.zsh.p5mkb",
       "sha256": "b9bc38dc4a27434734944ad0804eda6fb4cf9443fc9064900b19793fa85d0a11"
     },
     {
       "path": "build.from_home_cry/atomic_configure/attachment_mechanism_output_node.py.tdMxI",
       "sha256": "74eeab35c48eb0076f62e3a2c2e1da31c556358d0951db99746780c550daeba6"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.vRZXn",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
     },
     {
       "path": "build.from_home_cry/atomic_configure/local_setup.fish.nX5YR",
@@ -7190,10 +5478,6 @@
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.GIJFE",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/operator_gate_node.py.cebeH",
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
@@ -7214,16 +5498,8 @@
       "sha256": "200bab759a7f0468f01ad8714aa70bdad00aca25c7070bdbe68fd622101b7bdf"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.WvpuC",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/lidar_distance_node.py.CclXM",
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.76hhK",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
     },
     {
       "path": "build.from_home_cry/atomic_configure/wall_perch_decision_node.py.U1uAa",
@@ -7242,10 +5518,6 @@
       "sha256": "42e35f97c20127488ca0b80af92e9711e37a5cadcd381e5a8b7968dba58864a9"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.JhGJh",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/sensor_range_mux_node.py.V9UuS",
       "sha256": "200bab759a7f0468f01ad8714aa70bdad00aca25c7070bdbe68fd622101b7bdf"
     },
@@ -7256,18 +5528,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/setup.fish.B74La",
       "sha256": "bce986d8ef71c57e8761cfe9bf6adde73cfede68dfada9688e6ede101e0ac8d5"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.yceGp",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.eD93o",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.HC6Lm",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_output_node.py.YORjg",
@@ -7286,20 +5546,12 @@
       "sha256": "200bab759a7f0468f01ad8714aa70bdad00aca25c7070bdbe68fd622101b7bdf"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.JVqTT",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/local_setup.bash.1fJWz",
       "sha256": "e8752004627b2638cbc06cb168569474543d6afb6d5c1b54d0018dc118d66f66"
     },
     {
       "path": "build.from_home_cry/atomic_configure/.rosinstall.NbQwj",
       "sha256": "f77dd8ed0cc130c1b17600e0753163e7d945ffd815b63c2b97e3527aa7988ba7"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.aYebV",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_decision_node.py.v9dkN",
@@ -7312,14 +5564,6 @@
     {
       "path": "build.from_home_cry/atomic_configure/setup.bash.T3OFN",
       "sha256": "42e35f97c20127488ca0b80af92e9711e37a5cadcd381e5a8b7968dba58864a9"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.DzMmm",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.eopCW",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/sensor_range_mux_node.py.1uXGU",
@@ -7354,24 +5598,8 @@
       "sha256": "47e7ff8f9c934992ac8ca69ad3cbb55397ce3b087954a3510d5ebbec8db12574"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.vB158",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_controller_node.py.S5AvJ",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.eBs0L",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/setup.sh.i0rix",
       "sha256": "56ad66484d7aaee949fa4a7ca077e4e456d6b742c071bdcd168c0f55c3a21e2d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.r7B6o",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
     },
     {
       "path": "build.from_home_cry/atomic_configure/setup.bash.CVJ0e",
@@ -7386,14 +5614,6 @@
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.FFIac",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.TV79e",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/local_setup.fish.fNMJv",
       "sha256": "47e7ff8f9c934992ac8ca69ad3cbb55397ce3b087954a3510d5ebbec8db12574"
     },
@@ -7402,24 +5622,8 @@
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/ceiling_fsm_node.py.bQUDh",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/flight_supervisor_node.py.pOfqZ",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.PTAl0",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/mock_flight_inputs_node.py.wFi3b",
       "sha256": "a3c5bca472621112baa511ab568cdd06fda2d4b6b549c6546494309aa5a499be"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/wall_fsm_node.py.v1QRC",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/env.sh.zVv12",
@@ -7438,20 +5642,12 @@
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
     {
-      "path": "build.from_home_cry/atomic_configure/wall_controller_node.py.hBObQ",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
       "path": "build.from_home_cry/atomic_configure/ceiling_attachment_output_node.py.GtdhO",
       "sha256": "a0fdabdef6b0ca81398fa90e47f484890d335d5e5d33769d6c3d51829d152a5d"
     },
     {
       "path": "build.from_home_cry/atomic_configure/mock_attachment_mechanism_node.py.Qwwfw",
       "sha256": "7fe652c5563ae17cca9b867823bb91bbef6b6918ce10381e00b30761f59c2ffd"
-    },
-    {
-      "path": "build.from_home_cry/atomic_configure/setpoint_mux_node.py.YBU8k",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
     },
     {
       "path": "build.from_home_cry/CTestTestfile.cmake",
@@ -9698,10 +7894,6 @@
       "sha256": "d43b5dbdf0404e14f77181e486262fdf3acda66638f2aee1abc644b755ce4b0b"
     },
     {
-      "path": "build.from_home_cry/px4_wall_ceiling_control/catkin_generated/stamps/px4_wall_ceiling_control/flight_supervisor_node.py.stamp",
-      "sha256": "517d328c8b1dbd48cf155362d0100949b04888322059433cb7e89589506507b6"
-    },
-    {
       "path": "build.from_home_cry/px4_wall_ceiling_control/catkin_generated/stamps/px4_wall_ceiling_control/lidar_distance_node.py.stamp",
       "sha256": "8e36cb93fbb30c537979df3e97fb28c4373a41fe5c0752931979c73e959c5ce6"
     },
@@ -9716,10 +7908,6 @@
     {
       "path": "build.from_home_cry/px4_wall_ceiling_control/catkin_generated/stamps/px4_wall_ceiling_control/ceiling_attachment_output_node.py.stamp",
       "sha256": "6f1c1f5aca12651d6b6e4d442cb9d8423f80b5630e6ec63ad27d76439e86d529"
-    },
-    {
-      "path": "build.from_home_cry/px4_wall_ceiling_control/catkin_generated/stamps/px4_wall_ceiling_control/wall_fsm_node.py.stamp",
-      "sha256": "24053948b786e1e40ca79d6a9ea8adc58850a0fcb0d5985f7634eea7e0537948"
     },
     {
       "path": "build.from_home_cry/px4_wall_ceiling_control/catkin_generated/stamps/px4_wall_ceiling_control/flight_mode_manager_node.py.stamp",
@@ -9740,22 +7928,6 @@
     {
       "path": "build.from_home_cry/px4_wall_ceiling_control/catkin_generated/stamps/px4_wall_ceiling_control/terminal_operator_node.py.stamp",
       "sha256": "da3eeba6c3ce1e0becac05751ecde439b131bdbf6df744a7e475a3654d6ed256"
-    },
-    {
-      "path": "build.from_home_cry/px4_wall_ceiling_control/catkin_generated/stamps/px4_wall_ceiling_control/setpoint_mux_node.py.stamp",
-      "sha256": "9a760ceb2afe9aea665f879dacbb21c8125c87281d04a93d8e908d48573e80fd"
-    },
-    {
-      "path": "build.from_home_cry/px4_wall_ceiling_control/catkin_generated/stamps/px4_wall_ceiling_control/ceiling_controller_node.py.stamp",
-      "sha256": "7d1ee11b0e6a05f50b39f363f0c859740671794f0904f831a1e022e15fc153dc"
-    },
-    {
-      "path": "build.from_home_cry/px4_wall_ceiling_control/catkin_generated/stamps/px4_wall_ceiling_control/ceiling_fsm_node.py.stamp",
-      "sha256": "7d7689eb9fdf492d92cbf3f7cf6f7e92e421a68d9a57457adafc043a6b5d68aa"
-    },
-    {
-      "path": "build.from_home_cry/px4_wall_ceiling_control/catkin_generated/stamps/px4_wall_ceiling_control/wall_controller_node.py.stamp",
-      "sha256": "879ce70f3549c04ab0123c3e6caab68564b0e15ae129fe1611c2d3df854ce012"
     },
     {
       "path": "build.from_home_cry/px4_wall_ceiling_control/catkin_generated/stamps/px4_wall_ceiling_control/package.xml.stamp",
@@ -9848,30 +8020,6 @@
     {
       "path": "build.from_home_cry/px4_wall_ceiling_control/catkin_generated/installspace/wall_perch_state_monitor.py",
       "sha256": "33c546cb4ffd1f72e5e4ec3515f64d3830d72f12c778f24004d694674423166f"
-    },
-    {
-      "path": "build.from_home_cry/px4_wall_ceiling_control/catkin_generated/installspace/ceiling_controller_node.py",
-      "sha256": "7d1ee11b0e6a05f50b39f363f0c859740671794f0904f831a1e022e15fc153dc"
-    },
-    {
-      "path": "build.from_home_cry/px4_wall_ceiling_control/catkin_generated/installspace/ceiling_fsm_node.py",
-      "sha256": "7d7689eb9fdf492d92cbf3f7cf6f7e92e421a68d9a57457adafc043a6b5d68aa"
-    },
-    {
-      "path": "build.from_home_cry/px4_wall_ceiling_control/catkin_generated/installspace/flight_supervisor_node.py",
-      "sha256": "517d328c8b1dbd48cf155362d0100949b04888322059433cb7e89589506507b6"
-    },
-    {
-      "path": "build.from_home_cry/px4_wall_ceiling_control/catkin_generated/installspace/setpoint_mux_node.py",
-      "sha256": "9a760ceb2afe9aea665f879dacbb21c8125c87281d04a93d8e908d48573e80fd"
-    },
-    {
-      "path": "build.from_home_cry/px4_wall_ceiling_control/catkin_generated/installspace/wall_controller_node.py",
-      "sha256": "879ce70f3549c04ab0123c3e6caab68564b0e15ae129fe1611c2d3df854ce012"
-    },
-    {
-      "path": "build.from_home_cry/px4_wall_ceiling_control/catkin_generated/installspace/wall_fsm_node.py",
-      "sha256": "24053948b786e1e40ca79d6a9ea8adc58850a0fcb0d5985f7634eea7e0537948"
     },
     {
       "path": "build.from_home_cry/px4_wall_ceiling_control/catkin_generated/installspace/flight_mode_manager_node.py",
@@ -9970,18 +8118,6 @@
       "sha256": "19b2f30f6b9e7d97fa1d2b6a7175d437f225fe1a3b9501f71802bf4ce31d3c4f"
     },
     {
-      "path": "build.from_home_cry/px4_wall_ceiling_control/lib/px4_wall_ceiling_control/legacy/surface_controller.py",
-      "sha256": "cd547d7c8c3cca5b18c5b2e87fa7ea0c03bf71530cff435723d2c7bf5c2c0949"
-    },
-    {
-      "path": "build.from_home_cry/px4_wall_ceiling_control/lib/px4_wall_ceiling_control/legacy/__init__.py",
-      "sha256": "9fead3bf2c6a10d647f37a72e6ad867f7aae2a85bad658a10befec304f76bd11"
-    },
-    {
-      "path": "build.from_home_cry/px4_wall_ceiling_control/lib/px4_wall_ceiling_control/legacy/behavior_fsm.py",
-      "sha256": "f581e7b1d6a2853618169d242b6de819fa995ec837ce8814dbe0d9a5f0e95e25"
-    },
-    {
       "path": "devel.from_home_cry/.built_by",
       "sha256": "ae448cdba7f0bbda67e0415703f5dea5171690dbddfcfce86eb8172700c3194a"
     },
@@ -9994,32 +8130,8 @@
       "sha256": "25ff779a9487158d080fe05380af56baf4b2aaa52290771b76fc05d4f4a30afd"
     },
     {
-      "path": "devel.from_home_cry/bin/wall_fsm_node.py",
-      "sha256": "b55e85c166be6260ba44c84e62e1bedf232652e83e28d050afa5126ad205bd5d"
-    },
-    {
-      "path": "devel.from_home_cry/bin/wall_controller_node.py",
-      "sha256": "c4e46154dd074b081448fed00db9f7e8f0ada955eb5ef01a18c931e5681125bb"
-    },
-    {
-      "path": "devel.from_home_cry/bin/ceiling_fsm_node.py",
-      "sha256": "2866c48fe9134242545bd1d3ced8a1a1fe32dcc846090746ba609753bf90ac63"
-    },
-    {
       "path": "devel.from_home_cry/bin/lidar_distance_node.py",
       "sha256": "ff131922c2e4a4e700638a22f7a8cd52a50a5d9f1193103256de1fe746dac99e"
-    },
-    {
-      "path": "devel.from_home_cry/bin/ceiling_controller_node.py",
-      "sha256": "11d79eabb589e55e7ade674d1f8782a294d11215777e17fa9d22df8d94f6f8b4"
-    },
-    {
-      "path": "devel.from_home_cry/bin/flight_supervisor_node.py",
-      "sha256": "f866848bd34134f872744575b2e3f37c52696c9b8ae16861d299f9ef99f5b22d"
-    },
-    {
-      "path": "devel.from_home_cry/bin/setpoint_mux_node.py",
-      "sha256": "ddf8bcaed3d59b834d659ba082e5b88967681e2052419530c66b4cd2b7c80328"
     },
     {
       "path": "devel.from_home_cry/lib/pkgconfig/px4_wall_ceiling_control.pc",
@@ -10098,10 +8210,6 @@
       "sha256": "12a026c3a02c2a5c8a6060188c4bdc981d4432044e66365556c3bfb5d6275f17"
     },
     {
-      "path": "devel.from_home_cry/lib/px4_wall_ceiling_control/wall_controller_node.py",
-      "sha256": "edcf45773df51b5fd7aba324618fa622ad20b343f97de1759b1553f65c2e5e1e"
-    },
-    {
       "path": "devel.from_home_cry/lib/px4_wall_ceiling_control/flight_mode_manager_node.py",
       "sha256": "4e1352597cae45da8ba7f0524a7981836661a65c03f8a1c571ed771da82dc3c9"
     },
@@ -10150,28 +8258,8 @@
       "sha256": "9fcc8c6343522ccd9a3dc3303bca337ad1d8862342a78d03215b2640ed2be446"
     },
     {
-      "path": "devel.from_home_cry/lib/px4_wall_ceiling_control/ceiling_controller_node.py",
-      "sha256": "a0afc604645a6c6ef2232a871de33567e9b39322ffb15d6fd721eedcf4bcdad5"
-    },
-    {
-      "path": "devel.from_home_cry/lib/px4_wall_ceiling_control/ceiling_fsm_node.py",
-      "sha256": "f4318a3eae1b92d8dd536cf1721d5a742e34077ce031cadccdf801ac59be5f1a"
-    },
-    {
       "path": "devel.from_home_cry/lib/px4_wall_ceiling_control/operator_gate_node.py",
       "sha256": "28c44aeedfa21b45eed8f08a55a5eab7ab9f7832c8f5eb61ba198e6c5dce7c51"
-    },
-    {
-      "path": "devel.from_home_cry/lib/px4_wall_ceiling_control/flight_supervisor_node.py",
-      "sha256": "199988faa6b4b38067548a55cb080935cebc4d2afb9a60152c5fa887b32f31ef"
-    },
-    {
-      "path": "devel.from_home_cry/lib/px4_wall_ceiling_control/setpoint_mux_node.py",
-      "sha256": "fc8b133048c84401c870f5a8b3db8cbde1d2618259c83cdc3b45684dbaa77229"
-    },
-    {
-      "path": "devel.from_home_cry/lib/px4_wall_ceiling_control/wall_fsm_node.py",
-      "sha256": "282b1517522dfef18e22073c04bd3ecae22716154d76710edb6d8a5591646869"
     },
     {
       "path": "devel.from_home_cry/lib/px4_wall_ceiling_control/sensor_range_mux_node.py",

@@ -46,8 +46,7 @@ px4_wall_ceiling_control/
 │   ├── system/              primary combined runtime
 │   ├── sensors/             sensor-only utilities
 │   ├── bench/               isolated observation and fixed-frame motor tests
-│   ├── standalone/          ceiling-only compatibility runtime
-│   └── legacy/              old generic distance-control chain
+│   └── standalone/          ceiling-only compatibility runtime
 ├── msg/                     ROS interface contracts
 ├── scripts/
 │   ├── sensors/             hardware adapters and range validation
@@ -56,13 +55,11 @@ px4_wall_ceiling_control/
 │   ├── decisions/           ceiling and wall behavior decisions
 │   ├── outputs/             owner mux and mechanism safety gate
 │   ├── standalone/          ceiling-only MAVROS adapter
-│   ├── test_support/        mock flight and mechanism inputs
-│   └── legacy/              old generic FSM/controller/mux entry points
+│   └── test_support/        mock flight and mechanism inputs
 ├── src/px4_wall_ceiling_control/
 │   ├── adapters/            odometry and MAVROS message boundaries
 │   ├── domain/              ROS-independent geometry, hold and owner logic
-│   ├── freshness.py         shared validation helpers
-│   └── legacy/              old generic controller implementation
+│   └── freshness.py         shared validation helpers
 └── test/                    automated safety tests
 ```
 
@@ -93,7 +90,6 @@ catkin_test_results
 | Fixed, propeller-free PX4 motor bench | `launch/bench/ceiling_motor_bench.launch` | Bounded attitude setpoints; disabled by default |
 | Fixed, propeller-free wall motor bench | `launch/bench/wall_motor_bench.launch` | Production chain, terminal trigger with real MAVROS/L1 data, hover thrust and mux cap both 0.45; disabled by default |
 | Standalone ceiling runtime | `launch/standalone/ceiling_attachment_mavros.launch` | Disabled by default |
-| Old generic chain | `launch/legacy/system.launch` | Legacy; do not combine with unified runtime |
 
 Typical sensor-only test:
 
@@ -122,7 +118,6 @@ roslaunch px4_wall_ceiling_control attachment_system_mavros.launch \
 | `config/ceiling_attachment.yaml` | Ceiling decision and controller parameters |
 | `config/wall_perch.yaml` | Wall decision and attitude planner parameters |
 | `config/attachment_output.yaml` | Owner mux, MAVROS adapters and mechanism output gate |
-| `config/legacy.yaml` | Old generic supervisor/FSM/controller/mux chain |
 
 `config/common.yaml` is only a deprecated marker; current launches do not load
 it. Each active node now has one configuration owner.

@@ -8,7 +8,6 @@ setup_args = generate_distutils_setup(
         "px4_wall_ceiling_control.adapters",
         "px4_wall_ceiling_control.domain",
         "px4_wall_ceiling_control.ceiling_wall_console",
-        "px4_wall_ceiling_control.legacy",
     ],
     package_dir={"": "src"},
 )
