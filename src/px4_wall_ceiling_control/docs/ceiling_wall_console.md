@@ -43,6 +43,13 @@ python3 -B src/px4_wall_ceiling_control/scripts/operator/ceiling_wall_console.py
 修改 HTML / CSS / JavaScript 后刷新页面即可；修改 Python 后重新启动本地预览。
 代码在 Mac/Windows 上直接运行，不需要安装 ROS 或连接树莓派。
 
+## 后端模块与旧控制台
+
+旧 8787 `wall_console` 页面、专用 HTTP 入口、Windows GUI 及打包启动脚本已在当前分支移除，仅保留本页（`ceiling_wall_console`，树莓派 8790 / 本机预览 8791）这一套测试台。
+
+`wall_console_server.py`、`wall_console.py` 不是独立测试台，而是本页复用的后端：前者是控制台 worker（HTTP 桥接、节点与串口检查、配置与启停），后者是 ROS 桥接与状态检查逻辑。
+直接运行 `wall_console_server.py` 会提示“旧控制台已删除”，它只接受 `--bridge` / `--shared-service`。
+
 ## 树莓派真实运行
 
 网页服务仍运行在树莓派宿主机；ROS 仍在 `ros1_noetic` 容器内。

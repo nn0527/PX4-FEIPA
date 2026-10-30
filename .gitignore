@@ -17,11 +17,6 @@ __pycache__/
 /log/
 *.log
 
-# Generated runtime captures and telemetry
-/runtime/*.json
-/runtime/telemetry_live.html
-/runtime/telemetry-*.png
-
 # Local credentials and editor state
 .env
 .env.*

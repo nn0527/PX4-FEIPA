@@ -42,9 +42,7 @@ git switch -c your-working-branch
 ```
 
 Build outputs, Python environments, logs, ROS bags and generated telemetry are
-excluded from Git. The PowerShell and `runtime/` observation tools contain
-paths for the original Windows/WSL installation; adjust those paths for your
-machine before using them.
+excluded from Git.
 
 ## ceiling_wall_console
 
