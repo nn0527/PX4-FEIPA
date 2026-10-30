@@ -25,6 +25,10 @@ __pycache__/
 *.key
 .vscode/
 .idea/
+*.swp
+*.swo
+*.swn
+.*.sw?
 
 # Local Python environments
 .venv/
