@@ -1,5 +1,0 @@
-{
-  "src/px4_wall_ceiling_control/domain/horizontal_velocity.py": "9bc6f6dcc4fe85e128a1059dd812d574137e0c41473f43809bf3f6dc99a85fea",
-  "src/px4_wall_ceiling_control/adapters/wall_horizontal_velocity.py": "a5f1aaf180b377136ea89756e8d35deef23df3ecb8c14f633f688045432303ac",
-  "test/test_horizontal_pi.py": "9e58ed637f9f1ea72b24d336f75209295e835eb65bd6146d94682693410d10b3"
-}

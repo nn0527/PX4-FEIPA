@@ -1,7 +1,0 @@
-{
-  "test/test_horizontal_pi.py": "6c7e414dd80c996b3f893dd8e8191c3325f78805ab7216a508871f5e22f76ff4",
-  "test/test_attachment_flight_logger.py": "be6c5cb7595cbe825ffee88c78c9bb9a9443c8ed268420ffea8fe1ab18cf4867",
-  "test/test_horizontal_equilibrium.py": "331a4d8021c1ee1c8d221779a80bd01345cd2e160847656ee82292cfdab241ed",
-  "src/px4_wall_ceiling_control/adapters/wall_horizontal_velocity.py": "11a5f330b2b3a4d37009059a3f208244dbd715219991acaf4ee9ea2d37875347",
-  "src/px4_wall_ceiling_control/domain/horizontal_velocity.py": "5ab5a4ea7f920af25e1170755fc43d293c8713a2d03727c407497a2534b01fde"
-}

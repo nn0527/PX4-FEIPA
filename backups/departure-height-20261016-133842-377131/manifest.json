@@ -1,8 +1,0 @@
-[
-  {
-    "path": "test/test_attachment_safety.py",
-    "expected": "db01a8c269636cad486a80a695cbc7a8660898c2dab715808af35253979375be",
-    "new": "0ab3006d116e4be16e428b8a47aea82e92cf7e2a03fe32f94ec2e3c116e09e33",
-    "mode": 420
-  }
-]

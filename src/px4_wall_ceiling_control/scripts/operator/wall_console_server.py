@@ -363,8 +363,7 @@ class RemoteRuntime:
                    and self.ros.get_param("/wall_perch_decision_node/decision_enabled", False)
                    and not self.ros.get_param("/flight_mode_manager_node/require_rc_center", False)
                    and (not self.ros.get_param("/attachment_output_mux_node/rc_assist_enabled", False)
-                        or self.ros.get_param("/attachment_output_mux_node/rc_roll_yaw_enabled", False))
-                   and not (nodes & {"/ceiling_attachment_output_node"}))
+                        or self.ros.get_param("/attachment_output_mux_node/rc_roll_yaw_enabled", False)))
         profile = "restrained_bench" if wall_bench and manager_bench else "flight"
         with self.state.lock:
             if required <= nodes:
@@ -489,8 +488,7 @@ class RemoteRuntime:
     def start_worker(self):
         try:
             nodes = self.nodes()
-            conflicting = nodes & {"/attachment_output_mux_node", "/wall_perch_decision_node", "/flight_mode_manager_node",
-                                   "/ceiling_attachment_output_node"}
+            conflicting = nodes & {"/attachment_output_mux_node", "/wall_perch_decision_node", "/flight_mode_manager_node"}
             if conflicting:
                 raise ValueError("已有控制节点在运行，请先结束原启动入口: " + ", ".join(sorted(conflicting)))
             for key in ("fcu_port", "ceiling_port", "front_port"):
@@ -557,8 +555,7 @@ class RemoteRuntime:
     @staticmethod
     def mavros_process_conflicts():
         """An unresponsive process may still own a port or publish control output."""
-        control_names = {"attachment_output_mux_node", "flight_mode_manager_node",
-                         "ceiling_attachment_output_node"}
+        control_names = {"attachment_output_mux_node", "flight_mode_manager_node"}
         conflicts = []
         for item in Path("/proc").glob("[0-9]*/cmdline"):
             try:

@@ -111,6 +111,5 @@ Deprecated aliases such as `/sensor/wall/range`, `/sensor/wall/top_range` and
 
 - Primary: `launch/system/attachment_system_mavros.launch`
 - Sensor utility: `launch/sensors/lidar_dual.launch`
-- Standalone ceiling compatibility: `launch/standalone/*.launch`
 
 See `docs/terminal_flight.md` and `docs/rc_wall_momentary.md` before enabling any physical output.

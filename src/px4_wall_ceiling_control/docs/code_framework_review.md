@@ -50,7 +50,6 @@ flowchart LR
 | 参数/接口 | `config/*.yaml`、`msg/*.msg` | 行为增益、阈值、话题契约 |
 | 测试 | `test/*.py` | 状态机安全门、模式交接和输出边界 |
 
-`scripts/standalone` 是顶吸兼容路径，不能和统一生产入口同时运行。
 `attachment_mechanism_output_node.py` 为独立机构保留；
 当前仅靠飞控推力的方案不需要物理机构驱动，生产入口关闭其输出并取消机构 ACK。
 

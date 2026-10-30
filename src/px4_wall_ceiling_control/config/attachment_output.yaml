@@ -71,28 +71,6 @@ attachment_mechanism_output_node:
   owner_timeout_s: 0.30
   publish_rate_hz: 20.0
 
-# Compatibility adapter used only by the ceiling-only launch.
-ceiling_attachment_output_node:
-  status_topic: /ceiling_attachment/status
-  state_topic: /mavros/state
-  odom_topic: /mavros/local_position/odom
-  local_setpoint_topic: /mavros/setpoint_raw/local
-  attitude_setpoint_topic: /mavros/setpoint_raw/attitude
-  output_mode_topic: /ceiling_attachment/output_mode
-  output_enabled: false
-  require_connected: true
-  require_armed: true
-  require_offboard: true
-  publish_neutral_when_selected: true
-  publish_rate_hz: 30.0
-  status_timeout_s: 0.20
-  state_timeout_s: 1.50
-  odom_timeout_s: 0.50
-  max_approach_speed_mps: 0.30
-  min_thrust: 0.10
-  max_thrust: 0.90
-  local_frame_id: map
-
 # Separate from the legacy automatic approach timeout and 2 s flip trajectory.
 flight_mode_manager_node:
   manual_wall_wait_timeout_s: 60.0

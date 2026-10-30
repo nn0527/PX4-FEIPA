@@ -1,1 +1,0 @@
-["/usr/bin/python3", "/opt/ros/noetic/bin/roslaunch", "px4_wall_ceiling_control", "wall_console_flight.launch", "ceiling_serial_port:=/dev/serial/by-path/wall-top", "front_serial_port:=/dev/serial/by-path/wall-front", "hover_thrust:=0.48", "restrained_bench:=false"]

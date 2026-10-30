@@ -26,11 +26,6 @@ add_message_files(
   SensorHealth.msg
   WallPerchStatus.msg
   WallSensorFusionStatus.msg
-  # Legacy generic distance-control contracts.
-  BehaviorCommand.msg
-  ControllerStatus.msg
-  ControlSetpoint.msg
-  SupervisorState.msg
 )
 
 
@@ -68,7 +63,6 @@ catkin_install_python(PROGRAMS
   scripts/sensors/lidar_distance_node.py
   scripts/sensors/sensor_range_manager_node.py
   scripts/sensors/wall_sensor_fusion_manager_node.py
-  scripts/standalone/ceiling_attachment_output_node.py
   scripts/test_support/attachment_flight_logger.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

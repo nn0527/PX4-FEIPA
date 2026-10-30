@@ -40,19 +40,16 @@ The unified runtime has exactly one MAVROS setpoint publisher:
 px4_wall_ceiling_control/
 ├── config/                  shared and behavior-specific YAML
 ├── docs/
-│   ├── behaviors/           ceiling and wall state-machine notes
-│   └── archive/             historical, non-executable instructions
+│   └── behaviors/           ceiling and wall state-machine notes
 ├── launch/
 │   ├── system/              primary combined runtime
-│   ├── sensors/             sensor-only utilities
-│   └── standalone/          ceiling-only compatibility runtime
+│   └── sensors/             sensor-only utilities
 ├── msg/                     ROS interface contracts
 ├── scripts/
 │   ├── sensors/             hardware adapters and range validation
 │   ├── operator/            RC/terminal command gate
 │   ├── decisions/           ceiling and wall behavior decisions
 │   ├── outputs/             owner mux and mechanism safety gate
-│   ├── standalone/          ceiling-only MAVROS adapter
 │   └── test_support/        mock flight and mechanism inputs
 ├── src/px4_wall_ceiling_control/
 │   ├── adapters/            odometry and MAVROS message boundaries
@@ -82,7 +79,6 @@ catkin_test_results
 | Unified ceiling + wall runtime | `launch/system/attachment_system_mavros.launch` | Disabled by default |
 | Terminal triggered ALTCTL/OFFBOARD flight | `launch/system/attachment_terminal_flight.launch` | Enabled with `flight_enabled:=true` |
 | Dual sensor input only | `launch/sensors/lidar_dual.launch` | None |
-| Standalone ceiling runtime | `launch/standalone/ceiling_attachment_mavros.launch` | Disabled by default |
 
 Typical sensor-only test:
 
@@ -111,9 +107,6 @@ roslaunch px4_wall_ceiling_control attachment_system_mavros.launch \
 | `config/wall_perch.yaml` | Wall decision and attitude planner parameters |
 | `config/attachment_output.yaml` | Owner mux, MAVROS adapters and mechanism output gate |
 
-`config/common.yaml` is only a deprecated marker; current launches do not load
-it. Each active node now has one configuration owner.
-
 Keep topic names in these YAML files and launch overrides. Algorithm code
 should not acquire additional deployment-specific topic names.
 
@@ -124,9 +117,6 @@ should not acquire additional deployment-specific topic names.
 - [Wall behavior](docs/behaviors/wall_perch.md)
 - [Terminal flight handover](docs/terminal_flight.md)
 - [Code framework and readiness review](docs/code_framework_review.md)
-
-Files under `docs/archive/` describe older interfaces and must not be used as
-current test instructions.
 
 ## 一键遥控器接管
 
