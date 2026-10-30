@@ -3,7 +3,7 @@
 ROS1 Noetic workspace for PX4 wall/ceiling attachment control.
 
 Use the unified `ceiling_wall_console` test console; see
-[`ceiling_wall_console.md`](src/px4_wall_ceiling_control/docs/ceiling_wall_console.md).
+[`console.md`](src/px4_wall_ceiling_control/docs/console.md).
 The old 8787 console, Windows launcher and portable build entry have been removed.
 The ROS bridge backend remains shared by the unified console.
 
@@ -51,4 +51,4 @@ excluded from Git.
 打开 `http://127.0.0.1:8791/login`，使用离线访问码 `offline`。
 申请控制权后可切换阶段、定高及异常场景，无需连接树莓派。
 真实树莓派测试台继续使用 8790 端口。
-目录、启动、部署与验证说明见 [ceiling_wall_console](src/px4_wall_ceiling_control/docs/ceiling_wall_console.md)。
+目录、启动、部署与验证说明见 [测试台文档](src/px4_wall_ceiling_control/docs/console.md)。

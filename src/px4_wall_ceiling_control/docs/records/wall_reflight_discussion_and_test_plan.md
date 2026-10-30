@@ -217,7 +217,7 @@ odom是估计输出，不证明厘米级精度。起点相减可消除固定位�
 
 ## 7. 现有代码基线测试与定位方法
 
-现有launch已接入自动旁路记录，操作步骤见[自动日志说明](wall_test_recording.md)。无需人工标记、机身参数填写或离线分析命令；工具只采集ROS程序与收到的信号，不改变飞行控制策略。真实ROS录制需要先在飞行机器完成短时验证。
+现有launch已接入自动旁路记录，操作步骤见[自动日志说明](../sensors.md)。无需人工标记、机身参数填写或离线分析命令；工具只采集ROS程序与收到的信号，不改变飞行控制策略。真实ROS录制需要先在飞行机器完成短时验证。
 
 第一轮不改控制代码。记录实际launch与参数覆盖值，避免只按YAML默认值解释结果。由于当前准入有限制，先测试初次贴墙朝向附近；其他朝向若被拒绝，应记录为当前准入行为。
 
@@ -244,13 +244,13 @@ odom是估计输出，不证明厘米级精度。起点相减可消除固定位�
 
 ## 8. 代码与原理参考
 
-- [侧吸决策与复飞实现](../scripts/decisions/wall_perch_decision_node.py)
-- [四元数几何函数](../src/px4_wall_ceiling_control/domain/geometry.py)
-- [统一输出节点](../scripts/outputs/attachment_output_mux_node.py)
-- [MAVROS消息构建](../src/px4_wall_ceiling_control/adapters/mavros_setpoint.py)
-- [控制候选消息](../msg/AttachmentControlCandidate.msg)
-- [侧吸参数](../config/wall_perch.yaml)
-- [现有侧吸行为说明](behaviors/wall_perch.md)
+- [侧吸决策与复飞实现](../../scripts/decisions/wall_perch_decision_node.py)
+- [四元数几何函数](../../src/px4_wall_ceiling_control/domain/geometry.py)
+- [统一输出节点](../../scripts/outputs/attachment_output_mux_node.py)
+- [MAVROS消息构建](../../src/px4_wall_ceiling_control/adapters/mavros_setpoint.py)
+- [控制候选消息](../../msg/AttachmentControlCandidate.msg)
+- [侧吸参数](../../config/wall_perch.yaml)
+- [现有侧吸行为说明](../wall.md)
 - [PX4 Offboard接口](https://docs.px4.io/main/en/flight_modes/offboard)
 - [PX4控制分配](https://docs.px4.io/main/en/concept/control_allocation)
 - [PX4 EKF说明](https://docs.px4.io/main/en/advanced_config/tuning_the_ecl_ekf)

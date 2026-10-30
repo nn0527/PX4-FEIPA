@@ -482,8 +482,8 @@ ROS bag/结构化事件/摘要和 PX4 ULog 配套；目标输出不等于实际�
 
 ## 15. 参考资料
 
-- [现有控制台及 SSH 连接说明](ceiling_wall_console.md)
-- [现有终端飞行交接](terminal_flight.md)
+- [现有控制台及 SSH 连接说明](../console.md)
+- [现有终端飞行交接](../terminal.md)
 - [贴墙复飞讨论与既有实现边界](wall_reflight_discussion_and_test_plan.md)
 - [PX4 Offboard](https://docs.px4.io/main/en/flight_modes/offboard)
 - [PX4 Manual/Stabilized](https://docs.px4.io/main/en/flight_modes_mc/manual_stabilized)

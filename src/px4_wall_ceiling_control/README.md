@@ -1,6 +1,6 @@
 # px4_wall_ceiling_control
 
-Automatic passive test logs: [recording guide](docs/wall_test_recording.md).
+Automatic passive test logs: [recording guide](docs/sensors.md).
 
 ROS1 Noetic package for two independent L1 range sensors, ceiling attachment,
 wall perching, owner arbitration and one MAVROS command outlet.
@@ -40,7 +40,15 @@ The unified runtime has exactly one MAVROS setpoint publisher:
 px4_wall_ceiling_control/
 ├── config/                  shared and behavior-specific YAML
 ├── docs/
-│   └── behaviors/           ceiling and wall state-machine notes
+│   ├── README.md            documentation index
+│   ├── ceiling.md           ceiling behavior
+│   ├── wall.md              wall behavior
+│   ├── behaviors.md         detach/recovery branch behaviors
+│   ├── sensors.md           L1 drivers, health, automatic recording
+│   ├── rc.md                RC channels, start gesture, takeover
+│   ├── terminal.md          terminal entry and mode handover
+│   ├── console.md           test console
+│   └── records/             dated validation records
 ├── launch/
 │   ├── system/              primary combined runtime
 │   └── sensors/             sensor-only utilities
@@ -112,13 +120,17 @@ should not acquire additional deployment-specific topic names.
 
 ## Documentation
 
+- [文档索引](docs/README.md)
 - [System architecture](docs/architecture.md)
-- [Ceiling behavior](docs/behaviors/ceiling_attachment.md)
-- [Wall behavior](docs/behaviors/wall_perch.md)
-- [Terminal flight handover](docs/terminal_flight.md)
-- [Code framework and readiness review](docs/code_framework_review.md)
+- [Ceiling behavior](docs/ceiling.md)
+- [Wall behavior](docs/wall.md)
+- [Branch behaviors](docs/behaviors.md)
+- [Sensors and recording](docs/sensors.md)
+- [RC operation](docs/rc.md)
+- [Terminal entry and handover](docs/terminal.md)
+- [Test console](docs/console.md)
 
 ## 一键遥控器接管
 
 支持 ABORT 中从实测姿态平滑跟随遥控器，再交回原 ALTCTL / POSCTL。
-页面按钮与终端入口见 [rc_takeover.md](docs/rc_takeover.md)。
+页面按钮与终端入口见 [rc.md](docs/rc.md)。

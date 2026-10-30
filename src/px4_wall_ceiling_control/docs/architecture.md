@@ -107,9 +107,11 @@ Deprecated aliases such as `/sensor/wall/range`, `/sensor/wall/top_range` and
 - Range `frame_id` labels do not apply sensor extrinsics automatically. Mounting
   direction and tilt compensation still require explicit validation/TF logic.
 
-## 6. Supported and legacy entry points
+## 6. Entry points
 
-- Primary: `launch/system/attachment_system_mavros.launch`
+- Terminal flight: `launch/system/attachment_terminal_flight.launch`
+- Test console: `launch/system/wall_console_flight.launch`
+- Shared runtime: `launch/system/attachment_system_mavros.launch`
 - Sensor utility: `launch/sensors/lidar_dual.launch`
 
-See `docs/terminal_flight.md` and `docs/rc_wall_momentary.md` before enabling any physical output.
+See [terminal.md](terminal.md) and [rc.md](rc.md) before enabling any physical output.

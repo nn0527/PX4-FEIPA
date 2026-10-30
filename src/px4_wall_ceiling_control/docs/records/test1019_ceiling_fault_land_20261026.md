@@ -11,4 +11,4 @@
 - 单独启动守护节点进行未连接状态检查：正常发布 ready=false 和“未核验，禁止新的顶吸接管”；未发送解锁或飞行模式命令。
 - 20:57 后现场检查：`/dev/serial/by-path/wall-fcu` 指向 `ttyUSB0`，飞控通过 CH340 串口连接；MAVROS 仍为 connected=false，vehicle_info_get 无飞控条目。真实飞控参数写入和 AUTO.LAND 行为尚未核验，不能把软件测试当作实飞通过。
 
-规则和参数详见 `docs/behaviors/ceiling_attachment.md`。
+规则和参数详见 `docs/ceiling.md`。

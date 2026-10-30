@@ -1,6 +1,6 @@
 # test1019 验证记录
 
-日期：2026-10-19。分支 `test1019`，基线 `ai_correction` 的 `4ce1b4833d3056720fe16c9cb9d97453957ccf67`。功能说明及台架验收步骤见 [wall_sensor_fusion.md](wall_sensor_fusion.md)。
+日期：2026-10-19。分支 `test1019`，基线 `ai_correction` 的 `4ce1b4833d3056720fe16c9cb9d97453957ccf67`。功能说明及台架验收步骤见 [侧吸行为说明](../wall.md)。
 
 ## 编译与执行环境
 
