@@ -447,6 +447,8 @@ class FlightModeManagerNode(RCTakeoverManager):
             return None
         if self.operator is None or not self.operator.enable_control:
             return None
+        if self.operator.mode == OperatorCommand.MODE_INCLINE:
+            return OperatorCommand.MODE_WALL  # Shared physical output owner.
         if self.operator.mode in (
             OperatorCommand.MODE_CEILING,
             OperatorCommand.MODE_WALL,
@@ -465,6 +467,11 @@ class FlightModeManagerNode(RCTakeoverManager):
                 rospy.logwarn_throttle(5., 'PX4内部失联自动降落参数尚未核验：当前配置仅告警，不因此阻止顶吸接管；实际保护参数以飞控读回为准')
             else:
                 return '顶吸接管被阻止：PX4内部失联自动降落参数尚未核验（需连接飞控并解除武装）'
+        if self._incline_intent():
+            wall = getattr(self, 'wall', None)
+            if (wall is None or not is_fresh(getattr(self, 'wall_at', None), self.status_timeout_s, now)
+                    or not getattr(wall, 'incline_active', False) or not wall.incline_ready):
+                return '斜墙未就绪：请启用模式、标定推力上限并启用自动接近/水平反馈'
         if not self.enabled:
             return "flight mode handover disabled"
         if self.flight is None:
@@ -523,6 +530,8 @@ class FlightModeManagerNode(RCTakeoverManager):
     def _pilot_mode(self, selected=None):
         if getattr(self, "phase", None) == "RC_TAKEOVER":
             return self.rc_takeover_return_mode
+        if self._incline_intent() or getattr(getattr(self, 'wall', None), 'incline_active', False):
+            return 'POSCTL'
         selected = getattr(self,"selected_mode",None) if selected is None else selected
         return getattr(self,"wall_pilot_mode","ALTCTL") if selected == OperatorCommand.MODE_WALL else "POSCTL"
 
@@ -585,14 +594,23 @@ class FlightModeManagerNode(RCTakeoverManager):
             return "吸顶请求已接收：等待新鲜有效里程计；仍由飞手控制POSCTL"
         return "吸顶请求已接收：等待有效竖直速度估计；仍由飞手控制POSCTL"
 
+    def _incline_intent(self):
+        return getattr(getattr(self, 'operator', None), 'mode', None) == OperatorCommand.MODE_INCLINE
 
     def _auto_wall_selected(self):
-        return getattr(self, "wall_auto_approach", False) and self.selected_mode == OperatorCommand.MODE_WALL
+        return (getattr(self, "wall_auto_approach", False) or self._incline_intent()) and self.selected_mode == OperatorCommand.MODE_WALL
 
     def _gated_wall_selected(self):
         return self._manual_wall_selected() or self._auto_wall_selected()
 
     def _wall_takeover_ready(self, now):
+        if self._incline_intent():
+            wall = getattr(self, 'wall', None)
+            return bool(wall is not None and is_fresh(getattr(self, 'wall_at', None), self.status_timeout_s, now)
+                and is_fresh_source(wall.header.stamp, self.status_timeout_s, now, future_tolerance_s=0.)
+                and wall.incline_active and wall.incline_ready and wall.state == WallPerchStatus.STATE_IDLE
+                and wall.front_ready and wall.front_range_fresh and wall.top_range_fresh
+                and wall.horizontal_equilibrium_valid and wall.entry_height_ready)
         if not self._auto_wall_selected():
             return self._manual_wall_ready(now)
         wall = self.wall
@@ -612,7 +630,7 @@ class FlightModeManagerNode(RCTakeoverManager):
                     and self.sensor.front_valid)
 
     def _manual_wall_selected(self):
-        return getattr(self, "wall_manual_approach", False) and self.selected_mode == OperatorCommand.MODE_WALL
+        return not self._incline_intent() and getattr(self, "wall_manual_approach", False) and self.selected_mode == OperatorCommand.MODE_WALL
 
     def _manual_wall_ready(self, now):
         wall = self.wall

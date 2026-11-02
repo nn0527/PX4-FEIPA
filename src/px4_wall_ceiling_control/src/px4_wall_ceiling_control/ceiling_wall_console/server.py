@@ -20,6 +20,7 @@ from .transport import BridgeTransport, backend, PACKAGE
 ASSETS = PACKAGE / "web/ceiling_wall_console"
 ACTIONS = {"/api/acquire": "acquire", "/api/release": "release", "/api/start": "start",
            "/api/ceiling": "ceiling", "/api/ceiling-detach": "ceiling_detach", "/api/stop": "stop", "/api/repair-mavros": "repair_mavros",
+           "/api/incline": "incline", "/api/incline-detach": "incline_detach",
            "/api/wall": "wall", "/api/detach": "detach", "/api/cancel-wait": "cancel_wait", "/api/push": "push"}
 SESSION_IDLE = 180
 

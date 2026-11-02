@@ -47,9 +47,10 @@ from px4_wall_ceiling_control.adapters.wall_detach_braking import WallDetachBrak
 
 from px4_wall_ceiling_control.adapters.wall_simple_recovery import WallSimpleRecoveryMixin
 from px4_wall_ceiling_control.domain.simple_recovery import ENTRY_TILT_DEG
+from px4_wall_ceiling_control.adapters.incline_attachment import InclineAttachmentMixin
 
 
-class WallPerchDecisionNode(WallSimpleRecoveryMixin, WallDetachBrakingMixin, WallDetachVerticalMixin, WallHorizontalVelocityMixin):
+class WallPerchDecisionNode(InclineAttachmentMixin, WallSimpleRecoveryMixin, WallDetachBrakingMixin, WallDetachVerticalMixin, WallHorizontalVelocityMixin):
     STATE_NAMES = {
         WallPerchStatus.STATE_IDLE: "IDLE",
         WallPerchStatus.STATE_FRONT_WALL_DETECT: "FRONT_WALL_DETECT",
@@ -527,6 +528,7 @@ class WallPerchDecisionNode(WallSimpleRecoveryMixin, WallDetachBrakingMixin, Wal
         self.approach_source_timeout_s = float(rospy.get_param(
             "/attachment_output_mux_node/fcu_target_timeout_s", .35))
         publish_rate_hz = float(rospy.get_param("~publish_rate_hz", 50.0))
+        self._init_incline()
         self.timer = rospy.Timer(
             rospy.Duration(1.0 / max(publish_rate_hz, 2.0)), self._on_timer
         )
@@ -858,11 +860,19 @@ class WallPerchDecisionNode(WallSimpleRecoveryMixin, WallDetachBrakingMixin, Wal
                     (height is not None and height > self.min_altitude_m))
 
     def _on_operator(self, message):
-        self.operator = message
-        self.operator_received_at = rospy.Time.now()
+        with getattr(self, 'feedback_lock', nullcontext()):
+            if hasattr(self, 'incline'):
+                self._incline_on_operator(message)
+            self.operator = message
+            self.operator_received_at = rospy.Time.now()
 
     def _on_detach(self, message):
         with getattr(self, 'feedback_lock', nullcontext()):
+            if getattr(self, 'incline_selected', False):
+                if message.data and self.incline.phase == 'HOLD':
+                    self.detach_requested = True
+                    self.detach_requested_at = rospy.Time.now()
+                return  # Do not initialize the wall range-height task.
             if (message.data and self.state == WallPerchStatus.STATE_WALL_HOLD
                     and not self.detach_requested):
                 self.detach_requested = True
@@ -1025,7 +1035,7 @@ class WallPerchDecisionNode(WallSimpleRecoveryMixin, WallDetachBrakingMixin, Wal
             and is_fresh(self.operator_received_at, self.operator_timeout_s, now)
             and self.operator is not None
             and self.operator.enable_control
-            and self.operator.mode == OperatorCommand.MODE_WALL
+            and self.operator.mode in (OperatorCommand.MODE_WALL, OperatorCommand.MODE_INCLINE)
         )
 
     def _front_fresh(self, now):
@@ -2562,6 +2572,11 @@ class WallPerchDecisionNode(WallSimpleRecoveryMixin, WallDetachBrakingMixin, Wal
 
     def _build_status(self, now):
         status = WallPerchStatus()
+        settings = getattr(self, 'incline_settings', None)
+        if settings is not None:
+            status.incline_ready = (not settings.error(self.max_thrust)
+                and self.horizontal_velocity_enabled and self.auto_approach)
+            status.incline_thrust_limit = settings.flip_thrust_max
         status.recover_attitude_locked = getattr(self, 'recover_attitude_locked', False)
         status.recover_stable = getattr(self, 'recover_stable', False)
         status.abort_land_requested = getattr(self, 'abort_land_requested', False)
@@ -2715,6 +2730,7 @@ class WallPerchDecisionNode(WallSimpleRecoveryMixin, WallDetachBrakingMixin, Wal
         candidate.maneuver_id = maneuver_id
         candidate.control_sequence = control_sequence
         candidate.recover_attitude_locked = getattr(status, "recover_attitude_locked", False)
+        candidate.incline_active = getattr(status, "incline_active", False)
         candidate.horizontal_velocity_enabled = status.horizontal_velocity_enabled
         candidate.horizontal_velocity_active = status.horizontal_velocity_active
         candidate.approach_paused = status.approach_paused
@@ -2775,6 +2791,9 @@ class WallPerchDecisionNode(WallSimpleRecoveryMixin, WallDetachBrakingMixin, Wal
                 (now - self.previous_update_at).to_sec(), 0.001, 0.05
             )
         self.previous_update_at = now
+        if getattr(self, 'incline_selected', False):
+            self._incline_cycle(now)
+            return
         self._prepare_vertical_reference(now)
         self._prepare_horizontal_velocity(now)
         self._prepare_horizontal_equilibrium(now)

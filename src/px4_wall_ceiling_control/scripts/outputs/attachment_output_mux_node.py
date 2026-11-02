@@ -38,6 +38,7 @@ from px4_wall_ceiling_control.domain.rc_attitude_assist import (
 from px4_wall_ceiling_control.domain.recovery_attitude_limits import (
     limit_recovery_attitude, axis_yaw, attitude_from_axis_yaw)
 from px4_wall_ceiling_control.domain.ceiling_motion import CeilingMotionSettings, limit_ceiling_attitude
+from px4_wall_ceiling_control.domain.incline_attachment import InclineSettings, InclineAttachment
 from px4_wall_ceiling_control.domain.safety import flight_state_ready
 from px4_wall_ceiling_control.freshness import is_fresh_receipt as is_fresh, is_fresh_source
 from px4_wall_ceiling_control.msg import (
@@ -435,6 +436,18 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
         self.ceiling_candidate_snapshot = (message, now)
 
     def _wall_candidate_problem(self, message, now):
+        if message is not None and getattr(message, 'incline_active', False):
+            settings = self._incline_output_settings()
+            if settings.error(self.max_thrust):
+                return 'incline_configuration_not_ready'
+            if (message.kind != AttachmentControlCandidate.KIND_ATTITUDE_THRUST
+                    or not math.isfinite(message.thrust_normalized)
+                    or message.thrust_normalized > settings.flip_thrust_max + 1e-6):
+                return 'invalid_incline_output'
+        operator = getattr(self, 'operator', None)
+        if message is not None and message.acquire_request and operator is not None:
+            if (operator.mode == OperatorCommand.MODE_INCLINE) != bool(getattr(message, 'incline_active', False)):
+                return 'incline_profile_acquisition_mismatch'
         if message is None or message.source != AttachmentControlCandidate.SOURCE_WALL:
             return "wrong_source"
         if not (getattr(message, "phase_valid", False)
@@ -797,7 +810,7 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
         operator = getattr(self, "operator", None)
         if operator is None or not operator.enable_control:
             return OperatorCommand.MODE_STANDBY
-        return operator.mode
+        return OperatorCommand.MODE_WALL if operator.mode == OperatorCommand.MODE_INCLINE else operator.mode
 
     def _operator_neutral(self, now):
         return self._operator_mode(now) in (
@@ -1353,6 +1366,8 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
         return MAX_TILT_DEG if getattr(control, 'recover_attitude_locked', False) else self.recovery_max_tilt_deg
 
     def _limit_final_recovery_target(self, now, target, source, candidate=None):
+        if candidate is not None and getattr(candidate, 'incline_active', False):
+            return target  # Incline has its own continuous publication envelope.
         # Project only the desired axis here. Continuity is applied later from
         # the last actual publication, never from an unsent projected target.
         control = self._wall_control(now, candidate) if source == AttachmentControlCandidate.SOURCE_WALL else None
@@ -1431,6 +1446,8 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
                 AttachmentControlCandidate.SOURCE_NONE)
 
     def _limit_wall_publication(self, now, target, candidate):
+        if getattr(candidate, 'incline_active', False):
+            return self._limit_incline_publication(now, target, candidate)
         self.wall_publication_slew = None
         phase = candidate.control_phase
         abort = phase == WallPerchStatus.STATE_ABORT
@@ -1520,7 +1537,42 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
         }
         return target
 
+    def _incline_output_settings(self):
+        settings = getattr(self, 'incline_output_settings', None)
+        if settings is None:
+            settings = InclineSettings.read(lambda key, default: rospy.get_param('/incline_attachment/' + key, default))
+            self.incline_output_settings = settings
+        return settings
 
+    def _limit_incline_publication(self, now, target, candidate):
+        settings = self._incline_output_settings()
+        if settings.error(self.max_thrust):
+            return None
+        previous = self._wall_publication_seed(now)
+        if previous is None:
+            self.wall_candidate_rejection = 'incline_continuity_seed_unavailable'
+            return None  # No emergency instantaneous leveling bypass.
+        seed, thrust, stamp, _source = previous
+        dt = min(.05, max(0., (now-stamp).to_sec()))
+        q = tuple(getattr(target.orientation, key) for key in 'xyzw')
+        if InclineAttachment.tilt(q) > math.radians(settings.flip_max_tilt_deg) + 1e-6:
+            self.wall_candidate_rejection = 'incline_target_tilt_exceeds_cap'
+            return None
+        returning = candidate.control_phase in (WallPerchStatus.STATE_DETACH_ROTATE,
+            WallPerchStatus.STATE_RECOVER, WallPerchStatus.STATE_EXIT, WallPerchStatus.STATE_ABORT)
+        rate = settings.detach_max_rate_deg_s if returning else settings.flip_pitch_rate_deg_s
+        distance = quaternion_angle(seed, q)
+        if distance > 1e-9:
+            q = quaternion_slerp(seed, q, min(1., math.radians(rate)*dt/distance))
+        slew = settings.return_thrust_slew_per_s if returning else settings.flip_thrust_ramp_per_s
+        value = max(thrust-slew*dt, min(thrust+slew*dt, target.thrust))
+        # A newly configured cap cannot silently step down an old live output.
+        if thrust > settings.flip_thrust_max + 1e-6:
+            self.wall_candidate_rejection = 'incline_seed_thrust_outside_cap'
+            return None
+        target.orientation = Quaternion(*q)
+        target.thrust = max(self.min_thrust, min(self.max_thrust, settings.flip_thrust_max, value))
+        return target
 
     def _publish_candidate(self, now, candidate):
         wall = candidate.source == AttachmentControlCandidate.SOURCE_WALL
@@ -1536,7 +1588,8 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
             target = self._vertical_attitude_target(
                 now, candidate.velocity_z_enu_mps, candidate.source, candidate if wall else None)
         elif candidate.kind == AttachmentControlCandidate.KIND_ATTITUDE_THRUST:
-            orientation = self._assisted_attitude(now, candidate.attitude_setpoint, candidate.source, candidate)
+            orientation = (candidate.attitude_setpoint if getattr(candidate, 'incline_active', False)
+                else self._assisted_attitude(now, candidate.attitude_setpoint, candidate.source, candidate))
             target = self._attitude_target(now, orientation, candidate.thrust_normalized)
         else:
             return self.OUTPUT_NONE

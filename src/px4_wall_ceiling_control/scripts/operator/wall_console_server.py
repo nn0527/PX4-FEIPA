@@ -334,6 +334,9 @@ class RemoteRuntime:
                      "angles": [math.degrees(v) for v in euler_from_quaternion((q.x, q.y, q.z, q.w))] if finite else None}
         else:
             return
+        if name == "wall":
+            value.update({key: getattr(msg, key) for key in (
+                "incline_active", "incline_ready", "incline_phase", "incline_fault_reason", "incline_thrust_limit")})
         self.state.update(name, finite_json(value))
 
     def roslog(self, msg):
@@ -720,13 +723,47 @@ class RemoteRuntime:
             if not slot["event"].wait(2.5):
                 raise ValueError("未收到吸顶节点回执，执行情况未确认；请检查实时阶段，勿重复点击。若为旧节点，请在落地上锁后重启基础程序")
             reply=slot["reply"]
-            if reply.get("accepted") is not True or reply.get("mode") != 2 or reply.get("enable_control") is not True:
+            if reply.get("accepted") is not True or reply.get("mode") != (5 if command == "incline" else 2) or reply.get("enable_control") is not True:
                 error=ValueError("吸顶节点拒绝："+str(reply.get("reason","未提供原因")))
                 error.command_rejected=True
                 raise error
             return reply
         finally:
             with self.command_ack_lock:self.command_acks.pop(request_id,None)
+
+    def _incline_gate(self, detach=False):
+        snapshot = self.state.snapshot()
+        status = snapshot["status"]
+        required = ("runtime", "state", "wall", "operator", "phase", "owner", "kill", "odom", "estimator")
+        if any(not status.get(key, {}).get("fresh") for key in required):
+            raise ValueError("斜面实时反馈不完整或过期")
+        if not status["runtime"]["value"].get("enabled"):
+            raise ValueError("基础控制链路未启用")
+        flight = status["state"]["value"]
+        wall = status["wall"]["value"]
+        kill = status["kill"]["value"]
+        if not flight.get("connected") or not flight.get("armed") or not kill.get("valid") or kill.get("active"):
+            raise ValueError("斜面启动/脱离需要已解锁飞控和有效急停反馈")
+        if detach:
+            if not (wall.get("incline_active") and wall.get("incline_phase") == "HOLD" and wall.get("detach_ready") and flight.get("mode") == "OFFBOARD"):
+                raise ValueError("斜面未处于可脱离的 HOLD")
+        elif not (wall.get("incline_ready") and flight.get("mode") == "POSCTL" and status["owner"]["value"] == 0 and status["operator"]["value"].get("mode") in (0, 1) and status["phase"]["value"] == "IDLE"):
+            raise ValueError("斜面未标定/未启用，或当前存在控制任务")
+
+    def incline(self):
+        with self.state.lock:
+            self._incline_gate()
+            reply = self._publish_ceiling_request("incline")
+            self.state.event("斜面请求已确认，等待接近准入")
+            return {"message": "斜面节点已接收", "request": reply}
+
+    def incline_detach(self):
+        with self.state.lock:
+            self._incline_gate(detach=True)
+            if not self.publisher or self.publisher.get_num_connections() == 0:
+                raise ValueError("终端节点未订阅，消息未发送")
+            self.publisher.publish("detach")
+            return {"message": "斜面脱离请求已提交，等待 RETURN 反馈"}
 
     def ceiling(self):
         self.state.send_ceiling(self._publish_ceiling_request)
@@ -1155,7 +1192,7 @@ class SSHTransport:
                 raise ValueError("SSH 未连接，操作未发送")
             if action == "stop" and not self.session.get("control"):
                 raise ValueError("需要控制权，终止未发送")
-            if action in ("start", "wall", "detach", "cancel_wait", "rc_takeover") and (not self.push_enabled or not self.session.get("control") or time.monotonic() - self.arrived >= 2):
+            if action in ("start", "wall", "incline", "incline_detach", "detach", "cancel_wait", "rc_takeover") and (not self.push_enabled or not self.session.get("control") or time.monotonic() - self.arrived >= 2):
                 raise ValueError("需要控制权和有效的实时反馈，操作未发送")
             if action == "push":
                 self.push_enabled = bool(config["enabled"])

@@ -63,6 +63,10 @@
 <details class="taskDetails"><summary>侧吸流程与遥控操作说明</summary><p class="muted">翻转、捕获、贴墙保持及大角度回正暂停树莓派水平闭环；回正末段实际倾角≤10°、角速度≤45°/s，收到新光流及水平估计连续有效≥0.30秒后恢复制动。实测总倾角≤5°、水平速度≤0.10 m/s、角速度≤10°/s持续1秒，且原恢复条件满足后请求POSCTL，实际确认后交接。固定右倾补偿取消，目标总倾角和变化率限制保留。光流失效暂停接近并报错；首次进入贴墙保持后暂停PX4光流和测距融合，离墙回平时实测总倾角≤80°请求恢复原值，等待读回和应用缓冲。目标限制不保证实际速度、倾角绝不超限。</p><p id="rangeHeightEvidence" class="muted">等待首帧证据</p><p id="wallFusionReason" class="muted"></p></details>
 </section>
 </section>
+<section class="panel" aria-label="斜面测试台"><h2>斜面 / 吸附与脱离</h2>
+<p>独立斜面参数必须启用并标定推力；POSCTL 稳定后启动，HOLD 时脱离，回平恢复后交回 POSCTL。</p>
+<button id="inclineAction" disabled>启动斜面吸附</button><button id="inclineDetach" disabled>斜面脱离</button>
+<p id="inclineState" role="status">等待斜面反馈</p></section>
 <p id="message" role="status" aria-live="polite">基础程序不会自动解锁或起飞。动作以控制节点反馈为准。</p>
 <div class="layout"><div>
 

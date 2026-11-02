@@ -194,7 +194,17 @@ function rangeView(s,busy=false){
   const active=!!(s.ssh?.connected&&s.session?.feedback_live&&s.session?.push!==false&&wall?.detach_range_height_enabled&&wall.detach_task_phase_name&&wall.detach_task_phase_name!=="NONE");
   return {active,wall};
 }
-if(typeof module!=="undefined")module.exports={view,fresh,wallView,rangeView,maintenanceView,attachmentSummary,ceilingReceipt,ceilingDetailView,ceilingFailsafeView};
+function inclineView(s,busy=false){
+  const live=!!s.session?.feedback_live && !!s.ssh?.connected;
+  const keys=["runtime","state","wall","operator","phase","owner","kill","odom","estimator"];
+  const valid=live && keys.every(k=>fresh(s,k)!==null && fresh(s,k)!==undefined);
+  const wall=valid?fresh(s,"wall"):null,flight=valid?fresh(s,"state"):null,kill=valid?fresh(s,"kill"):null;
+  const safe=valid && !!fresh(s,"runtime")?.enabled && !busy && !!s.session?.control && s.session?.push!==false && flight?.connected && flight?.armed && kill?.valid && !kill?.active;
+  return {canStart:!!(safe && wall?.incline_ready && flight.mode==="POSCTL" && fresh(s,"owner")===0 && [0,1].includes(fresh(s,"operator")?.mode) && fresh(s,"phase")==="IDLE"),
+    canDetach:!!(safe && wall?.incline_active && wall.incline_phase==="HOLD" && wall.detach_ready && flight.mode==="OFFBOARD"),
+    reason:!valid?"斜面反馈过期或缺失":wall?.incline_active?`${wall.incline_phase} · ${wall.reason||""}`:wall?.incline_ready?"斜面已标定就绪，等待启动条件":"斜面未启用或推力未标定"};
+}
+if(typeof module!=="undefined")module.exports={inclineView,view,fresh,wallView,rangeView,maintenanceView,attachmentSummary,ceilingReceipt,ceilingDetailView,ceilingFailsafeView};
 if(typeof document!=="undefined"){
 const $=id=>document.getElementById(id),form=$("config");
 let latest=null,token="",busy=false,recoveryBusy=false,loaded=false,polling=false,wasDetaching=false;
@@ -285,6 +295,7 @@ function paint(s){
   const ages=[["飞控心跳","state"],["里程计 / 姿态","odom"],["估计器","estimator"],["遥控输入","rc"],["急停","kill"],["雷达健康","health"],["顶部距离","ceiling"],["前向距离","front"],["顶吸状态","ceiling_status"],["贴墙状态","wall"],["实际设定值","setpoint"],["基础程序","runtime"]];
   $("ages").replaceChildren(...ages.map(([label,key])=>{const item=s.status?.[key],el=document.createElement("div");el.className="check"+(v.live&&item?.fresh?" ok":"");el.textContent=label+" · "+(paused?"已暂停":!v.live?"连接中断":item?.age_s==null?"未收到":n(item.age_s,2)+" s · "+(item.fresh?"有效":"已过期"));return el;}));
   text("bridgeError",s.ssh?.error||s.launch_error||"");
+  const incline=inclineView(s,busy);$("inclineAction").disabled=!incline.canStart;$("inclineDetach").disabled=!incline.canDetach;$("inclineState").textContent=incline.reason;
   if(s.events?.length)$("events").replaceChildren(...s.events.slice(-18).reverse().map(event=>{const el=document.createElement("div"),time=document.createElement("time"),body=document.createElement("span");el.className="event";time.textContent=new Date(event.time*1000).toLocaleTimeString("zh-CN",{hour12:false});body.textContent=event.text;el.append(time,body);return el;}));
 }
 async function action(path,data={},recovery=false){
@@ -300,6 +311,8 @@ async function action(path,data={},recovery=false){
 }
 $("control").addEventListener("click",()=>action(latest?.session?.control?"/api/release":"/api/acquire"));
 $("push").addEventListener("click",()=>action("/api/push",{enabled:latest?.session?.push===false}));
+$("inclineAction").addEventListener("click",()=>{if(latest&&inclineView(latest,busy).canStart)action("/api/incline");});
+$("inclineDetach").addEventListener("click",()=>{if(latest&&inclineView(latest,busy).canDetach)action("/api/incline-detach");});
 $("wallAction").addEventListener("click",()=>{if(latest&&wallView(latest,busy).canWall)action("/api/wall");});
 $("wallDetach").addEventListener("click",()=>{if(latest&&wallView(latest,busy).canDetach)action("/api/detach");});
 $("mockScenario").addEventListener("change",()=>action("/api/mock-scenario",{scenario:$("mockScenario").value}));

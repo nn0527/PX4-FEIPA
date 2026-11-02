@@ -87,7 +87,7 @@ class SharedBridge:
                     raise ValueError("动作执行中或反馈过期，不能释放控制权")
                 self.owner, self.owner_label = None, ""
                 return {"message": "已释放控制权"}
-            if action not in ("start", "wall", "detach", "ceiling", "ceiling_detach", "cancel_wait", "rc_takeover", "stop", "repair_mavros"):
+            if action not in ("start", "wall", "incline", "incline_detach", "detach", "ceiling", "ceiling_detach", "cancel_wait", "rc_takeover", "stop", "repair_mavros"):
                 raise ValueError("未知操作")
             recovery = (action == "repair_mavros"
                         and (config or {}).get("grounded_confirmed") is True

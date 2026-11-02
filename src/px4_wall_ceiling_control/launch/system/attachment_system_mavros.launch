@@ -69,6 +69,7 @@
             file="$(find px4_wall_ceiling_control)/config/ceiling_attachment.yaml" />
   <rosparam command="load"
             file="$(find px4_wall_ceiling_control)/config/wall_perch.yaml" />
+  <rosparam command="load" file="$(find px4_wall_ceiling_control)/config/incline_attachment.yaml" />
   <rosparam command="load"
             file="$(find px4_wall_ceiling_control)/config/wall_sensor_fusion.yaml" />
   <rosparam command="load"

@@ -60,3 +60,6 @@ bool ceiling_abort_land_requested
 
 # Atomic ceiling phase/feedback gate; leaves wall assistance unchanged.
 bool ceiling_rc_assist_blocked
+
+# Independent incline profile; legacy fields retain meaning.
+bool incline_active

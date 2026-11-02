@@ -203,3 +203,10 @@ geometry_msgs/Quaternion recover_entry_attitude
 float32 detach_final_pitch_deg
 bool recover_stable
 bool abort_land_requested
+
+# Independent incline profile; legacy fields retain meaning.
+bool incline_active
+bool incline_ready
+string incline_phase
+string incline_fault_reason
+float32 incline_thrust_limit

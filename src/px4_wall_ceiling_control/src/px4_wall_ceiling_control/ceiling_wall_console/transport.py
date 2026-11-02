@@ -121,7 +121,7 @@ class BridgeTransport(backend.SSHTransport):
             raise ValueError("测试台已移除独立遥控接管操作")
         # Ground recovery needs the bridge connection, not fresh FCU telemetry
         # or authority cached in this browser. The broker checks it centrally.
-        if action in ("ceiling", "ceiling_detach"):
+        if action in ("ceiling", "ceiling_detach", "incline", "incline_detach"):
             with self.lock:
                 if not self.connected or not self.push_enabled or not self.session.get("control") or time.monotonic() - self.arrived >= 2:
                     raise ValueError("需要控制权和有效实时反馈，操作未发送")
