@@ -2,13 +2,10 @@
 const fresh=(s,key)=>s.status?.[key]?.fresh?s.status[key].value:null;
 function attachmentSummary(s){
   const live=!!s.ssh?.connected&&!!s.session?.feedback_live&&s.session?.push!==false;
-  if(!live)return "遥控选择 / 当前任务：等待实时反馈";
-  const rc=fresh(s,"rc"),selection=fresh(s,"rc_selected_mode"),pwm=rc?.channels?.[7];
-  const names={ceiling:"吸顶",wall:"侧吸",unavailable:"未就绪"};
-  const selected=rc&&names[selection]?names[selection]:"未就绪";
-  const mode=fresh(s,"operator")?.mode,owner=fresh(s,"owner");
-  const active=owner===1||mode===2?"吸顶":owner===2||mode===3?"侧吸":mode===1&&owner===0?"待命":"未确认";
-  return "CH8 "+(Number.isFinite(pwm)?pwm:"—")+" · CH12下次启动选择："+selected+"；当前任务："+active+"。CH8低值选吸顶、高值选侧吸；网页按钮直接指定对应任务。";
+  if(!live)return "模式来源：测试台 · 当前任务：等待实时反馈";
+  const mode=fresh(s,"operator")?.mode,owner=fresh(s,"owner"),wall=fresh(s,"wall");
+  const active=mode===5||(owner===2&&wall?.incline_active)?"斜面":owner===1||mode===2?"吸顶":owner===2||mode===3?"侧吸":mode===1&&owner===0?"待命":"未确认";
+  return "模式来源：测试台 · 当前任务："+active+"。CH8不参与选择；测试台启动任务后，CH12可请求脱离，顶吸恢复后仍用CH12确认交回。";
 }
 function ceilingReceipt(s){
   const live=!!s.ssh?.connected&&!!s.session?.feedback_live&&s.session?.push!==false;

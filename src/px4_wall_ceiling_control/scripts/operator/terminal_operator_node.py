@@ -34,7 +34,8 @@ class TerminalOperatorNode:
         self.rc_wall_channel_index = int(rospy.get_param("~rc_wall_channel_index", 11))
         if self.rc_wall_channel_index < 0:
             raise ValueError("rc_wall_channel_index must be nonnegative")
-        self.rc_mode_selector_enabled = bool(rospy.get_param("~rc_mode_selector_enabled", True))
+        self.console_mode_only = bool(rospy.get_param("~console_mode_only", True))
+        self.rc_mode_selector_enabled = (not self.console_mode_only and bool(rospy.get_param("~rc_mode_selector_enabled", False)))
         self.rc_mode_channel_index = int(rospy.get_param("~rc_mode_channel_index", 7))
         if self.rc_mode_channel_index < 0 or self.rc_mode_channel_index == self.rc_wall_channel_index:
             raise ValueError("mode selection and trigger channels must be distinct and nonnegative")
@@ -270,9 +271,11 @@ class TerminalOperatorNode:
             self.detaching = False
 
     def _on_wall_toggle(self):
+        if getattr(self, 'console_mode_only', False) and self.mode == OperatorCommand.MODE_STANDBY:
+            return  # CH12 cannot select/start a default task in console-only mode.
         if self._request_ceiling_handover(rospy.Time.now()):
             return
-        if getattr(self, 'rc_mode_selector_enabled', False):
+        if getattr(self, 'console_mode_only', False) or getattr(self, 'rc_mode_selector_enabled', False):
             return self._on_attachment_toggle()
         return self._on_legacy_wall_toggle()
 

@@ -171,3 +171,7 @@ if(CATKIN_ENABLE_TESTING)
   catkin_add_nosetests(test/test_incline_integration.py)
   catkin_add_nosetests(test/test_incline_console.py)
 endif()
+
+if(CATKIN_ENABLE_TESTING)
+  catkin_add_nosetests(test/test_console_only_rc.py)
+endif()

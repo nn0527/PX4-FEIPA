@@ -1,7 +1,7 @@
 <launch>
   <arg name="rc_wall_toggle_enabled" default="true" />
   <arg name="rc_wall_channel_index" default="11" />
-  <arg name="rc_mode_selector_enabled" default="true" />
+  <arg name="rc_mode_selector_enabled" default="false" />
   <arg name="rc_mode_channel_index" default="7" />
   <arg name="rc_mode_up_is_high" default="false" />
   <!-- Real MAVROS output: use only after sensor, frame and thrust calibration. -->
