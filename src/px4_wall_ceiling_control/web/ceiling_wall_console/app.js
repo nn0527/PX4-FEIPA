@@ -204,7 +204,16 @@ function inclineView(s,busy=false){
     canDetach:!!(safe && wall?.incline_active && wall.incline_phase==="HOLD" && wall.detach_ready && flight.mode==="OFFBOARD"),
     reason:!valid?"斜面反馈过期或缺失":wall?.incline_active?`${wall.incline_phase} · ${wall.reason||""}`:wall?.incline_ready?"斜面已标定就绪，等待启动条件":"斜面未启用或推力未标定"};
 }
-if(typeof module!=="undefined")module.exports={inclineView,view,fresh,wallView,rangeView,maintenanceView,attachmentSummary,ceilingReceipt,ceilingDetailView,ceilingFailsafeView};
+function modeSelection(s,selected="ceiling"){
+  const names={2:"ceiling",3:"wall",5:"incline"};
+  const live=!!s.ssh?.connected && !!s.session?.feedback_live && s.session?.push!==false;
+  const phase=fresh(s,"phase"),owner=fresh(s,"owner"),operator=fresh(s,"operator"),wall=fresh(s,"wall");
+  const active=wall?.incline_active && !["WAIT","ABORT_DONE"].includes(wall.incline_phase)?"incline":names[operator?.mode] || (owner===1?"ceiling":owner===2?(wall?.incline_active?"incline":"wall"):null);
+  const locked=!live || phase===null || owner===null || !operator || !!active || owner!==0 || phase!=="IDLE";
+  return {selected:active||(["ceiling","wall","incline"].includes(selected)?selected:"ceiling"),locked,
+    reason:!live?"实时反馈不可用，等待确认当前任务":active?"当前任务执行中，完成交回后可切换模式":locked?"等待控制链路待命":"选择模式后，在对应面板启动；选择本身不会发送动作。"};
+}
+if(typeof module!=="undefined")module.exports={modeSelection,inclineView,view,fresh,wallView,rangeView,maintenanceView,attachmentSummary,ceilingReceipt,ceilingDetailView,ceilingFailsafeView};
 if(typeof document!=="undefined"){
 const $=id=>document.getElementById(id),form=$("config");
 let latest=null,token="",busy=false,recoveryBusy=false,loaded=false,polling=false,wasDetaching=false;
@@ -213,6 +222,9 @@ const n=(v,d=2)=>typeof v==="number"&&Number.isFinite(v)?v.toFixed(d):"—";
 const summarize=items=>items.slice(0,2).join("；")+(items.length>2?"（另有 "+(items.length-2)+" 项，见贴墙就绪检查）":"");
 const tell=(v,error=false)=>{text("message",v);$("message").classList.toggle("error",error);};
 function paint(s){
+  const selected=modeSelection(s,$("attachmentMode").value);
+  $("attachmentMode").value=selected.selected;$("attachmentMode").disabled=selected.locked||busy||recoveryBusy;$("attachmentModeReason").textContent=selected.reason;
+  document.querySelectorAll("[data-attachment-mode]").forEach(panel=>{panel.hidden=panel.dataset.attachmentMode!==selected.selected;});
   latest=s;token=s.token||"";const v=view(s,busy||recoveryBusy),w=wallView(s,busy||recoveryBusy),paused=s.session?.push===false,m=maintenanceView(s,busy,recoveryBusy);
   $("dot").classList.toggle("live",v.live);text("connection",paused?"实时反馈已暂停":v.live?"实时反馈已连接":"实时反馈未连接");text("host",s.ssh?.host||"树莓派 ROS1 · SSH");
   text("session",(s.session?.control?"本机为控制端":s.session?.owner?"本机为观察端 · 当前控制端："+s.session.owner:"本机为观察端 · 申请控制权后可操作")+" · 在线 "+(s.session?.clients||0)+" 台"+(paused?" · 反馈暂停中":""));
@@ -309,6 +321,7 @@ async function action(path,data={},recovery=false){
   }catch(error){tell(error.name==="TimeoutError"?"回执超时，执行结果未知；请核对实时状态，页面不会自动重发":error.message,true);}
   finally{if(recovery)recoveryBusy=false;else busy=false;await poll();}
 }
+$("attachmentMode").addEventListener("change",()=>{if(latest)paint(latest);});
 $("control").addEventListener("click",()=>action(latest?.session?.control?"/api/release":"/api/acquire"));
 $("push").addEventListener("click",()=>action("/api/push",{enabled:latest?.session?.push===false}));
 $("inclineAction").addEventListener("click",()=>{if(latest&&inclineView(latest,busy).canStart)action("/api/incline");});

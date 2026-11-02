@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#2e644b"><meta name="apple-mobile-web-app-capable" content="yes"><link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icon-192.png"><link rel="icon" href="/icon.svg"><title>ceiling_wall_console · 顶吸与侧吸测试台</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#2e644b"><meta name="apple-mobile-web-app-capable" content="yes"><link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icon-192.png"><link rel="icon" href="/icon.svg"><title>ceiling_wall_console · 顶吸、侧吸与斜面测试台</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
 <body>
-<header><div><div class="eyebrow">CEILING + WALL / 飞行实验</div><h1>ceiling_wall_console</h1><p>统一配置，分别执行顶吸、贴墙与脱离测试。</p><p><a href="/connect">切换控制台 IP</a></p></div><div class="connection"><i id="dot"></i><div><strong id="connection">正在连接</strong><small id="host">树莓派 ROS1 · SSH</small></div></div></header>
+<header><div><div class="eyebrow">CEILING + WALL / 飞行实验</div><h1>ceiling_wall_console</h1><p>统一配置，选择顶吸、侧吸或斜面，分别执行吸附与脱离测试。</p><p><a href="/connect">切换控制台 IP</a></p></div><div class="connection"><i id="dot"></i><div><strong id="connection">正在连接</strong><small id="host">树莓派 ROS1 · SSH</small></div></div></header>
 <main>
 <section id="offlinePanel" class="panel offlinePanel" hidden><strong>离线模拟 · 不连接 ROS、Docker 或树莓派</strong><p>用于页面和接口开发，模拟值不代表真实飞行效果。申请控制权后可切换场景。</p><label for="mockScenario">预览场景</label><select id="mockScenario" disabled></select></section>
 <section class="session"><span id="session">等待控制服务</span><div class="sessionActions"><button id="push" disabled>暂停实时反馈</button><button id="control" disabled>申请控制权</button></div></section>
@@ -19,8 +19,11 @@
 </div>
 
 </section>
+<section class="panel modeSelection"><label for="attachmentMode">选择测试模式</label>
+<select id="attachmentMode" aria-describedby="attachmentModeReason"><option value="ceiling">顶吸</option><option value="wall">侧吸</option><option value="incline">斜面</option></select>
+<p id="attachmentModeReason" role="status">选择模式后，在对应面板启动；选择本身不会发送动作。</p></section>
 <section class="testPanels" aria-label="顶吸与侧吸测试">
-<section class="panel ceilingOperations taskPanel" aria-label="顶吸吸附与脱离操作">
+<section class="panel ceilingOperations taskPanel" data-attachment-mode="ceiling" aria-label="顶吸吸附与脱离操作">
 <div class="sectionHeading taskHeading"><h2>顶吸 / 吸附与脱离</h2><span class="badge">POSCTL 入口与交回</span></div>
 <p class="taskIntro">POSCTL 稳定后启动；离顶恢复后保持高度与 XY 闭环，稳定后由 CH12 确认交回。</p>
 <div class="taskActions">
@@ -41,7 +44,7 @@
 <div class="taskDetails" aria-label="飞控失联保护核验"><strong>飞控失联保护：<span id="ceilingFailsafeState">未核验</span></strong><p id="ceilingFailsafeRC" class="muted">COM_OBL_RC_ACT：目标 4，等待读回</p><p id="ceilingFailsafeLoss" class="muted">COM_OF_LOSS_T：目标 2.0 s，等待读回</p><p id="ceilingFailsafeReason" class="muted" role="status">等待核验反馈</p></div>
 <details class="taskDetails"><summary>顶吸流程与遥控操作说明</summary><p>CH8低值（≤1200）选顶吸、高值（≥1800）选侧吸；CH12第一次提交所选请求、保持时第二次请求脱离，也可使用上方对应按钮。提交顶吸请求后仍由飞手控制POSCTL，控制节点等待有效顶部测距及估计器、平衡基准等接管条件，不限制在1 m以内。接管后从当前高度按顶距闭环上升，最大目标速度0.15 m/s，接近顶部连续减速；有效顶距≤6.7 cm时直接使用保持推力0.55，停止主动上升，不因顶距更小而减推力；速度、姿态及新鲜距离反馈持续稳定后进入保持。保持推力目标0.55，保持时等待遥控器脱离请求；已发出的脱离请求或反馈异常时进入安全降落流程，以飞控实际模式确认。</p><p>脱离先请求机构释放，以脱离开始时的当前PX4融合高度锁定下降0.40 m目标，按剩余距离减速、速度PI调节推力，高度和速度连续稳定后恢复悬停；仅在DETACH阶段下降超过1.50 m时中止。高度与竖直速度采用 PX4 融合里程计，测距参与有效性检查，气压仅作辅助对照，不作为正常达标门槛。允许阶段摇杆可微调横滚/俯仰：人工修正时减弱位置回拉、暂停积分；回中后平滑恢复。恢复交回还需本轮遥控反馈有效、微调消退和位置权重恢复。恢复后保持高度与 XY 闭环，允许受限遥控修正；高度控制范围为目标 ±10 cm，交回允许 ±15 cm，并同时满足速度、姿态与连续稳定条件；第三次 CH12 确认后才请求交回，最终以飞控 POSCTL 及控制权释放确认完成。</p></details>
 </section>
-<section class="panel wallOperations taskPanel" aria-label="侧吸吸附与脱离操作">
+<section class="panel wallOperations taskPanel" data-attachment-mode="wall" hidden aria-label="侧吸吸附与脱离操作">
 <div class="sectionHeading taskHeading"><h2>侧吸 / 吸附与脱离</h2><span class="badge">POSCTL 入口与交回</span></div>
 <p class="taskIntro">POSCTL 稳定后启动；保持时请求离墙，脱离回正稳定后自动请求交回 POSCTL。</p>
 <div class="taskActions">
@@ -63,7 +66,7 @@
 <details class="taskDetails"><summary>侧吸流程与遥控操作说明</summary><p class="muted">翻转、捕获、贴墙保持及大角度回正暂停树莓派水平闭环；回正末段实际倾角≤10°、角速度≤45°/s，收到新光流及水平估计连续有效≥0.30秒后恢复制动。实测总倾角≤5°、水平速度≤0.10 m/s、角速度≤10°/s持续1秒，且原恢复条件满足后请求POSCTL，实际确认后交接。固定右倾补偿取消，目标总倾角和变化率限制保留。光流失效暂停接近并报错；首次进入贴墙保持后暂停PX4光流和测距融合，离墙回平时实测总倾角≤80°请求恢复原值，等待读回和应用缓冲。目标限制不保证实际速度、倾角绝不超限。</p><p id="rangeHeightEvidence" class="muted">等待首帧证据</p><p id="wallFusionReason" class="muted"></p></details>
 </section>
 </section>
-<section class="panel" aria-label="斜面测试台"><h2>斜面 / 吸附与脱离</h2>
+<section class="panel inclineOperations taskPanel" data-attachment-mode="incline" hidden aria-label="斜面测试台"><h2>斜面 / 吸附与脱离</h2>
 <p>独立斜面参数必须启用并标定推力；POSCTL 稳定后启动，HOLD 时脱离，回平恢复后交回 POSCTL。</p>
 <button id="inclineAction" disabled>启动斜面吸附</button><button id="inclineDetach" disabled>斜面脱离</button>
 <p id="inclineState" role="status">等待斜面反馈</p></section>
@@ -83,5 +86,5 @@
 </form><p class="muted">启动请求通过后保存，下次自动载入。运行时显示现场配置；更改参数需先落地并停止链路。悬停推力使用实测值。</p></section>
 <section class="panel"><h2>顶吸入口检查</h2><div id="checks"><p class="muted">等待反馈</p></div><p class="muted">顶吸、脱离沿用现有程序参数。有效顶部测距支持任意距离准入，按顶距减速上升，≤6.7 cm进入接触确认，稳定后才保持；离顶以当前高度减0.40 m为目标，高度与速度连续稳定后恢复悬停，继续高度与 XY 闭环；DETACH阶段下降超过1.50 m进入ABORT；第三次 CH12 确认后请求交回，以飞控确认 POSCTL 为准。</p></section>
 <section class="panel"><h2>贴墙就绪检查</h2><div id="wallChecks"><p class="muted">等待反馈</p></div></section><section class="panel"><h2>数据新鲜度</h2><div id="ages"><p class="muted">等待反馈</p></div><p id="bridgeError" class="error" role="status"></p></section>
-</aside></div></main><footer>ceiling_wall_console · 顶吸与侧吸测试台 · 实时 ROS 反馈 · 断线不重放动作</footer>
+</aside></div></main><footer>ceiling_wall_console · 顶吸、侧吸与斜面测试台 · 实时 ROS 反馈 · 断线不重放动作</footer>
 </body></html>

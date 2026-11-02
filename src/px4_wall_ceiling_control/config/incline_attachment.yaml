@@ -1,16 +1,16 @@
 # Independent incline profile, executed by wall_perch_decision_node on the
 # existing wall transport. No second MAVROS setpoint publisher is started.
 incline_attachment:
-  enabled: false
+  enabled: true
   # Fixed conservative friction must be calibrated; zero disables feasibility checks.
   friction_coefficient: 0.0
   contact_pitch_bias_deg: 0.0
   normal_margin_ratio: 0.05
   estimate_min_travel_m: 0.08
   estimate_max_residual_m: 0.005
-  # Required calibration: replace 0 with a verified cap, then enable explicitly.
+  # User-selected cap: equal to the wall profile total thrust cap (0.85).
   # Must exceed the captured approach thrust and not exceed the global mux cap.
-  flip_thrust_max: 0.0
+  flip_thrust_max: 0.85
   front_ready_distance_m: 0.50
   front_ready_hold_s: 0.40
   flip_trigger_distance_m: 0.10
