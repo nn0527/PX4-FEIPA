@@ -1,7 +1,8 @@
 # 侧吸行为（贴墙）
 
 本文是侧吸行为的唯一说明，覆盖前距触发、翻转门限、压墙保持、水平速度环、融合参数
-切换与脱离恢复入口。脱离后的分支策略见 [behaviors](behaviors.md)。
+切换与脱离恢复入口。脱离后的分支策略见 [behaviors](behaviors.md)；两篇合并后的完整
+流程图见第 8 节。
 
 - 决策：`scripts/decisions/wall_perch_decision_node.py`
 - 融合参数管理：`scripts/sensors/wall_sensor_fusion_manager_node.py`
@@ -123,7 +124,125 @@ PX4 `WALL_PIN` 的裸电机旁路，即使启用也只生成受 `max_thrust` 限
 - **参数确认与应用缓冲都不能证明实际融合已经开始**，必须用 ULog 核对光流 aid source、
   测距高度/地形状态与样本时间。
 
-## 8. 接口与状态
+## 8. 逻辑流程图
+
+下图把本文的接近、翻转、压墙与融合切换，与 [behaviors](behaviors.md) 的脱离、恢复、
+异常续接、手动回正和自动降落分支合并成一条完整链路。图中数值取自
+`config/wall_perch.yaml` 当前快照；`detach_range_height_enabled=true` 的测距离墙路径
+与终端入口的姿态支撑路径共用同一状态序列，差异只在 8.2 的竖直控制来源。
+
+### 8.1 状态机主流程
+
+```mermaid
+flowchart TD
+    REQ(["CH8 选择侧吸<br/>+ 操作请求 enable_control"])
+    ADM{"进入准入<br/>高度高于 min_altitude_m<br/>飞控/里程计/急停输入新鲜<br/>融合参数就绪（仅测试台）<br/>本次 OFFBOARD 接管已确认"}
+    IDLE["IDLE 贴墙待命<br/>不持有 owner"]
+    FD["FRONT_WALL_DETECT<br/>等待前距条件"]
+    AP["SLOW_APPROACH<br/>悬停基准前倾 3°<br/>测试台：前向 0.05／0.10 m/s 速度环，横向 0"]
+    FL["FLIP_TO_WALL<br/>2.00 s 五次曲线，推力 ≈0.66"]
+    CA["WALL_CAPTURE<br/>等待实测倾角达标，最多 8 s"]
+    HL["WALL_HOLD<br/>压墙保持，hold_time_s=0，不会自动脱离"]
+    AB["ABORT<br/>记录原因，停止新指令，保留恢复责任"]
+    DR["DETACH_ROTATE<br/>离墙回平（内部时序见 8.2）"]
+    RC["RECOVER<br/>水平修正与稳定判定"]
+    EX["EXIT<br/>保持水平目标，等待模式交接"]
+    LAND["AUTO.LAND 分支<br/>锁存 abort_land_requested"]
+    STOP["停止 ROS 姿态推力输出"]
+
+    REQ --> ADM
+    ADM -->|"不满足"| IDLE
+    IDLE -.->|"每周期重新判定"| ADM
+    ADM -->|"自动接近入口"| AP
+    ADM -->|"手动接近入口"| FD
+
+    FD -->|"前距 ≤0.50 m，新样本连续 0.40 s"| AP
+    FD -->|"安全检查失效"| AB
+    AP -->|"单帧新鲜有效前距 ≤0.20 m"| FL
+    AP -->|"接近阶段前距 ＞1.8 m（有效帧）<br/>20 s 接近总限时<br/>安全检查失效"| AB
+    FL -->|"轨迹完成 + 实测俯仰 ≥80°"| HL
+    FL -->|"轨迹完成 + 实测俯仰 ＜80°"| CA
+    FL -->|"墙钟 6 s 超时 / 时钟倒退 / 安全检查失效"| AB
+    CA -->|"实测俯仰 ≥80°"| HL
+    CA -->|"8 s 超时 / 安全检查失效"| AB
+
+    HL -.->|"50 Hz 压力环"| HP["顶部距离 ＞0.05±0.01 m → 推力 +0.03/s，上限 0.75<br/>恢复接触或过紧 → −0.05/s 回 0.735<br/>首次进入：保存并异步置 0：EKF2_OF_CTRL、EKF2_RNG_CTRL"]
+    HL -->|"操作员停轮 + 脱离请求"| DG{"脱离准入"}
+    DG -->|"测距离墙：姿态/估计器/OFFBOARD/最终输出有效<br/>非测距路径：轴偏差 ≤15°、各轴 ≤25°/s、稳定 ≥0.5 s"| DR
+    DG -->|"不满足"| WT["保持 HOLD 等待<br/>请求 8 s 未准入则取消，可重试"]
+    WT --> HL
+    HL -->|"顶部距离 ＞0.10 m 持续 0.50 s（手动回正关闭时）<br/>收到 cancel / 释放侧吸 / 安全检查失效"| AB
+
+    DR --> DN{"轨迹完成<br/>目标为零且整段结束<br/>实测有符号 pitch 判定"}
+    DN -->|"总倾角 ＜10° 且 pitch ≥0°"| RC
+    DN -->|"总倾角 ≥10°（10 s 内）"| WTL["继续等待实测回平<br/>不重发指令"]
+    WTL --> DN
+    DN -->|"pitch ＜0°"| LAND
+    DN -->|"10 s 总超时 / 制动或垂直控制故障 / 安全输入失效"| AB
+
+    RC -->|"倾角 ≤10°、角速度 ≤20°/s 连续 0.50 s<br/>≥2 个新源样本、高度就位、水平降权解锁"| EX
+    RC -->|"15 s 恢复超时 / 传感器或飞行故障"| AB
+    EX -->|"实际 ALTCTL／POSCTL 反馈确认"| IDLE
+    EX -->|"仍在 OFFBOARD 且高度或离墙门限被撤销"| RC
+    AB -->|"姿态、高度、角速度判据满足"| EX
+    LAND -->|"AUTO.LAND 反馈确认 / 已解除武装"| IDLE
+    LAND -->|"外部模式接管"| STOP
+```
+
+### 8.2 DETACH_ROTATE 内部时序
+
+```mermaid
+flowchart TD
+    S["进入 DETACH_ROTATE<br/>继承最后实际发布的姿态/推力与压墙推力"]
+    RW["REQUEST_WAIT<br/>等待姿态、估计器、OFFBOARD 与最终输出"]
+    RO["ROTATE 回平<br/>3.0 s 五次曲线，跟踪误差 30° 内推进，单步 ≤0.05 s"]
+    BK["动态制动重规划<br/>实测倾角 ≤30° 首次锁存后才接入"]
+    WL["WAIT_LEVEL<br/>禁止水平速度环覆盖制动姿态"]
+    LS["LEVEL_STABLE<br/>曲线完成且倾角 ≤5°、角速度 ≤10°/s 持续 0.30 s"]
+    SUP["SUPPORT 仅姿态推力支撑<br/>无高度/速度闭环，无积分"]
+    WO["WAIT_OUTPUT<br/>速度未建立时沿用受限支撑"]
+    RP["RANGE_P<br/>测距高度比例段"]
+    RPD["RANGE_PD<br/>clamp 0.15·Δh − 0.10·v，±0.12"]
+    RL["RANGE_LOSS_SUPPORT<br/>受限保持 ≤2 s，禁止退回局部 Z"]
+    PR["恢复融合参数：EKF2_RNG_CTRL → EKF2_OF_CTRL<br/>1.2 s 应用缓冲 + 按名读回校验"]
+    HZ{"高度残差 ＞0.25 m"}
+    HC["有界续接：仅姿态支撑<br/>单次 ≤1.2 s、累计 ≤1.5 s"]
+    HB["0.30 s 平滑恢复闭环<br/>同步更新高度基准"]
+    FAIL(["进入 ABORT"])
+    COMP(["目标为零且整段结束：轨迹完成<br/>按 8.1 的有符号 pitch 分支判定"])
+
+    S --> RW
+    RW -->|"准入通过"| RO
+    RO -->|"实测倾角 ≤30°"| BK
+    BK --> WL
+    WL --> LS
+    LS --> COMP
+    RO -.->|"测距锁定前"| SUP
+    SUP -->|"首个倾角 ≤10° 的合格测距"| RP
+    RP --> RPD
+    SUP -.->|"快速速度反馈未建立"| WO
+    RPD -.->|"测距短时失效"| RL
+    RL --> RPD
+    S -.->|"进入脱离时实测倾角 ≤80°"| PR
+    RO -.->|"制动或支撑期间残差越限"| HZ
+    HZ -->|"倾角 ≤30° 且输入有效"| HC
+    HC -->|"确认：0.30 s、≥4 个新样本、单步残差 ≤0.05 m、竖直速度 ≤0.20 m/s、倾角 ≤10°"| HB
+    HB --> RO
+    HC -->|"预算耗尽或确认失败"| FAIL
+```
+
+### 8.3 中止与交回约定
+
+- `ABORT` 只表示本条链路退回恢复路径，不代表物理脱离已完成。`abort_land_requested`
+  一旦锁存就跳过正常 `ABORT → EXIT` 交回，只等实际 `AUTO.LAND` 反馈或解除武装。
+- `EXIT` 期间仍持续发布水平姿态与推力目标，直到新鲜飞控反馈确认模式已离开
+  `OFFBOARD`；owner 释放、服务返回成功、`mode_sent` 都不能代替模式反馈。
+- 参数切换只在本次运行内有效：关闭顺序光流 → 测距，恢复顺序测距 → 光流；恢复后需
+  1.2 s 应用缓冲并按名读回校验，参数确认不等于 PX4 已开始融合。
+- 防重复翻转：一次动作结束后必须先释放请求才能重新进入 `FRONT_WALL_DETECT`；
+  执行中被释放、收到 `cancel` 或安全检查失效一律走 `ABORT`。
+
+## 9. 接口与状态
 
 | 话题 | 方向 | 说明 |
 |---|---|---|
@@ -140,7 +259,7 @@ PX4 `WALL_PIN` 的裸电机旁路，即使启用也只生成受 `max_thrust` 限
 
 `/wall_perch/sensor_fusion_status`、`/wall_perch/sensor_fusion_operation` 由融合管理节点发布。
 
-## 9. 尚未验证
+## 10. 尚未验证
 
 - `wall_angle_deg=+90` 与正俯仰方向一致，但只有 +45° 经台架确认；完整 90° 幅度、
   翻转时间与推力仍需实测。

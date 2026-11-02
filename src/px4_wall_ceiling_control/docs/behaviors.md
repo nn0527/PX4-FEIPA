@@ -3,6 +3,8 @@
 本文汇总两个行为在“结束阶段”的分支策略：侧吸 `DETACH_ROTATE / RECOVER / EXIT`、
 吸顶 `DETACH / RECOVERY_HOVER / NORMAL_FLIGHT`，以及脱离过程中的异常续接、
 制动、手动回正和自动降落分支。正常流程本身见 [ceiling](ceiling.md) 与 [wall](wall.md)。
+侧吸与吸顶的完整状态与分支流程图已合并到 [wall](wall.md) 第 8 节和
+[ceiling](ceiling.md) 第 8 节。
 
 ## 1. 侧吸脱离的两段垂直控制
 

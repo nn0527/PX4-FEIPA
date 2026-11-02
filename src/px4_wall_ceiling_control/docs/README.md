@@ -6,8 +6,8 @@
 | 文档 | 内容 |
 |---|---|
 | [architecture.md](architecture.md) | 分层职责、话题契约、安全不变量、坐标边界 |
-| [ceiling.md](ceiling.md) | 吸顶：入口、状态阶段、顶距估算、保持/脱离/恢复、CH12 交回 |
-| [wall.md](wall.md) | 侧吸：接近与翻转门限、压墙保持、水平速度环、融合参数切换 |
+| [ceiling.md](ceiling.md) | 吸顶：入口、状态阶段、顶距估算、保持/脱离/恢复、CH12 交回、ceiling + behaviors 合并逻辑流程图 |
+| [wall.md](wall.md) | 侧吸：接近与翻转门限、压墙保持、水平速度环、融合参数切换、wall + behaviors 合并逻辑流程图 |
 | [behaviors.md](behaviors.md) | 分支行为：两段垂直控制、离墙 demo、动态制动、异常续接、手动回正、自动降落分支 |
 | [sensors.md](sensors.md) | 两路 L1、校验与健康话题、错误码、自动飞行记录与解释规则 |
 | [rc.md](rc.md) | 通道分配、CH8/CH12、急停、遥控修正、未解锁启动手势、一键接管 |
