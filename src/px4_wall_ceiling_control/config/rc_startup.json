@@ -5,7 +5,7 @@
     "ceiling_port": "/dev/serial/by-path/wall-top",
     "front_port": "/dev/serial/by-path/wall-front",
     "baud": 230400,
-    "hover_thrust": 0.49,
+    "hover_thrust": 0.48,
     "test_profile": "flight"
   },
   "stop_ch12_enabled": true
