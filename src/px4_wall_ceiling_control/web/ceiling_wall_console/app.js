@@ -204,6 +204,18 @@ function inclineView(s,busy=false){
     canDetach:!!(safe && wall?.incline_active && wall.incline_phase==="HOLD" && wall.detach_ready && flight.mode==="OFFBOARD"),
     reason:!valid?"斜面反馈过期或缺失":wall?.incline_active?`${wall.incline_phase} · ${wall.reason||""}`:wall?.incline_ready?"斜面已标定就绪，等待启动条件":"斜面未启用或推力未标定"};
 }
+function inclineDetails(s){
+  const live=!!s.ssh?.connected && !!s.session?.feedback_live && s.session?.push!==false;
+  const wall=live?fresh(s,"wall"):null,flight=live?fresh(s,"state"):null;
+  const active=!!wall?.incline_active;
+  const phase=active?wall.incline_phase:"WAIT";
+  const names={WAIT:"等待斜面启动",APPROACH:"低速接近斜面",SLOW_FLIP:"慢速翻转",CONTACT_SETTLE:"接触稳定确认",HOLD:"斜面保持",RETURN:"受控回平",RECOVER:"恢复悬停",EXIT:"等待交回 POSCTL",LAND:"故障交接 / 降落",ABORT_DONE:"任务已释放"};
+  const phases=["WAIT","APPROACH","SLOW_FLIP","CONTACT_SETTLE","HOLD","RETURN","RECOVER","EXIT"];
+  const returned=!!(active && ["EXIT","ABORT_DONE"].includes(phase) && (wall.detach_completed||wall.recovery_completed) && !wall.fault_detected && flight?.mode==="POSCTL" && fresh(s,"owner")===0 && fresh(s,"phase")==="IDLE");
+  const step=!wall?-1:returned?7:active?phases.indexOf(phase):0;
+  return {wall,active,phase,step,returned,stage:!wall?"等待斜面反馈":returned?"已交还遥控":names[phase]||phase,
+    reason:!wall?"斜面实时反馈缺失或过期":active?(wall.incline_fault_reason||wall.reason||names[phase]):wall.incline_ready?"斜面已就绪，等待启动条件":"等待启用斜面及有效配置"};
+}
 function modeSelection(s,selected="ceiling"){
   const names={2:"ceiling",3:"wall",5:"incline"};
   const live=!!s.ssh?.connected && !!s.session?.feedback_live && s.session?.push!==false;
@@ -213,7 +225,7 @@ function modeSelection(s,selected="ceiling"){
   return {selected:active||(["ceiling","wall","incline"].includes(selected)?selected:"ceiling"),locked,
     reason:!live?"实时反馈不可用，等待确认当前任务":active?"当前任务执行中，完成交回后可切换模式":locked?"等待控制链路待命":"选择模式后，在对应面板启动；选择本身不会发送动作。"};
 }
-if(typeof module!=="undefined")module.exports={modeSelection,inclineView,view,fresh,wallView,rangeView,maintenanceView,attachmentSummary,ceilingReceipt,ceilingDetailView,ceilingFailsafeView};
+if(typeof module!=="undefined")module.exports={inclineDetails,modeSelection,inclineView,view,fresh,wallView,rangeView,maintenanceView,attachmentSummary,ceilingReceipt,ceilingDetailView,ceilingFailsafeView};
 if(typeof document!=="undefined"){
 const $=id=>document.getElementById(id),form=$("config");
 let latest=null,token="",busy=false,recoveryBusy=false,loaded=false,polling=false,wasDetaching=false;
@@ -307,7 +319,19 @@ function paint(s){
   const ages=[["飞控心跳","state"],["里程计 / 姿态","odom"],["估计器","estimator"],["遥控输入","rc"],["急停","kill"],["雷达健康","health"],["顶部距离","ceiling"],["前向距离","front"],["顶吸状态","ceiling_status"],["贴墙状态","wall"],["实际设定值","setpoint"],["基础程序","runtime"]];
   $("ages").replaceChildren(...ages.map(([label,key])=>{const item=s.status?.[key],el=document.createElement("div");el.className="check"+(v.live&&item?.fresh?" ok":"");el.textContent=label+" · "+(paused?"已暂停":!v.live?"连接中断":item?.age_s==null?"未收到":n(item.age_s,2)+" s · "+(item.fresh?"有效":"已过期"));return el;}));
   text("bridgeError",s.ssh?.error||s.launch_error||"");
-  const incline=inclineView(s,busy);$("inclineAction").disabled=!incline.canStart;$("inclineDetach").disabled=!incline.canDetach;$("inclineState").textContent=incline.reason;
+  const incline=inclineView(s,busy||recoveryBusy),inclineDetail=inclineDetails(s),iw=inclineDetail.active?inclineDetail.wall:null;
+  $("inclineAction").disabled=!incline.canStart;$("inclineDetach").disabled=!incline.canDetach;
+  text("inclineAttachReason",incline.canStart?"斜面入口已就绪":incline.reason);
+  text("inclineDetachReason",incline.canDetach?"可提交脱离请求，等待回平反馈":iw?iw.detach_block_reason||"等待斜面保持与有效控制反馈":"等待斜面保持");
+  text("inclinePhase",inclineDetail.wall?inclineDetail.phase:"等待反馈");text("inclineStage",inclineDetail.stage);text("inclineState",inclineDetail.reason);
+  text("inclineReceipt",iw?.hold_achieved?"本轮已确认斜面保持":"本轮尚未确认斜面保持");
+  text("inclineHold",!iw?"等待斜面任务反馈":iw.incline_phase==="HOLD"?"斜面保持中 · 等待脱离命令":iw.hold_achieved?"本轮已达到保持":"尚未达到保持");
+  text("inclineDistance",!iw?"等待斜面测距反馈":`顶部 ${iw.top_range_fresh?n(iw.top_distance_filtered_m,3)+" m":"反馈过期"} · 前向 ${iw.front_range_fresh?n(iw.front_distance_filtered_m,3)+" m":"反馈过期"}`);
+  const inclineOutput=inclineDetail.active?fresh(s,"setpoint"):null;
+  text("inclineControl",!iw?"等待斜面控制反馈":`实际输出 ${inclineOutput?n(inclineOutput.thrust*100,1)+"%":"未收到有效反馈"} · 上限 ${n(iw.incline_thrust_limit*100,1)}%`);
+  text("inclineRecovery",inclineDetail.returned?"飞控已确认 POSCTL，输出归属已释放":!iw?"等待恢复反馈":iw.incline_phase==="EXIT"?"稳定恢复完成，等待飞控确认 POSCTL":["RETURN","RECOVER"].includes(iw.incline_phase)?inclineDetail.stage:iw.incline_phase==="LAND"?"故障交接，以飞控实际模式为准":"脱离后回平、恢复并确认交回");
+  text("inclineDiagnostic",inclineDetail.reason);
+  document.querySelectorAll("#inclineSteps li").forEach((el,i)=>{el.classList.toggle("current",i===inclineDetail.step);el.classList.toggle("done",inclineDetail.step>=0&&i<inclineDetail.step);});
   if(s.events?.length)$("events").replaceChildren(...s.events.slice(-18).reverse().map(event=>{const el=document.createElement("div"),time=document.createElement("time"),body=document.createElement("span");el.className="event";time.textContent=new Date(event.time*1000).toLocaleTimeString("zh-CN",{hour12:false});body.textContent=event.text;el.append(time,body);return el;}));
 }
 async function action(path,data={},recovery=false){

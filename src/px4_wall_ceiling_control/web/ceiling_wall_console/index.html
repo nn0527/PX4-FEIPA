@@ -22,7 +22,7 @@
 <section class="panel modeSelection"><label for="attachmentMode">选择测试模式</label>
 <select id="attachmentMode" aria-describedby="attachmentModeReason"><option value="ceiling">顶吸</option><option value="wall">侧吸</option><option value="incline">斜面</option></select>
 <p id="attachmentModeReason" role="status">选择模式后，在对应面板启动；选择本身不会发送动作。</p></section>
-<section class="testPanels" aria-label="顶吸与侧吸测试">
+<section class="testPanels" aria-label="顶吸、侧吸与斜面测试">
 <section class="panel ceilingOperations taskPanel" data-attachment-mode="ceiling" aria-label="顶吸吸附与脱离操作">
 <div class="sectionHeading taskHeading"><h2>顶吸 / 吸附与脱离</h2><span class="badge">POSCTL 入口与交回</span></div>
 <p class="taskIntro">POSCTL 稳定后启动；离顶恢复后保持高度与 XY 闭环，稳定后由 CH12 确认交回。</p>
@@ -65,11 +65,27 @@
 <p id="wallFusionState" class="muted taskDiagnostic">光流 / 测距融合：等待反馈</p>
 <details class="taskDetails"><summary>侧吸流程与遥控操作说明</summary><p class="muted">翻转、捕获、贴墙保持及大角度回正暂停树莓派水平闭环；回正末段实际倾角≤10°、角速度≤45°/s，收到新光流及水平估计连续有效≥0.30秒后恢复制动。实测总倾角≤5°、水平速度≤0.10 m/s、角速度≤10°/s持续1秒，且原恢复条件满足后请求POSCTL，实际确认后交接。固定右倾补偿取消，目标总倾角和变化率限制保留。光流失效暂停接近并报错；首次进入贴墙保持后暂停PX4光流和测距融合，离墙回平时实测总倾角≤80°请求恢复原值，等待读回和应用缓冲。目标限制不保证实际速度、倾角绝不超限。</p><p id="rangeHeightEvidence" class="muted">等待首帧证据</p><p id="wallFusionReason" class="muted"></p></details>
 </section>
+<section class="panel inclineOperations taskPanel" data-attachment-mode="incline" hidden aria-label="斜面吸附与脱离操作">
+<div class="sectionHeading taskHeading"><h2>斜面 / 吸附与脱离</h2><span class="badge">POSCTL 入口与交回</span></div>
+<p class="taskIntro">POSCTL 稳定后启动；接近斜面、慢速翻转并接触保持，脱离回平稳定后交回 POSCTL。</p>
+<div class="taskActions">
+<article><h3>启动吸附</h3><p>飞手在 POSCTL 下起飞并稳定后提交斜面请求。</p><button id="inclineAction" disabled>一键启动斜面</button><small id="inclineAttachReason">等待斜面入口条件</small></article>
+<article><h3>启动脱离</h3><p>保持时请求脱离，受控回平并恢复悬停后交回 POSCTL。</p><button id="inclineDetach" disabled>一键斜面脱离</button><small id="inclineDetachReason">等待斜面保持</small></article>
+</div>
+<section class="inclineExecution taskExecution" aria-label="斜面执行状态">
+<div class="sectionHeading"><h2>执行状态</h2><span id="inclinePhase" class="badge">等待反馈</span></div><h3 id="inclineStage">等待斜面状态</h3><p id="inclineState" class="taskReason" role="status">等待斜面反馈</p><p id="inclineReceipt" class="muted taskReceipt">本轮尚未确认斜面保持</p>
+<ol id="inclineSteps" class="steps"><li>待命 / 接管</li><li>低速接近</li><li>慢速翻转</li><li>接触稳定</li><li>保持</li><li>受控回平</li><li>恢复悬停</li><li>确认交回</li></ol>
 </section>
-<section class="panel inclineOperations taskPanel" data-attachment-mode="incline" hidden aria-label="斜面测试台"><h2>斜面 / 吸附与脱离</h2>
-<p>独立斜面参数必须启用并标定推力；POSCTL 稳定后启动，HOLD 时脱离，回平恢复后交回 POSCTL。</p>
-<button id="inclineAction" disabled>启动斜面吸附</button><button id="inclineDetach" disabled>斜面脱离</button>
-<p id="inclineState" role="status">等待斜面反馈</p></section>
+<div class="taskStatusGrid" aria-label="斜面实时进度">
+<div><label>吸附保持</label><strong id="inclineHold">等待保持反馈</strong></div>
+<div><label>接触距离</label><strong id="inclineDistance">等待顶部及前向测距</strong></div>
+<div><label>控制反馈</label><strong id="inclineControl">等待实际输出反馈</strong></div>
+<div><label>恢复与交回</label><strong id="inclineRecovery">等待恢复反馈</strong></div>
+</div>
+<p id="inclineDiagnostic" class="muted taskDiagnostic" role="status">等待斜面节点反馈</p>
+<details class="taskDetails"><summary>斜面流程与操作说明</summary><p class="muted">前距≤0.50 m持续0.40秒等准入条件满足后低速接近，前距≤0.10 m开始慢速翻转；顶部测距≤6.5 cm时停止翻转与增推，接触稳定后进入 HOLD，保持姿态与推力。估计无效时继续接触搜索，以实际接触判据为准。</p><p class="muted">HOLD 时点击斜面脱离，受控回平并保持高度，恢复悬停稳定后请求交回 POSCTL；只有飞控实际确认、输出归属释放才显示交回完成。斜面使用独立参数，当前推力上限0.85。流程以实时控制节点反馈为准。</p></details>
+</section>
+</section>
 <p id="message" role="status" aria-live="polite">基础程序不会自动解锁或起飞。动作以控制节点反馈为准。</p>
 <div class="layout"><div>
 
