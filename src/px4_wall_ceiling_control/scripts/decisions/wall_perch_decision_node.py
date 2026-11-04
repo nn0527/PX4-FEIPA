@@ -2141,6 +2141,8 @@ class WallPerchDecisionNode(InclineAttachmentMixin, WallSimpleRecoveryMixin, Wal
                 self._enter_state(WallPerchStatus.STATE_ABORT, now, "detach safety input lost")
             elif not bench and (self.detach_clock_reversed or self._state_age(now) >= self.detach_duration_timeout_s):
                 self.fault_count += 1
+                if not self.detach_clock_reversed:
+                    self.abort_land_requested = True
                 self._enter_state(WallPerchStatus.STATE_ABORT, now, "detach clock reversed" if self.detach_clock_reversed else "detach rotation timeout")
             elif self._simple_departure() and self._detach_progress() >= 1.:
                 pitch = math.degrees(euler_from_quaternion(self._current_quaternion())[1])
