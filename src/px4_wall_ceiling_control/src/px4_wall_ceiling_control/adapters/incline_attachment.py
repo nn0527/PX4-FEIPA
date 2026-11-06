@@ -91,7 +91,7 @@ class InclineAttachmentMixin:
             output_stamp=output.header.stamp.to_sec() if output else 0.)
 
     def _incline_front_ready(self, f):
-        if not f.front_valid or f.front > self.incline_settings.front_ready_distance_m:
+        if not f.front_valid or f.front >= self.incline_settings.front_ready_distance_m:
             self.incline_ready_since = self.incline_ready_stamp = None
             return False
         stamp = self.front_range.header.stamp.to_sec()
@@ -100,6 +100,11 @@ class InclineAttachmentMixin:
         if self.incline_ready_stamp is None or stamp > self.incline_ready_stamp:
             self.incline_ready_stamp = stamp
         return self.incline_ready_stamp-self.incline_ready_since >= self.incline_settings.front_ready_hold_s-1e-8
+
+    def _incline_entry_height_ready(self):
+        height = self._entry_height()
+        return bool(height is not None and math.isfinite(height)
+                    and height > self.incline_settings.min_entry_height_m)
 
     def _incline_cycle(self, now):
         engine = self.incline
@@ -117,7 +122,8 @@ class InclineAttachmentMixin:
             # old trajectory when OFFBOARD later reappears.
             engine.phase, engine.reason = 'ABORT_DONE', '斜墙外部模式接管，释放旧任务'
         elif engine.phase == 'WAIT':
-            if requested and not engine.error and ready and f.pose_valid and f.control_valid:
+            if (requested and not engine.error and ready and f.pose_valid and f.control_valid
+                    and self._incline_entry_height_ready()):
                 if (self._auto_takeover_confirmed(now) and self.horizontal_equilibrium.frozen
                         and self.approach_takeover_thrust is not None):
                     seed = self.horizontal_prestream_attitude or self.q_hover
@@ -169,10 +175,10 @@ class InclineAttachmentMixin:
         status.front_range_fresh, status.top_range_fresh = f.front_valid, f.top_valid
         status.front_ready = ready
         status.sensor_health_fresh = self._sensor_health_fresh(now)
-        status.entry_height_ready = self._entry_height_ready()
+        status.entry_height_ready = self._incline_entry_height_ready()
         status.height_above_takeoff_m = self._entry_height() or 0.
         status.altitude_reference_valid = self._entry_height() is not None
-        status.min_entry_height_m = self.min_altitude_m
+        status.min_entry_height_m = self.incline_settings.min_entry_height_m
         status.auto_approach_enabled = True
         status.hold_achieved = self.hold_achieved
         status.detach_ready = engine.phase == 'HOLD' and f.pose_valid and f.control_valid and f.output_valid

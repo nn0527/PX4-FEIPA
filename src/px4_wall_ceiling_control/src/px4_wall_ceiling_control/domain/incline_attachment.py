@@ -24,8 +24,9 @@ class InclineSettings:
     estimate_min_travel_m: float = .08
     estimate_max_residual_m: float = .005
     enabled: bool = False
-    front_ready_distance_m: float = .50
-    flip_trigger_distance_m: float = .10
+    min_entry_height_m: float = .10
+    front_ready_distance_m: float = 2.00
+    flip_trigger_distance_m: float = .18
     top_contact_distance_m: float = .065
     front_ready_hold_s: float = .40
     approach_timeout_s: float = 20.
@@ -48,7 +49,7 @@ class InclineSettings:
     detach_max_accel_deg_s2: float = 30.
     detach_max_tracking_error_deg: float = 10.
     detach_duration_timeout_s: float = 10.
-    detach_brake_target_deg: float = 30.
+    detach_brake_target_deg: float = 13.
     detach_brake_decel_deg_s2: float = 30.
     detach_brake_delay_s: float = .15
     detach_brake_margin_deg: float = 5.
@@ -237,14 +238,11 @@ class InclineAttachment:
             return
         if not self.fault:
             self.fault = reason
-        self.reason = '斜墙ABORT：' + self.fault
-        if self.phase in ('RETURN', 'RECOVER', 'EXIT'):
-            return  # Never reset the absolute return/recovery budget.
-        self._return(f)
+        self._land(f, self.fault)
 
     def _land(self, f, reason):
         self.fault = self.fault or reason
-        self._enter('LAND', f.now, '斜墙故障交接：' + reason)
+        self._enter('LAND', f.now, '斜墙ABORT，自动降落：' + self.fault)
 
     def _return(self, f):
         if not (f.pose_valid and f.control_valid and f.output_valid):
@@ -298,9 +296,10 @@ class InclineAttachment:
             if required is not None and required > self.cap:
                 self.abort(f, '粗估坡度所需推力超过标定上限')
                 return
-            if not f.front_valid or age >= self.s.approach_timeout_s:
-                self.abort(f, '前距失效或接近超时')
-            elif f.front <= self.s.flip_trigger_distance_m and f.output_valid:
+            if age >= self.s.approach_timeout_s:
+                self.abort(f, '接近超时')
+            elif (f.front_valid and math.isfinite(f.front) and f.front > 0.
+                    and f.front <= self.s.flip_trigger_distance_m + 1e-6 and f.output_valid):
                 self.q, self.thrust = f.applied_q, f.applied_thrust
                 self.flip_seed = self.q
                 self.flip_angle = self.flip_rate = 0.
@@ -319,9 +318,6 @@ class InclineAttachment:
             if (hard or self.tilt(f.q) >= limit - 1e-6 or self.tilt(self.q) >= limit - 1e-6
                     or f.applied_thrust >= self.cap - 1e-6 or age >= self.s.flip_duration_timeout_s):
                 self.abort(f, '翻转角度/推力上限或8秒预算耗尽，尚未接触')
-                return
-            if not f.top_valid:
-                self.abort(f, '翻转顶部测距失效')
                 return
             tracking = math.radians(self.s.flip_max_tracking_error_deg)
             if quaternion_angle(self.q, f.q) > tracking:
@@ -345,6 +341,13 @@ class InclineAttachment:
         elif self.phase == 'CONTACT_SETTLE':
             self.q = quaternion_slerp(self.contact_sent, self.contact_q,
                 smoothstep5(age/self.s.hold_entry_blend_s))
+            if not f.top_valid:
+                # Range interruption is diagnostic only. Pause contact
+                # confirmation and its timeout; never confirm from stale range.
+                self.entered += delta
+                self.contact_samples = []
+                self.stable_since = self.stable_stamp = None
+                return
             stable = (f.top_valid and f.top <= self.s.top_contact_distance_m
                 and quaternion_angle(f.q, self.contact_q) <= math.radians(self.s.contact_attitude_tolerance_deg)
                 and math.sqrt(sum(v*v for v in f.body_rate)) <= math.radians(self.s.contact_max_rate_deg_s))
@@ -364,15 +367,11 @@ class InclineAttachment:
             elif age >= self.s.contact_settle_timeout_s:
                 self.abort(f, '接触稳定确认超时')
         elif self.phase == 'HOLD':
-            if self.required_thrust is not None and f.applied_thrust < self.required_thrust:
-                self.abort(f, 'HOLD最终推力低于防滑支撑需求')
-                return
-            lost = not f.top_valid or f.top > self.s.top_contact_distance_m + self.s.hold_contact_loss_margin_m
-            unstable = (quaternion_angle(f.q, self.contact_q) > math.radians(self.s.contact_attitude_tolerance_deg)
-                        or math.sqrt(sum(v*v for v in f.body_rate)) > math.radians(self.s.contact_max_rate_deg_s))
-            self.loss_since = (self.loss_since if self.loss_since is not None else f.now) if lost or unstable else None
-            if self.loss_since is not None and f.now-self.loss_since >= self.s.hold_contact_loss_hold_s:
-                self.abort(f, 'HOLD持续丢距或姿态不稳定')
+            # Contact is already confirmed. Range loss, distance, body rate and
+            # optional friction estimates do not revoke HOLD. Common feedback
+            # validity, output bounds and pilot/kill guards still apply.
+            if quaternion_angle(f.q, self.contact_q) > math.radians(self.s.contact_attitude_tolerance_deg):
+                self.abort(f, 'HOLD姿态偏离接触锁定姿态超过5度')
             elif detach:
                 self._return(f)
         elif self.phase == 'RETURN':

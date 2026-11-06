@@ -2,6 +2,7 @@
 # existing wall transport. No second MAVROS setpoint publisher is started.
 incline_attachment:
   enabled: true
+  min_entry_height_m: 0.10
   # Fixed conservative friction must be calibrated; zero disables feasibility checks.
   friction_coefficient: 0.0
   contact_pitch_bias_deg: 0.0
@@ -11,9 +12,9 @@ incline_attachment:
   # User-selected cap: equal to the wall profile total thrust cap (0.85).
   # Must exceed the captured approach thrust and not exceed the global mux cap.
   flip_thrust_max: 0.85
-  front_ready_distance_m: 0.50
+  front_ready_distance_m: 2.00
   front_ready_hold_s: 0.40
-  flip_trigger_distance_m: 0.10
+  flip_trigger_distance_m: 0.18
   top_contact_distance_m: 0.065
   horizontal_approach_speed_mps: 0.10
   approach_timeout_s: 20.0
@@ -34,7 +35,7 @@ incline_attachment:
   detach_max_accel_deg_s2: 30.0
   detach_max_tracking_error_deg: 10.0
   detach_duration_timeout_s: 10.0
-  detach_brake_target_deg: 30.0
+  detach_brake_target_deg: 13.0
   detach_brake_decel_deg_s2: 30.0
   detach_brake_delay_s: 0.15
   detach_brake_margin_deg: 5.0

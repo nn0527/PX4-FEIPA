@@ -115,7 +115,7 @@ class TerminalOperatorNode:
                 accepted = self.mode == (OperatorCommand.MODE_INCLINE if command == "incline" else OperatorCommand.MODE_CEILING)
                 reason = "吸顶节点已接收：等待有效顶部测距、光流基准及接管条件" if accepted else "节点安全条件变化，请检查急停和飞控反馈"
                 if command == "incline" and accepted:
-                    reason = "斜面节点已接收：等待50cm准入及接管条件"
+                    reason = "斜面节点已接收：等待前距小于2m准入及接管条件"
                 if accepted:
                     self._publish_intent()  # Confirmed intent is sent immediately, not on the next timer tick.
             reply = {"id":request_id,"command":command,"accepted":accepted,"reason":reason,

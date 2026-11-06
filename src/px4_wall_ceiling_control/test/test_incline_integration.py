@@ -39,6 +39,7 @@ class InclineBoundaryTests(unittest.TestCase):
         n.horizontal_equilibrium = mock.Mock(ready=True, frozen=True)
         n.horizontal_prestream_attitude = pose(0)
         n.approach_takeover_thrust = .49
+        n._entry_height = mock.Mock(return_value=2.)
         n._on_operator(O(mode=O.MODE_INCLINE, enable_control=True))
         self.assertTrue(n.incline_selected)
         return n
@@ -63,16 +64,16 @@ class InclineBoundaryTests(unittest.TestCase):
         n._valid_wall_output = mock.Mock(return_value=output)
         n.operator_received_at = now
 
-    def test_adapter_waits_for_50cm_then_emits_atomic_incline_candidate(self):
+    def test_adapter_waits_for_under_2m_then_emits_atomic_incline_candidate(self):
         n = self.node()
         for _ in range(25):
             self.clock += .02
-            self.feedback(n, front=.6)
+            self.feedback(n, front=2.0)
             n._control_cycle_at(rospy.Time.now())
         self.assertEqual(n.incline.phase, 'WAIT')
         for _ in range(23):
             self.clock += .02
-            self.feedback(n)
+            self.feedback(n, front=1.999)
             n._control_cycle_at(rospy.Time.now())
         self.assertEqual(n.incline.phase, 'APPROACH')
         candidate = n.control_candidate_publisher.publish.call_args[0][0]
@@ -92,6 +93,46 @@ class InclineBoundaryTests(unittest.TestCase):
         n._on_operator(O(mode=O.MODE_WALL, enable_control=True))
         self.assertTrue(n.incline_selected)
         self.assertFalse(n._incline_requested(rospy.Time.now()))
+
+    def test_incline_height_is_strictly_above_10cm_and_wall_stays_30cm(self):
+        n = self.node()
+        self.assertEqual(n.min_altitude_m, .30)
+        for height, expected in ((None, False), (math.nan, False), (.099, False), (.10, False), (.101, True)):
+            n._entry_height = lambda: height
+            self.assertEqual(n._incline_entry_height_ready(), expected)
+        self.feedback(n)
+        f = n._incline_feedback_at(rospy.Time.now())
+        status = n._incline_status(rospy.Time.now(), f, True)
+        self.assertAlmostEqual(status.min_entry_height_m, .10)
+
+    def test_flip_failure_publishes_abort_land_request(self):
+        n = self.node(); self.feedback(n)
+        f = n._incline_feedback_at(rospy.Time.now())
+        self.assertTrue(n.incline.start(f, pose(0), .49))
+        n.incline.phase = 'SLOW_FLIP'
+        n.incline.abort(f, 'flip failed')
+        n._incline_cycle(rospy.Time.now())
+        status = n._incline_status(rospy.Time.now(), f, True)
+        self.assertEqual(status.state, W.STATE_ABORT)
+        self.assertTrue(status.abort_land_requested)
+        self.assertTrue(status.incline_active)
+
+    def test_manager_requests_auto_land_for_incline_abort(self):
+        m = Manager.__new__(Manager)
+        m.phase = 'ACTIVE'; m.selected_mode = O.MODE_WALL
+        m.wall = W(state=W.STATE_ABORT, incline_active=True, abort_land_requested=True,
+                   detach_range_maneuver_id='incline-failure', detach_range_episode=1)
+        m.wall.header.stamp = rospy.Time.now(); m.wall_at = rospy.Time.now()
+        m.status_timeout_s = .5; m.state_timeout_s = 1.5
+        m.flight = State(connected=True, armed=True, mode='OFFBOARD')
+        m.flight.header.stamp = rospy.Time.now(); m.flight_at = rospy.Time.now()
+        m.kill_guard_enabled = False
+        m._set_phase = lambda phase, reason: (setattr(m, 'phase', phase), setattr(m, 'phase_reason', reason))
+        m._request_mode = mock.Mock()
+        m.prestream_pub = mock.Mock(); m.phase_pub = mock.Mock(); m.phase_reason_pub = mock.Mock()
+        self.assertTrue(m._tick_wall_abort_land(rospy.Time.now()))
+        self.assertEqual(m.phase, 'WALL_LANDING')
+        m._request_mode.assert_called_once_with('AUTO.LAND')
 
     def test_detach_does_not_start_side_wall_range_task(self):
         n = self.node()

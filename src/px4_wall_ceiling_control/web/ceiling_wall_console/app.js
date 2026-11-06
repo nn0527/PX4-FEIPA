@@ -197,9 +197,31 @@ function inclineView(s,busy=false){
   const valid=live && keys.every(k=>fresh(s,k)!==null && fresh(s,k)!==undefined);
   const wall=valid?fresh(s,"wall"):null,flight=valid?fresh(s,"state"):null,kill=valid?fresh(s,"kill"):null;
   const safe=valid && !!fresh(s,"runtime")?.enabled && !busy && !!s.session?.control && s.session?.push!==false && flight?.connected && flight?.armed && kill?.valid && !kill?.active;
+  const blockers=[];
+  if(!live)blockers.push(s.session?.push===false?"实时反馈已暂停，请恢复反馈":"实时反馈未连接");
+  if(!s.session?.control)blockers.push(s.session?.owner?"当前为观察端，控制端为 "+s.session.owner+"；请由原控制端释放后申请控制权":"请先点击页面上方“申请控制权”，确认本机为控制端");
+  if(busy)blockers.push("其他操作正在等待回执");
+  if(live){
+    const labels={runtime:"基础程序",state:"飞控心跳",wall:"斜面状态",operator:"操作指令",phase:"控制阶段",owner:"输出归属",kill:"急停",odom:"里程计",estimator:"估计器"};
+    const missing=keys.filter(k=>fresh(s,k)==null);
+    if(missing.length)blockers.push("反馈缺失或过期："+missing.map(k=>labels[k]).join("、"));
+    if(s.session?.push===false)blockers.push("实时反馈已暂停，请恢复反馈");
+  }
+  if(valid){
+    if(!fresh(s,"runtime")?.enabled)blockers.push("基础控制链路未启用");
+    if(!flight?.connected)blockers.push("飞控未连接");
+    if(!flight?.armed)blockers.push("飞控当前未解锁");
+    if(!kill?.valid)blockers.push("急停反馈无效");
+    else if(kill.active)blockers.push("急停已触发");
+    if(!wall?.incline_ready)blockers.push("斜面未启用或配置未就绪");
+    if(flight.mode!=="POSCTL")blockers.push("需POSCTL模式，当前为 "+flight.mode);
+    if(fresh(s,"owner")!==0)blockers.push("已有自动控制任务占用输出");
+    if(![0,1].includes(fresh(s,"operator")?.mode))blockers.push("已有其他模式请求，请先取消并回到待命");
+    if(fresh(s,"phase")!=="IDLE")blockers.push("控制阶段需IDLE，当前为 "+fresh(s,"phase"));
+  }
   return {canStart:!!(safe && wall?.incline_ready && flight.mode==="POSCTL" && fresh(s,"owner")===0 && [0,1].includes(fresh(s,"operator")?.mode) && fresh(s,"phase")==="IDLE"),
     canDetach:!!(safe && wall?.incline_active && wall.incline_phase==="HOLD" && wall.detach_ready && flight.mode==="OFFBOARD"),
-    reason:!valid?"斜面反馈过期或缺失":wall?.incline_active?`${wall.incline_phase} · ${wall.reason||""}`:wall?.incline_ready?"斜面已标定就绪，等待启动条件":"斜面未启用或推力未标定"};
+    reason:blockers.length?blockers.join("；"):wall?.incline_active?`${wall.incline_phase} · ${wall.reason||""}`:"斜面入口已就绪"};
 }
 function inclineDetails(s){
   const live=!!s.ssh?.connected && !!s.session?.feedback_live && s.session?.push!==false;

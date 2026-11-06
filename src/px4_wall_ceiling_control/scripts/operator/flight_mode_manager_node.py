@@ -1485,7 +1485,10 @@ class FlightModeManagerNode(RCTakeoverManager):
             self.wall_land_request_at = None
             self.wall_land_confirmed = False
             self.last_request_at = None
-            self._set_phase('WALL_LANDING', reason='detach最终俯仰为负，立即请求PX4 AUTO.LAND')
+            reason = ('斜面ABORT，立即请求PX4 AUTO.LAND：' + getattr(s, 'reason', '')
+                      if getattr(s, 'incline_active', False)
+                      else 'detach最终俯仰为负，立即请求PX4 AUTO.LAND')
+            self._set_phase('WALL_LANDING', reason=reason)
         flight = getattr(self, 'flight', None)
         fresh = (flight is not None and is_fresh(self.flight_at, self.state_timeout_s, now)
                  and is_fresh_source(flight.header.stamp, self.state_timeout_s, now, future_tolerance_s=0.))

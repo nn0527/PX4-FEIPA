@@ -56,23 +56,23 @@ class InclineLogicTests(unittest.TestCase):
         self.tick(x=.12, y=0., top=.9)
         self.assertIsNone(self.c.estimated_angle)
 
-    def test_estimated_infeasible_plane_returns(self):
+    def test_estimated_infeasible_plane_lands(self):
         self.c.s = replace(self.settings, friction_coefficient=.3)
         for i in range(10):
             self.tick(x=i*.012, y=0., top=.5+i*.012)
             if self.c.phase != 'APPROACH':
                 break
-        self.assertEqual(self.c.phase, 'RETURN')
+        self.assertEqual(self.c.phase, 'LAND')
 
     def test_contact_angle_is_recorded(self):
         self.contact(45)
         self.assertAlmostEqual(self.c.contact_angle, self.c.tilt(self.c.contact_q), places=2)
 
-    def test_hold_insufficient_support_returns(self):
+    def test_hold_ignores_optional_friction_support_estimate(self):
         self.contact()
         self.c.required_thrust = self.c.thrust+.01
         self.tick()
-        self.assertEqual(self.c.phase, 'RETURN')
+        self.assertEqual(self.c.phase, 'HOLD')
 
     def test_requires_explicit_calibration_and_enable(self):
         self.assertTrue(InclineSettings().error(.85))
@@ -83,7 +83,7 @@ class InclineLogicTests(unittest.TestCase):
 
     def test_invalid_parameter_geometry_and_budget(self):
         for changes in ({'flip_pitch_rate_deg_s': 20.}, {'flip_max_tilt_deg': 90.},
-                        {'flip_trigger_distance_m': .7}, {'top_contact_hold_s': 2.},
+                        {'flip_trigger_distance_m': 2.1}, {'top_contact_hold_s': 2.},
                         {'flip_duration_timeout_s': 5.}):
             self.assertTrue(replace(self.settings, **changes).error(.85))
 
@@ -128,7 +128,7 @@ class InclineLogicTests(unittest.TestCase):
         self.assertEqual(self.c.phase, 'CONTACT_SETTLE')
         for _ in range(10):
             self.tick(top_stamp=stamp)
-        self.assertEqual(self.c.phase, 'RETURN')
+        self.assertEqual(self.c.phase, 'LAND')
         self.assertTrue(self.c.fault)
 
     def test_tracking_pause_stops_angle_and_thrust_but_timeout_runs(self):
@@ -140,17 +140,17 @@ class InclineLogicTests(unittest.TestCase):
         self.assertEqual(self.c.thrust, initial_t)
         self.f = replace(self.f, now=self.c.entered+8.01)
         self.c.step(self.f)
-        self.assertEqual(self.c.phase, 'RETURN')
+        self.assertEqual(self.c.phase, 'LAND')
 
     def test_no_contact_tilt_cap_aborts(self):
         self.tick(front=.1)
         self.tick(q=pose(65))
-        self.assertEqual(self.c.phase, 'RETURN')
+        self.assertEqual(self.c.phase, 'LAND')
 
     def test_no_contact_thrust_cap_aborts(self):
         self.tick(front=.1)
         self.tick(applied_thrust=.75)
-        self.assertEqual(self.c.phase, 'RETURN')
+        self.assertEqual(self.c.phase, 'LAND')
 
     def test_contact_stops_on_boundary_without_extra_increment(self):
         self.tick(front=.1)
@@ -158,28 +158,114 @@ class InclineLogicTests(unittest.TestCase):
         self.assertEqual(self.c.phase, 'CONTACT_SETTLE')
         self.assertAlmostEqual(self.c.thrust, .75)
 
-    def test_missing_top_during_flip_uses_controlled_return(self):
+    def test_missing_top_during_flip_continues_search(self):
         self.tick(front=.1)
         self.tick(top_valid=False)
-        self.assertEqual(self.c.phase, 'RETURN')
+        self.assertEqual(self.c.phase, 'SLOW_FLIP')
+        self.assertFalse(self.c.fault)
 
-    def test_abort_during_contact_uses_current_output_and_retains_budget(self):
-        self.contact()
-        self.c.abort(self.f, 'cancel')
+    def test_approach_ignores_both_range_interruptions_but_not_timeout(self):
+        for _ in range(100):
+            self.tick(front_valid=False, top_valid=False, front=math.nan, top=math.nan)
+        self.assertEqual(self.c.phase, 'APPROACH')
+        self.assertFalse(self.c.fault)
+        self.f = replace(self.f, now=self.c.entered+20.01)
+        self.c.step(self.f)
+        self.assertEqual(self.c.phase, 'LAND')
+        self.assertEqual(self.c.fault, '接近超时')
+
+    def test_one_real_18cm_frame_latches_flip_through_range_loss(self):
+        self.tick(front=.18, front_valid=False)
+        self.assertEqual(self.c.phase, 'APPROACH')
+        self.tick(front=.180000007, front_valid=True)
+        self.assertEqual(self.c.phase, 'SLOW_FLIP')
+        for _ in range(100):
+            self.tick(front=math.nan, top=math.nan, front_valid=False, top_valid=False)
+        self.assertEqual(self.c.phase, 'SLOW_FLIP')
+        self.assertFalse(self.c.fault)
+
+    def test_contact_confirmation_pauses_during_range_interruption(self):
+        self.tick(front=.18)
+        self.tick(top=.065)
+        self.assertEqual(self.c.phase, 'CONTACT_SETTLE')
+        for _ in range(150):
+            self.tick(front_valid=False, top_valid=False)
+        self.assertEqual(self.c.phase, 'CONTACT_SETTLE')
+        self.assertFalse(self.c.fault)
+        for _ in range(45):
+            self.tick(front_valid=False, top_valid=True, top=.065)
+        self.assertEqual(self.c.phase, 'HOLD')
+        self.assertFalse(self.c.fault)
+
+    def test_return_and_recovery_finish_without_either_range(self):
+        self.contact(30)
+        self.c.step(replace(self.f, front_valid=False, top_valid=False), detach=True)
         self.assertEqual(self.c.phase, 'RETURN')
-        began = self.c.return_started
+        for _ in range(900):
+            self.tick(front_valid=False, top_valid=False)
+            if self.c.phase in ('EXIT', 'LAND'):
+                break
+        self.assertEqual(self.c.phase, 'EXIT', self.c.reason)
+        self.assertFalse(self.c.fault)
+
+    def test_abort_during_contact_latches_land_without_restart(self):
+        self.contact()
+        q, thrust = self.c.q, self.c.thrust
+        self.c.abort(self.f, 'cancel')
+        self.assertEqual(self.c.phase, 'LAND')
+        began = self.c.entered
         self.c.abort(replace(self.f, now=self.f.now+1), 'cancel again')
-        self.assertEqual(self.c.return_started, began)
+        self.assertEqual(self.c.entered, began)
+        self.assertEqual(self.c.fault, 'cancel')
+        self.assertEqual((self.c.q, self.c.thrust), (q, thrust))
         self.f = replace(self.f, now=began+10.01)
         self.c.step(self.f)
         self.assertEqual(self.c.phase, 'LAND')
 
-    def test_hold_range_loss_is_not_proof_of_free_flight(self):
+    def test_hold_ignores_top_range_loss_and_distance(self):
         self.contact()
-        for _ in range(17):
+        for _ in range(100):
             self.tick(top_valid=False)
+        self.assertEqual(self.c.phase, 'HOLD')
+        for distance in (.081, .5, 5.):
+            for _ in range(20):
+                self.tick(top=distance)
+            self.assertEqual(self.c.phase, 'HOLD')
+        self.assertFalse(self.c.fault)
+
+    def test_hold_ignores_body_rate_with_locked_attitude(self):
+        self.contact()
+        self.tick(body_rate=(0., math.radians(100.), 0.))
+        self.assertEqual(self.c.phase, 'HOLD')
+
+    def test_hold_attitude_error_above_5_degrees_lands_immediately(self):
+        self.contact(45)
+        locked_angle = math.degrees(self.c.tilt(self.c.contact_q))
+        self.tick(q=pose(locked_angle + 4.99))
+        self.assertEqual(self.c.phase, 'HOLD')
+        self.tick(q=pose(locked_angle + 5.01))
+        self.assertEqual(self.c.phase, 'LAND')
+        self.assertIn('HOLD', self.c.fault)
+
+    def test_hold_explicit_detach_without_top_range_still_returns(self):
+        self.contact()
+        self.f = replace(self.f, top_valid=False)
+        self.c.step(self.f, detach=True)
         self.assertEqual(self.c.phase, 'RETURN')
-        self.assertTrue(self.c.contact_seen)
+
+    def test_flip_starts_at_18cm_not_above(self):
+        self.tick(front=.1801)
+        self.assertEqual(self.c.phase, 'APPROACH')
+        self.tick(front=.18)
+        self.assertEqual(self.c.phase, 'SLOW_FLIP')
+
+    def test_abort_from_every_active_phase_requests_land(self):
+        for phase in self.c.ACTIVE:
+            self.setUp()
+            self.c.phase = phase
+            self.c.abort(self.f, 'failure')
+            self.assertEqual(self.c.phase, 'LAND', phase)
+            self.assertEqual(self.c.fault, 'failure')
 
     def test_missing_pose_or_output_requests_fault_handover(self):
         self.tick(front=.1)
