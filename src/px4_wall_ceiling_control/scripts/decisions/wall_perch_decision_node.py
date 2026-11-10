@@ -871,9 +871,12 @@ class WallPerchDecisionNode(InclineAttachmentMixin, WallSimpleRecoveryMixin, Wal
     def _on_detach(self, message):
         with getattr(self, 'feedback_lock', nullcontext()):
             if getattr(self, 'incline_selected', False):
-                if message.data and self.incline.phase == 'HOLD':
-                    self.detach_requested = True
-                    self.detach_requested_at = rospy.Time.now()
+                if (message.data and self.incline.phase == 'HOLD'
+                        and not self.detach_requested):
+                    now = rospy.Time.now()
+                    if self._incline_latch_detach_yaw(now):
+                        self.detach_requested = True
+                        self.detach_requested_at = now
                 return  # Do not initialize the wall range-height task.
             if (message.data and self.state == WallPerchStatus.STATE_WALL_HOLD
                     and not self.detach_requested):

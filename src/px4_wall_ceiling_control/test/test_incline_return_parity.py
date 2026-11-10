@@ -30,6 +30,7 @@ class InclineReturnParityTests(unittest.TestCase):
         fixture.setUp()
         self.c, self.f = fixture.c, fixture.f
         self.f = replace(self.f, q=pose(30), applied_q=pose(30), top_valid=False)
+        self.c.phase = 'HOLD'
         self.c._return(self.f)
 
     def step(self, **changes):
@@ -39,10 +40,10 @@ class InclineReturnParityTests(unittest.TestCase):
         self.f = replace(self.f, **values)
         self.c.step(self.f)
 
-    def test_limit_30_is_valid_but_above_wall_envelope_rejected(self):
-        self.assertEqual(self.c.s.detach_max_tracking_error_deg, 30.)
+    def test_limit_11_is_valid_but_above_return_envelope_rejected(self):
+        self.assertEqual(self.c.s.detach_max_tracking_error_deg, 11.)
         self.assertFalse(self.c.s.error(.85))
-        self.assertTrue(replace(self.c.s, detach_max_tracking_error_deg=30.01).error(.85))
+        self.assertTrue(replace(self.c.s, detach_max_tracking_error_deg=11.01).error(.85))
         self.assertEqual(self.c.s.flip_max_tracking_error_deg, 10.)
 
     def test_error_reducing_step_allowed_while_already_over_limit(self):
@@ -65,9 +66,18 @@ class InclineReturnParityTests(unittest.TestCase):
 
     def test_error_increasing_step_inside_limit_is_allowed(self):
         self.c.planner = Planner(30, 31)
-        self.step(q=pose(5))
+        self.step(q=pose(25))
         self.assertFalse(self.c.return_tracking_limited)
         self.assertGreater(self.c.axis.angle(self.c.q), math.radians(30))
+
+    def test_increasing_motion_at_11_allowed_but_above_11_blocked(self):
+        for proposed, blocked in ((11., False), (11.01, True)):
+            with self.subTest(proposed=proposed):
+                self.setUp()
+                self.c.q = pose(10)
+                self.c.planner = Planner(10, proposed)
+                self.step(q=pose(0))
+                self.assertEqual(self.c.return_tracking_limited, blocked)
 
     def finish(self, pitch=8, rate=30):
         self.c.planner = Planner(30, 0, done=True)

@@ -276,6 +276,7 @@ class InclineBoundaryTests(unittest.TestCase):
         n.incline.phase = 'HOLD'
         n.detach_range_enabled = True
         old = n.detach_task_phase
+        self.feedback(n)  # Detach now requires a fresh measured yaw at receipt.
         n._on_detach(Bool(data=True))
         self.assertTrue(n.detach_requested)
         self.assertEqual(n.detach_task_phase, old)

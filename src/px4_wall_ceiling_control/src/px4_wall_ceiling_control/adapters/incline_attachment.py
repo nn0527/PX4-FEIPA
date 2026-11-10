@@ -54,6 +54,17 @@ class InclineAttachmentMixin(InclineApproachMixin):
                 self.incline_approach_reference = self.incline_approach_base = None
                 self.incline_approach_candidate_axis = None
 
+    def _incline_latch_detach_yaw(self, now):
+        # Called under feedback_lock by the detach subscriber. Do not wait for
+        # the next control tick, which may already contain a different yaw.
+        f = self._incline_feedback_at(now)
+        accepted = self.incline.latch_detach_yaw(f)
+        if accepted:
+            rospy.loginfo('incline detach yaw baseline: measured=%.3fdeg source=%.6f request=%.6f',
+                math.degrees(self.incline.detach_yaw_reference),
+                self.incline.detach_yaw_reference_stamp, self.incline.detach_yaw_request_at)
+        return accepted
+
     def _incline_requested(self, now):
         return bool(self.decision_enabled and self.operator is not None
             and self.operator.enable_control and self.operator.mode == O.MODE_INCLINE

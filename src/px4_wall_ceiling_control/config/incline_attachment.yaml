@@ -49,9 +49,10 @@ incline_attachment:
   hold_contact_loss_hold_s: 0.30
   detach_max_rate_deg_s: 30.0
   detach_max_accel_deg_s2: 30.0
-  # Latest run peaked at 27.75deg full-attitude error (including yaw).
-  # Provisional wall-equivalent limit; only block further error growth.
-  detach_max_tracking_error_deg: 30.0
+  # Full-attitude return tracking limit; only block further error growth.
+  # Independently abort RETURN on measured yaw drift >10deg relative to
+  # the measured yaw captured once when the detach command is received.
+  detach_max_tracking_error_deg: 11.0
   detach_duration_timeout_s: 10.0
   detach_brake_target_deg: 13.0
   detach_brake_decel_deg_s2: 30.0

@@ -60,7 +60,7 @@ class InclineSettings:
     hold_contact_loss_hold_s: float = .30
     detach_max_rate_deg_s: float = 30.
     detach_max_accel_deg_s2: float = 30.
-    detach_max_tracking_error_deg: float = 30.
+    detach_max_tracking_error_deg: float = 11.
     detach_duration_timeout_s: float = 10.
     detach_brake_target_deg: float = 13.
     detach_brake_decel_deg_s2: float = 30.
@@ -111,7 +111,7 @@ class InclineSettings:
             return 'contact timeout must exceed confirmation window'
         if self.flip_pitch_rate_deg_s > 10. or self.flip_max_tracking_error_deg > 10.:
             return 'incline flip rate/tracking exceeds initial envelope'
-        if (self.flip_thrust_ramp_per_s > .03 or self.detach_max_tracking_error_deg > 30.
+        if (self.flip_thrust_ramp_per_s > .03 or self.detach_max_tracking_error_deg > 11.
                 or self.detach_max_rate_deg_s > 30. or self.detach_recovered_tilt_deg > 5.):
             return 'incline motion limits exceed initial envelope'
         if self.flip_duration_timeout_s <= self.flip_max_tilt_deg / self.flip_pitch_rate_deg_s:
@@ -174,6 +174,10 @@ class InclineAttachment:
         self.reference_height = math.nan
         self.base = math.nan
         self.return_started = None
+        # Measured yaw at detach-command receipt, not the commanded attitude.
+        self.detach_yaw_reference = None
+        self.detach_yaw_reference_stamp = None
+        self.detach_yaw_request_at = None
         self.recovery_started = None
         self.return_tracking_limited = False
         self.recover_stable = False
@@ -278,9 +282,28 @@ class InclineAttachment:
         self.fault = self.fault or reason
         self._enter('LAND', f.now, '斜墙ABORT，自动降落：' + self.fault)
 
+    def latch_detach_yaw(self, f):
+        """Capture once at command receipt; repeated commands cannot reanchor."""
+        if self.phase != 'HOLD':
+            return False
+        if self.detach_yaw_reference is not None:
+            return True
+        if (not f.pose_valid or f.q is None
+                or not all(math.isfinite(v) for v in f.q) or f.pose_stamp <= 0.):
+            self._land(f, '脱离指令时实测姿态无效，无法锁定偏航基准')
+            return False
+        self.detach_yaw_reference = euler_from_quaternion(f.q)[2]
+        self.detach_yaw_reference_stamp = f.pose_stamp
+        self.detach_yaw_request_at = f.now
+        return True
+
     def _return(self, f):
         if not (f.pose_valid and f.control_valid and f.output_valid):
             self._land(f, '回平必要反馈或控制权失效')
+            return
+        # Direct domain callers deliver detach in this step. The ROS adapter
+        # has already latched the earlier callback sample and must preserve it.
+        if self.detach_yaw_reference is None and not self.latch_detach_yaw(f):
             return
         self.q, self.thrust = f.applied_q, f.applied_thrust
         if not .1 <= self.thrust <= self.cap + 1e-6:
@@ -363,6 +386,15 @@ class InclineAttachment:
                 or not all(math.isfinite(v) for v in (f.height, f.vz))):
             self._land(f, '关键姿态/速度反馈或控制权失效')
             return
+        if self.phase in ('HOLD', 'RETURN') and self.detach_yaw_reference is not None:
+            yaw = euler_from_quaternion(f.q)[2]
+            delta_yaw = yaw-self.detach_yaw_reference
+            yaw_error = abs(math.atan2(math.sin(delta_yaw), math.cos(delta_yaw)))
+            # Strictly over 10deg; tolerate arithmetic roundoff at equality.
+            if yaw_error > math.radians(10.)+1e-9:
+                self._land(f, '回平偏航偏离脱离指令基准超过10度：基准%.3f度，实测%.3f度，偏差%.3f度' % (
+                    math.degrees(self.detach_yaw_reference), math.degrees(yaw), math.degrees(yaw_error)))
+                return
         if f.output_valid and (not math.isfinite(f.applied_thrust)
                 or not .1-1e-6 <= f.applied_thrust <= self.cap+1e-6):
             # Check every phase before seeding/updating the shared support
