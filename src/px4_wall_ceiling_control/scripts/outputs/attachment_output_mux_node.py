@@ -51,9 +51,10 @@ from px4_wall_ceiling_control.msg import (
 
 
 from px4_wall_ceiling_control.adapters.rc_takeover import RCTakeoverOutput
+from px4_wall_ceiling_control.adapters.incline_approach_output import InclineApproachOutput
 
 
-class AttachmentOutputMuxNode(RCTakeoverOutput):
+class AttachmentOutputMuxNode(InclineApproachOutput, RCTakeoverOutput):
     OWNER_NONE = OWNER_NONE
     OWNER_CEILING = OWNER_CEILING
     OWNER_WALL = OWNER_WALL
@@ -1311,6 +1312,11 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
         return target
 
     def _limit_final_approach_target(self, now, target, source, candidate=None):
+        status = getattr(self, 'wall_status', None)
+        if ((candidate is not None and getattr(candidate, 'incline_active', False))
+                or (source == AttachmentControlCandidate.SOURCE_NONE and status is not None
+                    and getattr(status, 'incline_active', False))):
+            return self._limit_incline_approach_target(now, target, source, candidate)
         if not getattr(self, "approach_attitude_limits_enabled", False):
             return target
         status = getattr(self, "wall_status", None)
@@ -1410,7 +1416,10 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
             return
         q = quaternion_normalize(q)
         self.last_published_control = (q, thrust, published_at, source)
-        self.approach_previous_target, self.approach_previous_at = q, published_at
+        if getattr(getattr(self, 'operator', None), 'mode', None) == OperatorCommand.MODE_INCLINE:
+            self.incline_approach_previous_target, self.incline_approach_previous_at = q, published_at
+        else:
+            self.approach_previous_target, self.approach_previous_at = q, published_at
         self.recovery_previous_target, self.recovery_previous_at = q, published_at
 
     def _wall_publication_seed(self, now):
@@ -1545,9 +1554,15 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
         return settings
 
     def _limit_incline_publication(self, now, target, candidate):
+        self.wall_publication_slew = None
         settings = self._incline_output_settings()
         if settings.error(self.max_thrust):
             return None
+        if candidate.control_phase == WallPerchStatus.STATE_SLOW_APPROACH:
+            # Wall approach already has the shared final attitude envelope.
+            # Flip search slew must never throttle its height-control output.
+            target.thrust = max(self.min_thrust, min(self.max_thrust, settings.flip_thrust_max, target.thrust))
+            return target
         previous = self._wall_publication_seed(now)
         if previous is None:
             self.wall_candidate_rejection = 'incline_continuity_seed_unavailable'
@@ -1564,7 +1579,12 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
         distance = quaternion_angle(seed, q)
         if distance > 1e-9:
             q = quaternion_slerp(seed, q, min(1., math.radians(rate)*dt/distance))
-        slew = settings.return_thrust_slew_per_s if returning else settings.flip_thrust_ramp_per_s
+        # Search pressure and anti-descent support have separate envelopes.
+        # Only the incline flip phase receives the vertical-support slew.
+        slew = (settings.return_thrust_slew_per_s if returning else
+                settings.flip_support_slew_per_s
+                if candidate.control_phase == WallPerchStatus.STATE_FLIP_TO_WALL
+                else settings.flip_thrust_ramp_per_s)
         value = max(thrust-slew*dt, min(thrust+slew*dt, target.thrust))
         # A newly configured cap cannot silently step down an old live output.
         if thrust > settings.flip_thrust_max + 1e-6:
@@ -1588,8 +1608,15 @@ class AttachmentOutputMuxNode(RCTakeoverOutput):
             target = self._vertical_attitude_target(
                 now, candidate.velocity_z_enu_mps, candidate.source, candidate if wall else None)
         elif candidate.kind == AttachmentControlCandidate.KIND_ATTITUDE_THRUST:
-            orientation = (candidate.attitude_setpoint if getattr(candidate, 'incline_active', False)
-                else self._assisted_attitude(now, candidate.attitude_setpoint, candidate.source, candidate))
+            if getattr(candidate, 'incline_active', False):
+                if candidate.control_phase == WallPerchStatus.STATE_SLOW_APPROACH:
+                    orientation = self._incline_approach_assisted_attitude(now, candidate.attitude_setpoint)
+                else:
+                    self.incline_rc_roll_rad = self.incline_rc_yaw_rad = 0.
+                    self.incline_rc_at = now
+                    orientation = candidate.attitude_setpoint
+            else:
+                orientation = self._assisted_attitude(now, candidate.attitude_setpoint, candidate.source, candidate)
             target = self._attitude_target(now, orientation, candidate.thrust_normalized)
         else:
             return self.OUTPUT_NONE

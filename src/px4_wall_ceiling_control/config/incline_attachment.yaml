@@ -15,15 +15,31 @@ incline_attachment:
   front_ready_distance_m: 2.00
   front_ready_hold_s: 0.40
   flip_trigger_distance_m: 0.18
-  top_contact_distance_m: 0.065
+  # One valid frame strictly below 7cm enters HOLD directly during SLOW_FLIP.
+  top_contact_distance_m: 0.070
   horizontal_approach_speed_mps: 0.10
   approach_timeout_s: 20.0
   flip_max_tilt_deg: 65.0
   flip_pitch_rate_deg_s: 10.0
   flip_pitch_accel_deg_s2: 10.0
   flip_max_tracking_error_deg: 10.0
+  # SLOW_FLIP only: sustained roll/pitch tracking error or loss from flip-entry height.
+  flip_abort_roll_error_deg: 10.0
+  flip_abort_pitch_error_deg: 10.0
+  flip_abort_height_drop_m: 0.30
+  flip_abort_confirm_s: 0.20
   flip_duration_timeout_s: 8.0
   flip_thrust_ramp_per_s: 0.03
+  # Continue takeover support in SLOW_FLIP, including when angle search pauses.
+  # Bounded normalized-thrust entry feedforward + PD/tilt correction; no integral.
+  flip_support_height_kp: 0.30
+  flip_support_velocity_kp: 0.30
+  flip_support_correction_max: 0.08
+  flip_support_slew_per_s: 0.20
+  # Front range <=18cm latches the entry; collective rises with angular search.
+  # Boost and PD share the above 0.08 correction budget, not separate allowances.
+  flip_entry_boost: 0.04
+  flip_entry_boost_rise_s: 0.40
   top_contact_hold_s: 0.20
   contact_settle_timeout_s: 1.0
   contact_attitude_tolerance_deg: 5.0
@@ -49,3 +65,33 @@ incline_attachment:
   recovery_max_height_error_m: 0.10
   height_kp: 0.30
   velocity_kp: 0.30
+  # Independent copy of the side-wall approach behavior. These parameters and
+  # controller histories belong to incline mode; wall parameters are unchanged.
+  approach:
+    velocity_kp: 1.5
+    velocity_ki: 0.30
+    integral_limit_mps2: 0.20
+    max_acceleration_mps2: 0.30
+    target_acceleration_mps2: 0.10
+    equilibrium_window_s: 0.50
+    equilibrium_speed_mps: 0.20
+    height_to_speed_kp: 0.50
+    vertical_velocity_kp: 0.30
+    max_up_speed_mps: 0.10
+    max_down_speed_mps: 0.15
+    positive_compensation_max: 0.08
+    max_thrust: 0.60
+    max_down_velocity_mps: 0.80
+    max_rate_rps: 3.0
+    # The effective entry distance must also satisfy this approach safety bound.
+    abort_front_distance_m: 1.80
+    source_timeout_s: 0.35
+    ignore_range_loss: true
+    max_tilt_deg: 10.0
+    tilt_slew_deg_s: 10.0
+    yaw_slew_deg_s: 20.0
+    rc_assist_enabled: true
+    rc_roll_deg: 10.0
+    rc_yaw_deg: 15.0
+    rc_roll_slew_deg_s: 90.0
+    rc_yaw_slew_deg_s: 20.0

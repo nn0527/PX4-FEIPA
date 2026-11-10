@@ -662,8 +662,10 @@ class WallPerchDecisionNode(InclineAttachmentMixin, WallSimpleRecoveryMixin, Wal
 
     def _on_top_range(self, message):
         now = rospy.Time.now()
-        if self.state == WallPerchStatus.STATE_FLIP_TO_WALL and not self._late_top_window_open(now):
-            return  # The early flip does not consume top measurements.
+        if (self.state == WallPerchStatus.STATE_FLIP_TO_WALL
+                and not getattr(self, 'incline_selected', False)
+                and not self._late_top_window_open(now)):
+            return  # Only side-wall flip waits for its late top window.
         if not is_valid_range(message):
             # Top failures must never reset the forward-only flip gate.
             # A bad sample must not count toward continuous contact confirmation.

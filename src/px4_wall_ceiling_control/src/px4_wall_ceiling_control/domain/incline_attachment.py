@@ -27,7 +27,7 @@ class InclineSettings:
     min_entry_height_m: float = .10
     front_ready_distance_m: float = 2.00
     flip_trigger_distance_m: float = .18
-    top_contact_distance_m: float = .065
+    top_contact_distance_m: float = .070
     front_ready_hold_s: float = .40
     approach_timeout_s: float = 20.
     horizontal_approach_speed_mps: float = .10
@@ -35,8 +35,20 @@ class InclineSettings:
     flip_pitch_rate_deg_s: float = 10.
     flip_pitch_accel_deg_s2: float = 10.
     flip_max_tracking_error_deg: float = 10.
+    flip_abort_roll_error_deg: float = 10.
+    flip_abort_pitch_error_deg: float = 10.
+    flip_abort_height_drop_m: float = .30
+    flip_abort_confirm_s: float = .20
     flip_duration_timeout_s: float = 8.
     flip_thrust_ramp_per_s: float = .03
+    # Independent vertical support; the slow contact-search ramp is unchanged.
+    flip_support_height_kp: float = .30
+    flip_support_velocity_kp: float = .30
+    flip_support_correction_max: float = .08
+    flip_support_slew_per_s: float = .20
+    # Collective feedforward starts only at the front-range flip transition.
+    flip_entry_boost: float = .04
+    flip_entry_boost_rise_s: float = .40
     flip_thrust_max: float = 0.  # Required calibration, never inherit wall cap.
     top_contact_hold_s: float = .20
     contact_settle_timeout_s: float = 1.
@@ -78,7 +90,8 @@ class InclineSettings:
             value = getattr(self, key)
             if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
                 return 'invalid incline parameter: ' + key
-            if key not in ('flip_thrust_max', 'friction_coefficient', 'contact_pitch_bias_deg') and value <= 0:
+            if key not in ('flip_thrust_max', 'friction_coefficient', 'contact_pitch_bias_deg',
+                           'flip_entry_boost') and value <= 0:
                 return 'incline parameter must be positive: ' + key
         if self.friction_coefficient < 0 or abs(self.contact_pitch_bias_deg) > 10.:
             return 'invalid incline friction or installation bias'
@@ -102,6 +115,15 @@ class InclineSettings:
             return 'incline motion limits exceed initial envelope'
         if self.flip_duration_timeout_s <= self.flip_max_tilt_deg / self.flip_pitch_rate_deg_s:
             return 'incline flip timeout too short for configured rate'
+        if (self.flip_support_height_kp > .5 or self.flip_support_velocity_kp > .5
+                or self.flip_support_correction_max > .12
+                or not self.flip_thrust_ramp_per_s <= self.flip_support_slew_per_s <= .5):
+            return 'incline flip support exceeds bounded envelope'
+        if (not 0. <= self.flip_entry_boost <= self.flip_support_correction_max
+                or self.flip_entry_boost_rise_s >= self.flip_duration_timeout_s
+                or 1.875*self.flip_entry_boost/self.flip_entry_boost_rise_s
+                    > self.flip_support_slew_per_s+1e-9):
+            return 'incline entry boost exceeds support amount/rate budget'
         if self.detach_recovered_hold_s >= self.detach_duration_timeout_s or self.recovery_hold_s >= self.recover_timeout_s:
             return 'incline recovery timeout too short'
         return ''
@@ -158,6 +180,12 @@ class InclineAttachment:
         self.contact_samples = []
         self.contact_angle = None
         self.required_thrust = None
+        self.flip_entry_height = math.nan
+        self.flip_abort_since = {}
+        self.flip_abort_stamp = None
+        self.flip_entry_thrust = self.flip_pressure_thrust = math.nan
+        self.flip_support_requested = self.flip_support_correction = math.nan
+        self.flip_boost_elapsed = self.flip_boost_value = 0.
 
     @staticmethod
     def tilt(q):
@@ -262,6 +290,60 @@ class InclineAttachment:
         self.support.begin(f.height, self.base, self.thrust, f.now)
         self._enter('RETURN', f.now, self.reason if self.fault else '斜墙受控脱离回平')
 
+    def _flip_motion_fault(self, f):
+        """Confirm roll/pitch tracking or entry-height loss only during flip.
+
+        Compare against the published attitude, and count source time so a
+        repeated feedback sample cannot confirm a persistent deviation.
+        """
+        if self.flip_abort_stamp is not None:
+            gap = f.pose_stamp-self.flip_abort_stamp
+            if gap < 0. or gap > .20+1e-8:
+                self.flip_abort_since.clear()
+        self.flip_abort_stamp = f.pose_stamp
+        measured = euler_from_quaternion(f.q)
+        sent = euler_from_quaternion(f.applied_q)
+        errors = [abs(math.degrees(math.atan2(math.sin(a-b), math.cos(a-b))))
+                  for a, b in zip(measured[:2], sent[:2])]
+        checks = (
+            ('横滚', errors[0], self.s.flip_abort_roll_error_deg, 'deg'),
+            ('俯仰', errors[1], self.s.flip_abort_pitch_error_deg, 'deg'),
+            ('掉高', self.flip_entry_height-f.height, self.s.flip_abort_height_drop_m, 'm'),
+        )
+        for name, value, limit, unit in checks:
+            if value <= limit:
+                self.flip_abort_since.pop(name, None)
+                continue
+            since = self.flip_abort_since.setdefault(name, f.pose_stamp)
+            if f.pose_stamp-since >= self.s.flip_abort_confirm_s-1e-8:
+                return ('斜墙翻转%s超限：%.3f%s > %.3f%s，持续%.2fs' %
+                        (name, value, unit, limit, unit, f.pose_stamp-since))
+        return ''
+
+    def _flip_support(self, f, dt):
+        """Entry collective boost plus takeover-height PD and tilt feedforward.
+
+        No integral and no accumulation from delayed output echoes. The final
+        publisher independently slews from its actual last publication.
+        """
+        # Integrate bounded control time: a stalled timer cannot skip the
+        # smooth entry ramp. Boost and feedback share ONE correction budget.
+        self.flip_boost_elapsed = min(self.s.flip_entry_boost_rise_s,
+                                      self.flip_boost_elapsed+dt)
+        self.flip_boost_value = self.s.flip_entry_boost*smoothstep5(
+            self.flip_boost_elapsed/self.s.flip_entry_boost_rise_s)
+        fraction = max(rotate_vector(f.q, (0., 0., 1.))[2], .001)
+        correction = (self.flip_boost_value + self.base/fraction - self.flip_entry_thrust
+            + self.s.flip_support_height_kp*(self.reference_height-f.height)
+            - self.s.flip_support_velocity_kp*f.vz)
+        self.flip_support_correction = clamp(correction,
+            -self.s.flip_support_correction_max, self.s.flip_support_correction_max)
+        self.flip_support_requested = min(self.cap, max(self.flip_pressure_thrust,
+            self.flip_entry_thrust+self.flip_support_correction))
+        step = self.s.flip_support_slew_per_s*dt
+        self.thrust = clamp(self.flip_support_requested,
+            max(.1, self.thrust-step), min(self.cap, self.thrust+step))
+
     def step(self, f, requested=True, detach=False, cancel=False):
         if self.phase not in self.ACTIVE:
             return
@@ -271,7 +353,8 @@ class InclineAttachment:
             return
         self.last_at = f.now
         dt = min(.05, delta)
-        if not f.pose_valid or not f.control_valid:
+        if (not f.pose_valid or not f.control_valid
+                or not all(math.isfinite(v) for v in (f.height, f.vz))):
             self._land(f, '关键姿态/速度反馈或控制权失效')
             return
         if f.output_valid and (not math.isfinite(f.applied_thrust)
@@ -301,18 +384,32 @@ class InclineAttachment:
             elif (f.front_valid and math.isfinite(f.front) and f.front > 0.
                     and f.front <= self.s.flip_trigger_distance_m + 1e-6 and f.output_valid):
                 self.q, self.thrust = f.applied_q, f.applied_thrust
+                self.flip_entry_thrust = self.flip_pressure_thrust = self.thrust
+                self.flip_support_requested = self.thrust
+                self.flip_support_correction = 0.
+                self.flip_boost_elapsed = self.flip_boost_value = 0.
                 self.flip_seed = self.q
                 self.flip_angle = self.flip_rate = 0.
+                self.flip_entry_height = f.height
+                self.flip_abort_since.clear()
+                self.flip_abort_stamp = f.pose_stamp
                 self._enter('SLOW_FLIP', f.now, '斜墙慢速翻转并增推')
         elif self.phase == 'SLOW_FLIP':
+            motion_fault = self._flip_motion_fault(f)
+            if motion_fault:
+                self.abort(f, motion_fault)
+                return
             hard = (self.tilt(f.q) > math.radians(self.s.flip_max_tilt_deg) + 1e-6
                     or f.applied_thrust > self.cap + 1e-6)
-            if f.top_valid and f.top <= self.s.top_contact_distance_m and not hard:
+            if (f.top_valid and math.isfinite(f.top)
+                    and 0. < f.top < self.s.top_contact_distance_m and not hard):
                 self.contact_seen = True
                 self.contact_q, self.contact_sent = f.q, f.applied_q
                 self.contact_samples = []
-                self.q, self.thrust = f.applied_q, f.applied_thrust
-                self._enter('CONTACT_SETTLE', f.now, '顶部6.5cm压实：停止翻转与增推')
+                self.contact_angle = max(0., self.tilt(f.q)-math.radians(self.s.contact_pitch_bias_deg))
+                self.required_thrust = self._required(self.contact_angle)
+                self.q, self.thrust = self.contact_q, f.applied_thrust
+                self._enter('HOLD', f.now, '顶部单帧小于7cm：停止翻转与增推，锁定HOLD')
                 return
             limit = math.radians(self.s.flip_max_tilt_deg)
             if (hard or self.tilt(f.q) >= limit - 1e-6 or self.tilt(self.q) >= limit - 1e-6
@@ -320,8 +417,11 @@ class InclineAttachment:
                 self.abort(f, '翻转角度/推力上限或8秒预算耗尽，尚未接触')
                 return
             tracking = math.radians(self.s.flip_max_tracking_error_deg)
+            # Stop angular search when tracking lags, but continue bounded
+            # vertical support while fresh pose/control/output gates hold.
+            self._flip_support(f, dt)
             if quaternion_angle(self.q, f.q) > tracking:
-                return  # Wall clock still advances; neither motion nor thrust catches up.
+                return
             # A coarse estimate is advisory, never a contact declaration.
             # Slow the search near it; continue searching until contact/timeout.
             search_rate = self.s.flip_pitch_rate_deg_s
@@ -337,7 +437,8 @@ class InclineAttachment:
                 proposed = quaternion_slerp(self.q, proposed, amount)
             if quaternion_angle(proposed, f.q) <= tracking:
                 self.flip_angle, self.flip_rate, self.q = angle, rate, proposed
-                self.thrust = min(self.cap, f.applied_thrust + self.s.flip_thrust_ramp_per_s*dt)
+                self.flip_pressure_thrust = min(self.cap,
+                    self.flip_pressure_thrust + self.s.flip_thrust_ramp_per_s*dt)
         elif self.phase == 'CONTACT_SETTLE':
             self.q = quaternion_slerp(self.contact_sent, self.contact_q,
                 smoothstep5(age/self.s.hold_entry_blend_s))
@@ -420,7 +521,9 @@ class InclineAttachment:
             if self._stable(recovered and self.planner.done, f.pose_stamp, f.now, self.s.detach_recovered_hold_s):
                 self.recovery_started = f.now
                 self._enter('RECOVER', f.now, '斜墙回平完成，恢复悬停')
-        if self.phase in ('APPROACH', 'RECOVER', 'EXIT'):
+        # The ROS adapter uses the side-wall approach controller verbatim.
+        # This support loop owns only incline return/recovery, never approach.
+        if self.phase in ('RECOVER', 'EXIT'):
             actual = f.applied_thrust if f.output_valid else self.thrust
             self.thrust = self.support.update_range(f.height, f.vz, rotate_vector(f.q, (0., 0., 1.))[2],
                 f.now, actual, self.s.height_kp, self.s.velocity_kp)

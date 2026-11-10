@@ -10,7 +10,7 @@ from mavros_msgs.msg import AttitudeTarget, State
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Range
 from std_msgs.msg import String, Bool
-from px4_wall_ceiling_control.msg import OperatorCommand as O, WallPerchStatus as W, AttachmentControlCandidate as C
+from px4_wall_ceiling_control.msg import OperatorCommand as O, WallPerchStatus as W, AttachmentControlCandidate as C, SensorHealth
 from px4_wall_ceiling_control.domain.geometry import quaternion_angle
 from px4_wall_ceiling_control.domain.incline_attachment import InclineSettings
 from test_attachment_safety import WallDecision, OutputMux
@@ -42,6 +42,11 @@ class InclineBoundaryTests(unittest.TestCase):
         n._entry_height = mock.Mock(return_value=2.)
         n._on_operator(O(mode=O.MODE_INCLINE, enable_control=True))
         self.assertTrue(n.incline_selected)
+        n.incline_approach_equilibrium.ready = n.incline_approach_equilibrium.frozen = True
+        n.incline_approach_equilibrium.axis = (0., 0., 1.)
+        n.incline_approach_yaw = 0.
+        n.incline_approach_reference = 2.
+        n.incline_approach_base = n.incline_approach_takeover = .49
         return n
 
     def feedback(self, n, front=.4, top=.5):
@@ -55,6 +60,10 @@ class InclineBoundaryTests(unittest.TestCase):
         n.front_received_at = now; n.front_filtered_m = front
         n.top_range = Range(range=top, min_range=.03, max_range=40.); n.top_range.header.stamp = now
         n.top_received_at = now; n.top_filtered_m = top
+        n.sensor_health = SensorHealth(front_valid=True, ceiling_valid=True)
+        n.sensor_health.header.stamp = now; n.sensor_health_received_at = now
+        n.horizontal_velocity_ready = True
+        n.horizontal_measured = (0., 0.)
         n.flight_state = State(connected=True, armed=True, mode='OFFBOARD'); n.flight_state.header.stamp = now
         n.flight_state_received_at = now
         n.manager_phase = 'ACTIVE'; n.manager_phase_received_at = now
@@ -62,9 +71,10 @@ class InclineBoundaryTests(unittest.TestCase):
         output.orientation = Quaternion(*q)
         output.thrust = n.incline.thrust if math.isfinite(n.incline.thrust) else .49
         n._valid_wall_output = mock.Mock(return_value=output)
+        n.incline_approach_source = (output, now)
         n.operator_received_at = now
 
-    def test_adapter_waits_for_under_2m_then_emits_atomic_incline_candidate(self):
+    def test_adapter_waits_for_front_gate_and_far_safety_then_emits_candidate(self):
         n = self.node()
         for _ in range(25):
             self.clock += .02
@@ -73,7 +83,7 @@ class InclineBoundaryTests(unittest.TestCase):
         self.assertEqual(n.incline.phase, 'WAIT')
         for _ in range(23):
             self.clock += .02
-            self.feedback(n, front=1.999)
+            self.feedback(n, front=1.799)
             n._control_cycle_at(rospy.Time.now())
         self.assertEqual(n.incline.phase, 'APPROACH')
         candidate = n.control_candidate_publisher.publish.call_args[0][0]
@@ -85,7 +95,69 @@ class InclineBoundaryTests(unittest.TestCase):
         self.assertEqual(n.incline.phase, 'SLOW_FLIP')
         self.clock += .02; self.feedback(n, top=.065)
         n._control_cycle_at(rospy.Time.now())
-        self.assertEqual(n.incline.phase, 'CONTACT_SETTLE')
+        self.assertEqual(n.incline.phase, 'HOLD')
+
+    def test_incline_flip_consumes_live_top_callback_without_wall_progress(self):
+        n = self.node(); self.feedback(n, front=.18, top=.257)
+        f = n._incline_feedback_at(rospy.Time.now())
+        self.assertTrue(n.incline.start(f, pose(0), .49))
+        n._incline_cycle(rospy.Time.now())
+        self.assertEqual(n.incline.phase, 'SLOW_FLIP')
+        self.assertEqual(n.state, W.STATE_FLIP_TO_WALL)
+        self.assertEqual(n.flip_elapsed_s, 0.)
+        self.assertIsNone(n.top_hold_accept_after)
+        n._late_top_window_open = mock.Mock(side_effect=AssertionError('side-wall gate used'))
+        for distance, phase in ((.192, 'SLOW_FLIP'), (.071, 'SLOW_FLIP'),
+                                (.069, 'HOLD')):
+            self.clock += .1
+            self.feedback(n, top=n.top_range.range)
+            msg = Range(range=distance, min_range=.03, max_range=40.)
+            msg.header.stamp = rospy.Time.now()
+            before_q, before_thrust = n.incline.q, n.incline.thrust
+            n._on_top_range(msg)
+            self.assertEqual(n.top_range, msg)
+            self.assertTrue(n._top_fresh(rospy.Time.now()))
+            n._incline_cycle(rospy.Time.now())
+            self.assertEqual(n.incline.phase, phase)
+            if phase == 'HOLD':
+                self.assertEqual(n.incline.q, before_q)
+                self.assertEqual(n.incline.thrust, before_thrust)
+        n._late_top_window_open.assert_not_called()
+
+    def test_side_wall_flip_keeps_late_top_callback_gate(self):
+        n = self.node(); self.feedback(n, top=.257)
+        n.incline_selected = False
+        n.state = W.STATE_FLIP_TO_WALL
+        n._late_top_window_open = mock.Mock(return_value=False)
+        self.clock += .1
+        msg = Range(range=.064, min_range=.03, max_range=40.)
+        msg.header.stamp = rospy.Time.now()
+        old_range, old_received = n.top_range, n.top_received_at
+        n._on_top_range(msg)
+        self.assertIs(n.top_range, old_range)
+        self.assertEqual(n.top_received_at, old_received)
+        n._late_top_window_open.assert_called_once()
+        n._late_top_window_open.return_value = True
+        n._on_top_range(msg)
+        self.assertEqual(n.top_range, msg)
+
+    def test_incline_flip_still_rejects_invalid_and_replayed_top_frames(self):
+        n = self.node(); self.feedback(n, top=.257)
+        n.state = W.STATE_FLIP_TO_WALL
+        self.clock += .1
+        first = Range(range=.2, min_range=.03, max_range=40.)
+        first.header.stamp = rospy.Time.now()
+        n._on_top_range(first)
+        for value in (math.nan, math.inf, .02):
+            self.clock += .02
+            bad = Range(range=value, min_range=.03, max_range=40.)
+            bad.header.stamp = rospy.Time.now()
+            n._on_top_range(bad)
+            self.assertIs(n.top_range, first)
+        replay = Range(range=.064, min_range=.03, max_range=40.)
+        replay.header.stamp = first.header.stamp
+        n._on_top_range(replay)
+        self.assertIs(n.top_range, first)
 
     def test_active_profile_is_latched_until_exit(self):
         n = self.node()
@@ -93,6 +165,70 @@ class InclineBoundaryTests(unittest.TestCase):
         n._on_operator(O(mode=O.MODE_WALL, enable_control=True))
         self.assertTrue(n.incline_selected)
         self.assertFalse(n._incline_requested(rospy.Time.now()))
+
+    def test_mavros_source_lead_matches_wall_feedback_gate(self):
+        n = self.node()
+        for lead in (0., .029155, .099, .101, .2):
+            with self.subTest(lead=lead):
+                self.feedback(n)
+                n.odom.header.stamp = rospy.Time.from_sec(self.clock + lead)
+                n.flight_state.header.stamp = rospy.Time.from_sec(self.clock + lead)
+                f = n._incline_feedback_at(rospy.Time.now())
+                self.assertEqual(f.pose_valid, n._odom_fresh(rospy.Time.now()))
+                self.assertEqual(f.pose_valid, lead < .1)
+                self.assertEqual(f.control_valid, lead < .1)
+
+    def test_recorded_29ms_source_lead_does_not_abort_approach(self):
+        n = self.node(); self.feedback(n)
+        f = n._incline_feedback_at(rospy.Time.now())
+        self.assertTrue(n.incline.start(f, pose(0), .49))
+        self.clock += .04
+        self.feedback(n)
+        n.odom.header.stamp = rospy.Time.from_sec(self.clock + .029155)
+        n._incline_cycle(rospy.Time.now())
+        self.assertEqual(n.incline.phase, 'APPROACH')
+        self.assertTrue(n.control_candidate_publisher.publish.call_args[0][0].valid)
+
+    def test_source_tolerance_keeps_receipt_and_source_timeout_checks(self):
+        n = self.node()
+        for invalid in ('odom_receipt', 'odom_source', 'flight_receipt', 'flight_source', 'zero_source'):
+            with self.subTest(invalid=invalid):
+                self.feedback(n)
+                if invalid == 'odom_receipt':
+                    n.odom_received_at = rospy.Time.from_sec(self.clock - n.odom_timeout_s - .01)
+                elif invalid == 'odom_source':
+                    n.odom.header.stamp = rospy.Time.from_sec(self.clock - n.odom_timeout_s - .01)
+                elif invalid == 'flight_receipt':
+                    n.flight_state_received_at = rospy.Time.from_sec(self.clock - n.state_timeout_s - .01)
+                elif invalid == 'flight_source':
+                    n.flight_state.header.stamp = rospy.Time.from_sec(self.clock - n.state_timeout_s - .01)
+                else:
+                    n.odom.header.stamp = n.flight_state.header.stamp = rospy.Time()
+                f = n._incline_feedback_at(rospy.Time.now())
+                if invalid.startswith('odom') or invalid == 'zero_source':
+                    self.assertFalse(f.pose_valid)
+                if invalid.startswith('flight') or invalid == 'zero_source':
+                    self.assertFalse(f.control_valid)
+
+    def test_excessive_source_lead_still_requests_landing(self):
+        n = self.node(); self.feedback(n)
+        f = n._incline_feedback_at(rospy.Time.now())
+        self.assertTrue(n.incline.start(f, pose(0), .49))
+        self.clock += .02; self.feedback(n)
+        n.odom.header.stamp = rospy.Time.from_sec(self.clock + .101)
+        n._incline_cycle(rospy.Time.now())
+        self.assertEqual(n.incline.phase, 'LAND')
+        self.assertTrue(n.abort_land_requested)
+
+    def test_external_mode_change_with_bounded_source_lead_releases_task(self):
+        n = self.node(); self.feedback(n)
+        f = n._incline_feedback_at(rospy.Time.now())
+        self.assertTrue(n.incline.start(f, pose(0), .49))
+        self.clock += .02; self.feedback(n)
+        n.flight_state.mode = 'POSCTL'
+        n.flight_state.header.stamp = rospy.Time.from_sec(self.clock + .029155)
+        n._incline_cycle(rospy.Time.now())
+        self.assertEqual(n.incline.phase, 'ABORT_DONE')
 
     def test_incline_height_is_strictly_above_10cm_and_wall_stays_30cm(self):
         n = self.node()
@@ -218,6 +354,81 @@ class InclineBoundaryTests(unittest.TestCase):
         m.operator = O(mode=O.MODE_INCLINE, enable_control=True)
         candidate = C(acquire_request=True, incline_active=False)
         self.assertEqual(m._wall_candidate_problem(candidate, rospy.Time.now()), 'incline_profile_acquisition_mismatch')
+
+    def test_flip_publication_allows_support_slew_but_remains_continuous(self):
+        m = OutputMux.__new__(OutputMux)
+        m.max_thrust = .85; m.min_thrust = .1
+        m.incline_output_settings = InclineSettings(enabled=True, flip_thrust_max=.75)
+        m._wall_publication_seed = lambda now: (pose(0), .49, rospy.Time.from_sec(self.clock-.02), C.SOURCE_WALL)
+        candidate = C(incline_active=True, control_phase=W.STATE_FLIP_TO_WALL)
+        result = m._limit_wall_publication(rospy.Time.now(),
+            AttitudeTarget(orientation=Quaternion(*pose(10)), thrust=.57), candidate)
+        self.assertAlmostEqual(result.thrust, .494)
+        q = tuple(getattr(result.orientation,k) for k in 'xyzw')
+        self.assertLessEqual(quaternion_angle(pose(0), q), math.radians(.2)+1e-8)
+        # Repeating the call cannot accumulate against the same sent seed.
+        again = m._limit_wall_publication(rospy.Time.now(),
+            AttitudeTarget(orientation=Quaternion(*pose(10)), thrust=.57), candidate)
+        self.assertAlmostEqual(again.thrust, .494)
+
+    def test_flip_support_does_not_relax_hold_or_return_output_limits(self):
+        m = OutputMux.__new__(OutputMux)
+        m.max_thrust = .85; m.min_thrust = .1
+        m.incline_output_settings = InclineSettings(enabled=True, flip_thrust_max=.75)
+        m._wall_publication_seed = lambda now: (pose(0), .49, rospy.Time.from_sec(self.clock-.02), C.SOURCE_WALL)
+        for phase, expected in ((W.STATE_WALL_HOLD, .4906),
+                                (W.STATE_DETACH_ROTATE, .494)):
+            result = m._limit_wall_publication(rospy.Time.now(),
+                AttitudeTarget(orientation=Quaternion(*pose(0)), thrust=.57),
+                C(incline_active=True, control_phase=phase))
+            self.assertAlmostEqual(result.thrust, expected)
+
+    def test_flip_status_records_support_reference_correction_and_targets(self):
+        n = self.node(); self.feedback(n, front=.18)
+        f = n._incline_feedback_at(rospy.Time.now())
+        self.assertTrue(n.incline.start(f, pose(0), .49))
+        n._incline_cycle(rospy.Time.now())
+        self.clock += .02; self.feedback(n, front=.18)
+        n.odom.pose.pose.position.z = 1.95
+        n.odom.twist.twist.linear.z = -.4
+        n._incline_cycle(rospy.Time.now())
+        status = n._incline_status(rospy.Time.now(), n.incline_feedback, True)
+        self.assertTrue(status.flip_vertical_support_enabled)
+        self.assertEqual(status.vertical_reference_m, 2.)
+        self.assertAlmostEqual(status.vertical_thrust_correction, .08, places=6)
+        self.assertAlmostEqual(status.flip_support_thrust, .57, places=6)
+        self.assertAlmostEqual(status.thrust_normalized, .494, places=6)
+
+    def test_front_trigger_boost_reaches_final_output_with_attitude_continuity(self):
+        n = self.node(); self.feedback(n, front=.18)
+        f = n._incline_feedback_at(rospy.Time.now())
+        self.assertTrue(n.incline.start(f, pose(0), .49))
+        n._incline_cycle(rospy.Time.now())
+        m = OutputMux.__new__(OutputMux)
+        m.max_thrust = .85; m.min_thrust = .1
+        m.incline_output_settings = InclineSettings(enabled=True, flip_thrust_max=.75)
+        sent = [pose(0), .49, rospy.Time.now(), C.SOURCE_WALL]
+        m._wall_publication_seed = lambda now: tuple(sent)
+        for _ in range(20):
+            self.clock += .02; self.feedback(n, front=.18)
+            actual = AttitudeTarget(orientation=Quaternion(*sent[0]), thrust=sent[1])
+            actual.header.stamp = sent[2]
+            n._valid_wall_output = mock.Mock(return_value=actual)
+            n._incline_cycle(rospy.Time.now())
+            candidate = n.control_candidate_publisher.publish.call_args[0][0]
+            self.assertTrue(candidate.valid and candidate.incline_active)
+            target = AttitudeTarget(orientation=Quaternion(*n.incline.q), thrust=n.incline.thrust)
+            result = m._limit_wall_publication(rospy.Time.now(), target, candidate)
+            self.assertIsNotNone(result)
+            q = tuple(getattr(result.orientation,k) for k in 'xyzw')
+            self.assertLessEqual(quaternion_angle(sent[0],q), math.radians(.2)+1e-8)
+            self.assertLessEqual(abs(result.thrust-sent[1]), .004+1e-8)
+            sent[:] = [q, result.thrust, rospy.Time.now(), C.SOURCE_WALL]
+        self.assertEqual(n.incline.phase, 'SLOW_FLIP')
+        self.assertGreater(quaternion_angle(pose(0),sent[0]), 0.)
+        # Actual pitch has begun, so tilt feedforward adds a small amount.
+        self.assertGreaterEqual(sent[1], .53-1e-6)
+        self.assertLess(sent[1], .531)
 
 
 if __name__ == '__main__':

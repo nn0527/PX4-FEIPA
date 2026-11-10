@@ -5,18 +5,20 @@ wall and ceiling controllers are unchanged unless MODE_INCLINE is selected.
 """
 import math
 import uuid
+from dataclasses import replace
 
 import rospy
 from geometry_msgs.msg import Quaternion
 from px4_wall_ceiling_control.msg import OperatorCommand as O, WallPerchStatus as W
 from px4_wall_ceiling_control.adapters.kill_switch import kill_clear
+from px4_wall_ceiling_control.adapters.incline_approach import InclineApproachMixin
 from px4_wall_ceiling_control.adapters.odometry import linear_velocity_parent_frame
 from px4_wall_ceiling_control.domain.geometry import quaternion_conjugate, rotate_vector
 from px4_wall_ceiling_control.domain.incline_attachment import InclineAttachment, InclineFeedback, InclineSettings
 from px4_wall_ceiling_control.freshness import is_fresh_receipt, is_fresh_source
 
 
-class InclineAttachmentMixin:
+class InclineAttachmentMixin(InclineApproachMixin):
     INCLINE_STATES = {
         'WAIT': W.STATE_IDLE, 'APPROACH': W.STATE_SLOW_APPROACH,
         'SLOW_FLIP': W.STATE_FLIP_TO_WALL, 'CONTACT_SETTLE': W.STATE_WALL_CAPTURE,
@@ -32,6 +34,7 @@ class InclineAttachmentMixin:
         self.incline_selected = False
         self.incline_ready_since = self.incline_ready_stamp = None
         self.incline_feedback = None
+        self._init_incline_approach()
 
     def _incline_on_operator(self, message):
         # Selection is latched during a maneuver; a different mode only cancels
@@ -45,6 +48,11 @@ class InclineAttachmentMixin:
             elif selected and not self.incline_selected:
                 self.incline_selected = True
                 self.incline = InclineAttachment(self.incline_settings, self.max_thrust)
+                self.incline_approach_equilibrium.clear()
+                self.incline_approach_controller.reset()
+                self.incline_approach_yaw = self.incline_approach_sample = None
+                self.incline_approach_reference = self.incline_approach_base = None
+                self.incline_approach_candidate_axis = None
 
     def _incline_requested(self, now):
         return bool(self.decision_enabled and self.operator is not None
@@ -66,7 +74,9 @@ class InclineAttachmentMixin:
                 rate = (omega.x, omega.y, omega.z)
                 if not self.odom_twist_in_child_frame:
                     rate = rotate_vector(quaternion_conjugate(q), rate)
-                pose_valid = bool(is_fresh_source(self.odom.header.stamp, self.odom_timeout_s, now, future_tolerance_s=0.)
+                # MAVROS feedback uses the same bounded source-clock lead as
+                # side-wall control; receipt and source timeouts still apply.
+                pose_valid = bool(is_fresh_source(self.odom.header.stamp, self.odom_timeout_s, now)
                     and all(math.isfinite(v) for v in (*q, *rate, height, vz, speed))
                     and abs(sum(v*v for v in q)-1.) <= .01)
             except (AttributeError, ValueError, TypeError):
@@ -76,7 +86,7 @@ class InclineAttachmentMixin:
         control = bool(kill_clear(self, now) and flight is not None and flight.connected and flight.armed
             and flight.mode.upper() == 'OFFBOARD'
             and is_fresh_receipt(self.flight_state_received_at, self.state_timeout_s, now)
-            and is_fresh_source(flight.header.stamp, self.state_timeout_s, now, future_tolerance_s=0.))
+            and is_fresh_source(flight.header.stamp, self.state_timeout_s, now))
         front_valid, top_valid = self._front_fresh(now), self._top_fresh(now)
         return InclineFeedback(now.to_sec(), q, rate, height, vz, speed, stamp,
             x=self.odom.pose.pose.position.x if pose_valid else math.nan,
@@ -111,29 +121,51 @@ class InclineAttachmentMixin:
         old = engine.phase
         requested = self._incline_requested(now)
         self._prepare_horizontal_velocity(now)
-        self._prepare_horizontal_equilibrium(now)
+        self._incline_approach_prepare(now)
         f = self._incline_feedback_at(now)
         ready = self._incline_front_ready(f)
+        failure = (self._incline_approach_failure(f,
+            max(0., f.now-engine.entered) if engine.phase == 'APPROACH' else 0.,
+            require_control=engine.phase == 'APPROACH')
+            if engine.phase in ('WAIT', 'APPROACH') else '')
+        if f.front_valid and f.front > self.incline_approach_params['abort_front_distance_m']:
+            ready = False
         flight = self.flight_state
         live_mode = (flight is not None and is_fresh_receipt(self.flight_state_received_at, self.state_timeout_s, now)
-                     and is_fresh_source(flight.header.stamp, self.state_timeout_s, now, future_tolerance_s=0.))
+                     and is_fresh_source(flight.header.stamp, self.state_timeout_s, now))
         if engine.phase in engine.ACTIVE and live_mode and (not flight.armed or flight.mode.upper() != 'OFFBOARD'):
             # Pilot/flight-controller takeover is terminal. Never re-enter the
             # old trajectory when OFFBOARD later reappears.
             engine.phase, engine.reason = 'ABORT_DONE', '斜墙外部模式接管，释放旧任务'
         elif engine.phase == 'WAIT':
-            if (requested and not engine.error and ready and f.pose_valid and f.control_valid
+            if requested and failure:
+                engine.reason = '斜墙接近等待：' + failure
+            elif requested:
+                engine.reason = '等待斜面独立平衡基准、测距准入及本次OFFBOARD接管确认'
+            if (requested and not failure and not engine.error and ready and f.pose_valid and f.control_valid
                     and self._incline_entry_height_ready()):
-                if (self._auto_takeover_confirmed(now) and self.horizontal_equilibrium.frozen
-                        and self.approach_takeover_thrust is not None):
-                    seed = self.horizontal_prestream_attitude or self.q_hover
-                    if engine.start(f, seed, self.approach_takeover_thrust):
+                if (self._auto_takeover_confirmed(now) and self.incline_approach_equilibrium.frozen
+                        and self._incline_approach_begin(f)):
+                    seed = self.incline_approach_prestream or self.q_hover
+                    if engine.start(f, seed, self.incline_approach_takeover):
+                        # Preserve the POSCTL -> OFFBOARD edge reference/base,
+                        # including loss before the front-distance flip gate.
+                        engine.reference_height = self.incline_approach_reference
+                        engine.base = self.incline_approach_base
                         self.maneuver_id = uuid.uuid4().hex
                         self.control_sequence = 0
                         self.hold_achieved = False
-                        self.approach_altitude_m = f.height
         elif engine.phase in engine.ACTIVE:
-            engine.step(f, requested, self.detach_requested, self.cancel_requested)
+            if engine.phase == 'APPROACH' and failure:
+                engine.abort(f, failure)
+            else:
+                # Share wall range/velocity admission to contact transitions;
+                # never authorize a flip using unhealthy or paused feedback.
+                step_feedback = f
+                if engine.phase == 'APPROACH' and (
+                        not self._incline_approach_ranges_ready(now) or not self.horizontal_velocity_ready):
+                    step_feedback = replace(f, front_valid=False)
+                engine.step(step_feedback, requested, self.detach_requested, self.cancel_requested)
         elif engine.phase == 'LAND' and live_mode and (not flight.armed or flight.mode.upper() != 'OFFBOARD'):
             engine.phase, engine.reason = 'ABORT_DONE', '斜墙故障交接已结束，禁止自动重启'
         self.state = self.INCLINE_STATES[engine.phase]
@@ -143,6 +175,8 @@ class InclineAttachmentMixin:
         self.detach_requested = self.cancel_requested = False
         if engine.phase != old:
             self.state_entered_at = now
+            self.incline_approach_controller.clear_integral()
+            self.incline_approach_sample = None
             self._clear_horizontal_integral('斜墙阶段切换')
             if engine.phase == 'SLOW_FLIP':
                 self._reset_horizontal_gate('斜墙翻转暂停水平闭环')
@@ -180,6 +214,8 @@ class InclineAttachmentMixin:
         status.altitude_reference_valid = self._entry_height() is not None
         status.min_entry_height_m = self.incline_settings.min_entry_height_m
         status.auto_approach_enabled = True
+        status.approach_paused = bool(engine.phase == 'APPROACH'
+            and not self._incline_approach_motion_allowed(now))
         status.hold_achieved = self.hold_achieved
         status.detach_ready = engine.phase == 'HOLD' and f.pose_valid and f.control_valid and f.output_valid
         status.fault_detected = bool(engine.fault)
@@ -193,7 +229,32 @@ class InclineAttachmentMixin:
         status.reason = engine.error or engine.reason
         q, thrust = engine.q, engine.thrust
         self.horizontal_velocity_active = False
-        if engine.phase in ('APPROACH', 'RECOVER', 'EXIT') and q is not None:
+        if engine.phase == 'APPROACH':
+            # Copied wall behavior with incline-owned parameters and history.
+            q, thrust = self._incline_approach_control(now, f)
+            engine.q, engine.thrust = q, thrust
+            status.vertical_control_active = True
+            status.vertical_reference_valid = self.incline_approach_reference is not None
+            status.vertical_reference_m = self.incline_approach_reference if self.incline_approach_reference is not None else math.nan
+            status.vertical_reference_source = 'incline_offboard_takeover'
+            status.vertical_target_enu_mps = self.incline_approach_target_speed
+            status.vertical_thrust_correction = self.incline_approach_correction
+            status.approach_takeover_thrust = self.incline_approach_takeover if self.incline_approach_takeover is not None else math.nan
+            status.approach_base_vertical_thrust = self.incline_approach_base if self.incline_approach_base is not None else math.nan
+        elif engine.phase == 'SLOW_FLIP':
+            status.vertical_control_active = True
+            status.vertical_reference_valid = math.isfinite(engine.reference_height)
+            status.vertical_reference_m = engine.reference_height
+            status.vertical_reference_source = 'incline_offboard_takeover_flip_support'
+            status.vertical_target_enu_mps = 0.
+            status.vertical_thrust_correction = engine.flip_support_correction
+            status.flip_vertical_support_enabled = True
+            status.flip_vertical_support_weight = 1.
+            status.flip_entry_thrust = engine.flip_entry_thrust
+            status.flip_base_vertical_thrust = engine.base
+            status.flip_support_thrust = engine.flip_support_requested
+            status.flip_pressure_thrust = engine.flip_pressure_thrust
+        elif engine.phase in ('RECOVER', 'EXIT') and q is not None:
             old_speed = self.horizontal_approach_speed
             try:
                 self.horizontal_approach_speed = self.incline_settings.horizontal_approach_speed_mps
@@ -202,9 +263,10 @@ class InclineAttachmentMixin:
                 q = self._horizontal_attitude(now, q)
             finally:
                 self.horizontal_approach_speed = old_speed
-            if engine.phase == 'APPROACH':
-                engine.q = q
-        self._fill_horizontal_status(status)
+        if engine.phase in ('WAIT', 'APPROACH'):
+            self._fill_incline_approach_status(status)
+        else:
+            self._fill_horizontal_status(status)
         status.attitude_setpoint_valid = q is not None
         if q is not None:
             status.attitude_setpoint = Quaternion(*q)

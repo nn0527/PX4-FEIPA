@@ -901,10 +901,51 @@ class RemoteRuntime:
         if keep_telemetry:
             names.discard("/mavros")
         remaining = []
+
+        def cleanup_refused(name, uri):
+            # Capture service endpoints before modifying registrations. Never
+            # resolve a replacement node's endpoints during cleanup.
+            code, message, graph = master.getSystemState(caller)
+            if code != 1:
+                raise ValueError("无法读取残留注册：" + str(message))
+            operations = []
+            for method, group in zip(("unregisterPublisher", "unregisterSubscriber"), graph[:2]):
+                operations.extend((method, topic, uri) for topic, nodes in group if name in nodes)
+            for service, nodes in graph[2]:
+                if name in nodes:
+                    code, message, endpoint = master.lookupService(caller, service)
+                    if code != 1:
+                        raise ValueError("无法核验残留服务：" + service + "；" + str(message))
+                    operations.append(("unregisterService", service, endpoint))
+            for method, resource, endpoint in operations:
+                code, _, current_uri = master.lookupNode(caller, name)
+                if code == -1:
+                    return
+                if code != 1:
+                    raise ValueError("无法复核节点注册：" + name)
+                if current_uri != uri:
+                    raise ValueError("停止期间同名节点重新注册：" + name)
+                try:
+                    proxy(uri).getPid(caller)
+                except ConnectionRefusedError:
+                    pass
+                else:
+                    raise ValueError("清理前节点已重新响应：" + name)
+                code, message, _ = getattr(master, method)(name, resource, endpoint)
+                if code != 1:
+                    raise ValueError("清理残留注册失败：" + name + "；" + str(message))
+            code, message, graph = master.getSystemState(caller)
+            if code != 1:
+                raise ValueError("无法复核残留注册：" + str(message))
+            if any(name in nodes for group in graph for _, nodes in group):
+                raise ValueError("停止后仍有节点注册：" + name)
+
         for name in sorted(names):
             code, _, uri = master.lookupNode(caller, name)
-            if code != 1:
+            if code == -1:
                 continue  # Unregistered during verification.
+            if code != 1:
+                raise ValueError("无法核验节点注册：" + name)
             try:
                 code, _, _ = proxy(uri).getPid(caller)
                 if code == 1:
@@ -912,7 +953,10 @@ class RemoteRuntime:
                 else:
                     raise ValueError("无法确认节点已停止：" + name)
             except ConnectionRefusedError:
-                continue  # Stale master registration, no live node.
+                try:
+                    cleanup_refused(name, uri)
+                except (OSError, xmlrpc.client.Error) as error:
+                    raise ValueError("无法安全清理节点注册：" + name + "；" + str(error)) from error
             except (OSError, xmlrpc.client.Error) as error:
                 raise ValueError("无法确认节点已停止：" + name + "；" + str(error))
         return remaining

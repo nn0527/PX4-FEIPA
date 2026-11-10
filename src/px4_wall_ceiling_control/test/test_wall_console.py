@@ -301,6 +301,9 @@ class ConsoleTests(unittest.TestCase):
                 node.getPid.return_value = (1, '', 987)
             else:
                 node.getPid.side_effect = ConnectionRefusedError()
+            master.getSystemState.side_effect = None if live else [
+                (1, '', [[['/wall_perch/status', ['/renamed_wall']]], [], []]),
+                (1, '', [[], [], []]), (1, '', [[], [], []])]
             with mock.patch.object(server.xmlrpc.client, 'ServerProxy', side_effect=[master, node]):
                 self.assertEqual(server.RemoteRuntime.stop_ros_residuals(), ['/renamed_wall'] if live else [])
 
