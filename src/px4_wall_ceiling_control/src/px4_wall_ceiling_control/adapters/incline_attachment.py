@@ -13,7 +13,7 @@ from px4_wall_ceiling_control.msg import OperatorCommand as O, WallPerchStatus a
 from px4_wall_ceiling_control.adapters.kill_switch import kill_clear
 from px4_wall_ceiling_control.adapters.incline_approach import InclineApproachMixin
 from px4_wall_ceiling_control.adapters.odometry import linear_velocity_parent_frame
-from px4_wall_ceiling_control.domain.geometry import quaternion_conjugate, rotate_vector
+from px4_wall_ceiling_control.domain.geometry import quaternion_conjugate, rotate_vector, euler_from_quaternion
 from px4_wall_ceiling_control.domain.incline_attachment import InclineAttachment, InclineFeedback, InclineSettings
 from px4_wall_ceiling_control.freshness import is_fresh_receipt, is_fresh_source
 
@@ -220,6 +220,11 @@ class InclineAttachmentMixin(InclineApproachMixin):
         status.detach_ready = engine.phase == 'HOLD' and f.pose_valid and f.control_valid and f.output_valid
         status.fault_detected = bool(engine.fault)
         status.abort_land_requested = engine.phase == 'LAND'
+        # Select the same independent FCU/RC/fusion handover gate as captured
+        # wall recovery, rather than the legacy task-height/speed gate.
+        status.recover_attitude_locked = engine.phase in ('RECOVER', 'EXIT')
+        status.recover_stable = engine.recover_stable
+        status.detach_final_pitch_deg = math.degrees(euler_from_quaternion(f.q)[1]) if f.pose_valid else math.nan
         status.detach_range_maneuver_id = self.maneuver_id
         status.detach_range_episode = 1
         status.fault_recovery_completed = engine.phase == 'EXIT' and bool(engine.fault)
@@ -227,6 +232,8 @@ class InclineAttachmentMixin(InclineApproachMixin):
         status.front_distance_raw_m = status.front_distance_filtered_m = f.front
         status.top_distance_raw_m = status.top_distance_filtered_m = f.top
         status.reason = engine.error or engine.reason
+        if engine.phase == 'RETURN' and engine.return_tracking_limited:
+            status.reason += '; 回平新目标会继续扩大超限误差，暂停本步'
         q, thrust = engine.q, engine.thrust
         self.horizontal_velocity_active = False
         if engine.phase == 'APPROACH':

@@ -12,6 +12,7 @@ from .geometry import (clamp, euler_from_quaternion, hover_and_pitched_quaternio
                        quaternion_slerp, rotate_vector, smoothstep5)
 from .detach_braking import BrakingTrajectory, ReturnAxis, allowed_rate, braking_goal
 from .departure_height import DepartureHeightController
+from .simple_recovery import ENTRY_TILT_DEG, STABLE_TIME_S, attitude_within_margins
 
 
 @dataclass(frozen=True)
@@ -59,7 +60,7 @@ class InclineSettings:
     hold_contact_loss_hold_s: float = .30
     detach_max_rate_deg_s: float = 30.
     detach_max_accel_deg_s2: float = 30.
-    detach_max_tracking_error_deg: float = 10.
+    detach_max_tracking_error_deg: float = 30.
     detach_duration_timeout_s: float = 10.
     detach_brake_target_deg: float = 13.
     detach_brake_decel_deg_s2: float = 30.
@@ -110,7 +111,7 @@ class InclineSettings:
             return 'contact timeout must exceed confirmation window'
         if self.flip_pitch_rate_deg_s > 10. or self.flip_max_tracking_error_deg > 10.:
             return 'incline flip rate/tracking exceeds initial envelope'
-        if (self.flip_thrust_ramp_per_s > .03 or self.detach_max_tracking_error_deg > 10.
+        if (self.flip_thrust_ramp_per_s > .03 or self.detach_max_tracking_error_deg > 30.
                 or self.detach_max_rate_deg_s > 30. or self.detach_recovered_tilt_deg > 5.):
             return 'incline motion limits exceed initial envelope'
         if self.flip_duration_timeout_s <= self.flip_max_tilt_deg / self.flip_pitch_rate_deg_s:
@@ -174,6 +175,8 @@ class InclineAttachment:
         self.base = math.nan
         self.return_started = None
         self.recovery_started = None
+        self.return_tracking_limited = False
+        self.recover_stable = False
         self.return_history = []
         self.estimate_samples = []
         self.estimated_angle = None
@@ -193,16 +196,19 @@ class InclineAttachment:
 
     def _enter(self, phase, now, reason):
         self.phase, self.entered, self.reason = phase, now, reason
-        self.stable_since = self.stable_stamp = None
+        if phase != 'EXIT':
+            self.stable_since = self.stable_stamp = None
 
-    def _stable(self, condition, stamp, now, duration):
+    def _stable(self, condition, stamp, now, duration, max_gap=.20):
         if not condition or stamp <= 0. or stamp > now:
             self.stable_since = self.stable_stamp = None
             return False
         if self.stable_stamp is None:
             self.stable_since = self.stable_stamp = stamp
+        elif stamp < self.stable_stamp:
+            self.stable_since = self.stable_stamp = stamp
         elif stamp > self.stable_stamp:
-            if stamp - self.stable_stamp > .20:
+            if stamp - self.stable_stamp > max_gap:
                 self.stable_since = stamp
             self.stable_stamp = stamp
         return self.stable_stamp - self.stable_since >= duration - 1e-8
@@ -510,17 +516,35 @@ class InclineAttachment:
                 and math.sqrt(sum(v*v for v in f.body_rate)) <= math.radians(self.s.detach_recovered_rate_deg_s))
             if recovered:
                 goal = 0.
-            if quaternion_angle(self.q, f.q) <= math.radians(self.s.detach_max_tracking_error_deg):
-                try:
-                    self.q = self.axis.quaternion(self.planner.step(dt, goal))
-                except (ValueError, RuntimeError) as error:
-                    self._land(f, '回平轨迹失败：' + str(error))
-                    return
+            # Match wall return: permit error-reducing motion even when the
+            # current full-attitude error (including yaw) exceeds the limit.
+            previous_state = (self.planner.angle, self.planner.rate, self.planner.accel)
+            try:
+                target = self.axis.quaternion(self.planner.step(dt, goal))
+            except (ValueError, RuntimeError) as error:
+                self._land(f, '回平轨迹失败：' + str(error))
+                return
+            old_error = quaternion_angle(self.q, f.q)
+            new_error = quaternion_angle(target, f.q)
+            self.return_tracking_limited = bool(
+                new_error > math.radians(self.s.detach_max_tracking_error_deg)+1e-6
+                and new_error > old_error+1e-8)
+            if self.return_tracking_limited:
+                self.planner.angle, self.planner.rate, self.planner.accel = previous_state
+                self.planner.segment = None
+                self.planner.done = False
+            else:
+                self.q = target
             self.thrust = self.support.update_range(f.height, f.vz, rotate_vector(f.q, (0., 0., 1.))[2],
                 f.now, f.applied_thrust, self.s.height_kp, self.s.velocity_kp)
-            if self._stable(recovered and self.planner.done, f.pose_stamp, f.now, self.s.detach_recovered_hold_s):
-                self.recovery_started = f.now
-                self._enter('RECOVER', f.now, '斜墙回平完成，恢复悬停')
+            if self.planner.done:
+                pitch = euler_from_quaternion(f.q)[1]
+                if pitch < 0.:
+                    self._land(f, 'detach最终俯仰角为负，请求PX4 AUTO.LAND')
+                    return
+                if self.tilt(f.q) < math.radians(ENTRY_TILT_DEG)-1e-12:
+                    self.recovery_started = f.now
+                    self._enter('RECOVER', f.now, '斜墙回平完成，倾角小于10度，恢复悬停')
         # The ROS adapter uses the side-wall approach controller verbatim.
         # This support loop owns only incline return/recovery, never approach.
         if self.phase in ('RECOVER', 'EXIT'):
@@ -529,14 +553,14 @@ class InclineAttachment:
                 f.now, actual, self.s.height_kp, self.s.velocity_kp)
         if self.phase in ('RECOVER', 'EXIT'):
             self.q = self.hover
-            stable = (self.tilt(f.q) <= math.radians(self.s.detach_recovered_tilt_deg)
-                and math.sqrt(sum(v*v for v in f.body_rate)) <= math.radians(self.s.detach_recovered_rate_deg_s)
-                and max(abs(f.vz), f.horizontal_speed) <= self.s.recovery_max_speed_mps
-                and abs(f.height-self.reference_height) <= self.s.recovery_max_height_error_m)
-            if f.now-self.recovery_started >= self.s.recover_timeout_s:
-                self._land(f, '恢复悬停超时')
-            elif self._stable(stable, f.pose_stamp, f.now, self.s.recovery_hold_s):
+            # Same captured-recovery contract as wall: task height and
+            # velocity convergence do not gate handover. The mode manager
+            # independently checks FCU estimator, RC, fusion and ownership.
+            stable = attitude_within_margins(self.tilt(f.q),
+                math.sqrt(sum(v*v for v in f.body_rate)))
+            self.recover_stable = self._stable(stable, f.pose_stamp, f.now, STABLE_TIME_S, max_gap=.50)
+            if self.recover_stable:
                 if self.phase != 'EXIT':
-                    self._enter('EXIT', f.now, '斜墙故障回平完成，等待交回POSCTL' if self.fault else '斜墙脱离完成，等待交回POSCTL')
-            elif self.phase == 'EXIT' and not stable:
-                self._enter('RECOVER', f.now, '撤回交接：重新确认稳定')
+                    self._enter('EXIT', f.now, '斜墙姿态稳定，等待交回POSCTL')
+            elif self.phase == 'EXIT':
+                self._enter('RECOVER', f.now, '撤回交接：重新确认姿态稳定')

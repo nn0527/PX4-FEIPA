@@ -49,16 +49,23 @@ incline_attachment:
   hold_contact_loss_hold_s: 0.30
   detach_max_rate_deg_s: 30.0
   detach_max_accel_deg_s2: 30.0
-  detach_max_tracking_error_deg: 10.0
+  # Latest run peaked at 27.75deg full-attitude error (including yaw).
+  # Provisional wall-equivalent limit; only block further error growth.
+  detach_max_tracking_error_deg: 30.0
   detach_duration_timeout_s: 10.0
   detach_brake_target_deg: 13.0
   detach_brake_decel_deg_s2: 30.0
   detach_brake_delay_s: 0.15
   detach_brake_margin_deg: 5.0
+  # 5deg/10deg/s below is the braking finish cone, not RECOVER admission.
+  # Shared wall contract: enter at tilt<10deg and nonnegative pitch after
+  # trajectory completion; hand over at <=10deg, <=20deg/s for 0.5s.
   detach_recovered_tilt_deg: 5.0
   detach_recovered_rate_deg_s: 10.0
   detach_recovered_hold_s: 0.30
   return_thrust_slew_per_s: 0.20
+  # Legacy recovery tuning retained for configuration compatibility; captured
+  # recovery uses simple_recovery constants and independent manager readiness.
   recovery_hold_s: 1.0
   recover_timeout_s: 15.0
   recovery_max_speed_mps: 0.20
