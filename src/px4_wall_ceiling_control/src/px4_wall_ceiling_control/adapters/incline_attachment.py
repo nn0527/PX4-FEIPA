@@ -245,6 +245,21 @@ class InclineAttachmentMixin(InclineApproachMixin):
         status.reason = engine.error or engine.reason
         if engine.phase == 'RETURN' and engine.return_tracking_limited:
             status.reason += '; 回平新目标会继续扩大超限误差，暂停本步'
+        if engine.phase in ('RETURN', 'RECOVER', 'EXIT') and engine.return_support is not None:
+            support = engine.return_support
+            status.reason += '; ' + support.reason
+            status.vertical_control_active = status.vertical_reference_valid = True
+            status.vertical_reference_m = engine.reference_height
+            status.vertical_reference_source = 'incline_detach_entry' if engine.phase == 'RETURN' else 'incline_recover_entry'
+            status.vertical_target_enu_mps = 0.
+            status.vertical_thrust_correction = engine.support.correction
+            status.detach_vertical_active = True
+            status.detach_vertical_reason = support.reason
+            status.detach_vertical_base_source = 'incline_posctl_takeover'
+            status.detach_vertical_base_thrust = support.hover_floor
+            status.detach_vertical_requested_thrust = support.requested
+            status.detach_vertical_slew_limited = support.slew_limited
+            status.detach_vertical_saturated = support.saturated
         q, thrust = engine.q, engine.thrust
         self.horizontal_velocity_active = False
         if engine.phase == 'APPROACH':

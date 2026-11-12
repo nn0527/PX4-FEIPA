@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import Mock
 
 from px4_wall_ceiling_control.domain.geometry import (hover_and_pitched_quaternions,
-    quaternion_angle, quaternion_multiply)
+    quaternion_angle, quaternion_multiply, rotate_vector)
 from px4_wall_ceiling_control.domain.incline_attachment import InclineAttachment, InclineFeedback, InclineSettings
 
 
@@ -33,23 +33,140 @@ class InclineLogicTests(unittest.TestCase):
     def contact(self, angle=45):
         self.tick(front=.10)
         for _ in range(400):
-            if self.c.tilt(self.c.q) >= math.radians(angle):
+            if self.c.tilt(self.c.q) >= math.radians(angle-6):
                 break
             self.tick()
         self.assertEqual(self.c.phase, 'SLOW_FLIP')
+        for _ in range(27):
+            self.tick(q=pose(angle), applied_q=pose(angle), top=.2)
         applied_q, applied_thrust = self.c.q, self.c.thrust
-        self.tick(top=.065)
+        self.tick(q=pose(angle), applied_q=pose(angle-9), top=.055)
         self.assertEqual(self.c.phase, 'HOLD')
-        self.assertEqual(self.c.q, applied_q)
+        self.assertEqual(self.c.q, pose(angle))
         self.assertEqual(self.c.thrust, applied_thrust)
         for _ in range(45):
-            self.tick(top=.065)
+            self.tick(top=.055)
         self.assertEqual(self.c.phase, 'HOLD')
 
     def test_estimate_falls_back_without_position(self):
         self.tick()
         self.assertIsNone(self.c.estimated_angle)
         self.assertEqual(self.c.phase, 'APPROACH')
+
+    def warm_still_pitch(self, error=9., top_valid=False):
+        self.tick(front=.1)
+        for _ in range(30):
+            self.tick(q=pose(27), applied_q=pose(27+error), top=.2, top_valid=top_valid)
+            if self.c.phase != 'SLOW_FLIP':
+                break
+
+    def test_early_still_pitch_at_or_below_8deg_does_not_stop_or_hold(self):
+        for error in (0., 4., 8.):
+            self.setUp()
+            self.warm_still_pitch(error)
+            angle = self.c.flip_angle
+            self.tick(q=pose(27), applied_q=pose(27+error), top=.055, top_valid=True)
+            self.assertEqual(self.c.phase, 'SLOW_FLIP')
+            self.assertGreater(self.c.flip_angle, angle)
+
+    def test_over_8deg_uses_recent_window_without_another_half_second_delay(self):
+        self.warm_still_pitch(4.)
+        self.assertEqual(self.c.phase, 'SLOW_FLIP')
+        self.tick(q=pose(27), applied_q=pose(36), top_valid=False)
+        self.assertEqual(self.c.phase, 'CONTACT_SETTLE')
+        self.assertEqual(self.c.q, pose(36))
+
+    def test_frozen_target_waits_without_top_or_angle_or_thrust_growth(self):
+        self.warm_still_pitch()
+        self.assertEqual(self.c.phase, 'CONTACT_SETTLE')
+        q, thrust = self.c.q, self.c.thrust
+        for _ in range(60):
+            self.tick(q=pose(27), applied_q=q, top_valid=False)
+            self.assertEqual(self.c.phase, 'CONTACT_SETTLE')
+            self.assertEqual(self.c.q, q)
+            self.assertEqual(self.c.thrust, thrust)
+        self.tick(q=pose(27), applied_q=q, top=.069, top_valid=True)
+        self.assertEqual(self.c.phase, 'HOLD')
+        self.assertEqual(self.c.q, pose(27))
+
+    def test_wait_requires_one_new_valid_strictly_below_7cm_frame(self):
+        self.warm_still_pitch(top_valid=True)
+        stamp = self.c.contact_top_stamp
+        for changes in ({'top': .069, 'top_stamp': stamp},
+                        {'top': .069, 'top_valid': False}, {'top': .070},
+                        {'top': .071}, {'top': 0.}, {'top': math.nan}):
+            self.tick(**dict({'q': pose(27), 'applied_q': pose(36), 'top_valid': True}, **changes))
+            self.assertEqual(self.c.phase, 'CONTACT_SETTLE')
+        self.tick(q=pose(27), applied_q=pose(36), top=.069, top_valid=True)
+        self.assertEqual(self.c.phase, 'HOLD')
+
+    def test_moving_pitch_above_8deg_does_not_freeze_from_endpoints(self):
+        self.tick(front=.1)
+        for i in range(60):
+            angle = 20.+1.2*math.sin(i*math.pi/12.5)
+            self.tick(q=pose(angle), applied_q=pose(angle+9), top=.055)
+            self.assertEqual(self.c.phase, 'SLOW_FLIP')
+
+    def test_strict_one_degree_boundary_does_not_complete_search(self):
+        self.tick(front=.1)
+        self.c.flip_pitch_history = []
+        for i in range(26):
+            angle = 20.+i*.04
+            self.tick(q=pose(angle), applied_q=pose(angle+9), top=.055)
+            self.assertEqual(self.c.phase, 'SLOW_FLIP')
+
+    def test_full_half_second_then_single_top_frame_can_hold_directly(self):
+        self.tick(front=.1)
+        for _ in range(25):
+            self.tick(q=pose(27), applied_q=pose(36), top=.055)
+            self.assertEqual(self.c.phase, 'SLOW_FLIP')
+        self.tick(q=pose(27), applied_q=pose(36), top=.055)
+        self.assertEqual(self.c.phase, 'HOLD')
+
+    def test_duplicate_and_gapped_pose_cannot_complete_window(self):
+        self.tick(front=.1)
+        stamp = self.f.pose_stamp
+        for _ in range(30):
+            self.tick(pose_stamp=stamp, q=pose(27), applied_q=pose(36), top=.055)
+        self.assertEqual(self.c.phase, 'SLOW_FLIP')
+        for _ in range(20):
+            self.tick(q=pose(27), applied_q=pose(36), top=.055)
+        self.assertEqual(self.c.phase, 'SLOW_FLIP')
+        self.f = replace(self.f, now=self.f.now+.25)
+        for _ in range(20):
+            self.tick(q=pose(27), applied_q=pose(36), top=.055)
+        self.assertEqual(self.c.phase, 'SLOW_FLIP')
+
+    def test_pitch_over_13deg_aborts_immediately_in_flip_and_wait(self):
+        for wait in (False, True):
+            for error in (-13.001, 13.001):
+                self.setUp()
+                if wait:
+                    self.warm_still_pitch()
+                else:
+                    self.tick(front=.1)
+                self.tick(q=pose(27), applied_q=pose(27+error), top=.055, top_valid=True)
+                self.assertEqual(self.c.phase, 'LAND')
+                self.assertIn('13.000deg', self.c.fault)
+
+    def test_exactly_13deg_does_not_abort(self):
+        self.tick(front=.1)
+        self.tick(q=pose(27), applied_q=pose(40), top_valid=False)
+        self.assertEqual(self.c.phase, 'SLOW_FLIP')
+        self.assertFalse(self.c.fault)
+
+    def test_wait_keeps_feedback_cancel_and_height_guards(self):
+        for changes in ({'pose_valid': False}, {'output_valid': False}):
+            self.setUp(); self.warm_still_pitch()
+            self.tick(**changes)
+            self.assertEqual(self.c.phase, 'LAND')
+        self.setUp(); self.warm_still_pitch()
+        self.c.step(self.f, cancel=True)
+        self.assertEqual(self.c.phase, 'LAND')
+        self.setUp(); self.warm_still_pitch()
+        for _ in range(12):
+            self.tick(q=pose(27), applied_q=pose(36), height=1.69, top_valid=False)
+        self.assertEqual(self.c.phase, 'LAND')
 
     def test_estimate_plane_and_reject_outlier(self):
         for i in range(10):
@@ -123,7 +240,8 @@ class InclineLogicTests(unittest.TestCase):
 
     def test_single_contact_sample_enters_hold_without_confirmation_window(self):
         self.tick(front=.1)
-        self.tick(top=.065)
+        self.c._flip_search_complete = Mock(return_value=True)
+        self.tick(top=.055)
         stamp = self.f.top_stamp
         for _ in range(45):
             self.tick(top_stamp=stamp)
@@ -133,17 +251,30 @@ class InclineLogicTests(unittest.TestCase):
         self.assertEqual(self.c.phase, 'HOLD')
         self.assertFalse(self.c.fault)
 
-    def test_tracking_pause_stops_angle_but_support_and_timeout_run(self):
+    def test_large_yaw_error_does_not_pause_flip_support_or_timeout(self):
         self.tick(front=.1)
-        self.c.q = pose(20)
-        initial_q, initial_t = self.c.q, self.c.thrust
-        self.tick(q=pose(0))
-        self.assertEqual(self.c.q, initial_q)
+        yaw = (0., 0., math.sin(math.radians(20.)/2), math.cos(math.radians(20.)/2))
+        initial_angle, initial_t = self.c.flip_angle, self.c.thrust
+        for _ in range(10):
+            previous = self.c.flip_angle
+            self.tick(q=yaw)
+            self.assertEqual(self.c.phase, 'SLOW_FLIP')
+            self.assertGreater(self.c.flip_angle, previous)
+            self.assertGreater(quaternion_angle(self.c.q, yaw), math.radians(10.))
+        self.assertGreater(self.c.flip_angle, initial_angle)
         self.assertGreater(self.c.thrust, initial_t)
-        self.assertLessEqual(self.c.thrust-initial_t, .004+1e-9)
         self.f = replace(self.f, now=self.c.entered+8.01)
         self.c.step(self.f)
         self.assertEqual(self.c.phase, 'LAND')
+
+    def test_proposed_attitude_error_does_not_block_flip_increment(self):
+        self.tick(front=.1)
+        self.c.flip_rate = math.radians(10.)
+        yaw = (0., 0., math.sin(math.radians(9.999)/2), math.cos(math.radians(9.999)/2))
+        self.assertLess(quaternion_angle(self.c.q, yaw), math.radians(10.))
+        self.tick(q=yaw)
+        self.assertGreater(self.c.flip_angle, 0.)
+        self.assertGreater(quaternion_angle(self.c.q, yaw), math.radians(10.))
 
     def test_no_contact_tilt_cap_aborts(self):
         self.tick(front=.1)
@@ -157,7 +288,8 @@ class InclineLogicTests(unittest.TestCase):
 
     def test_contact_stops_on_boundary_without_extra_increment(self):
         self.tick(front=.1)
-        self.tick(top=.065, q=pose(65), applied_q=pose(65), applied_thrust=.75)
+        self.c._flip_search_complete = Mock(return_value=True)
+        self.tick(top=.055, q=pose(65), applied_q=pose(65), applied_thrust=.75)
         self.assertEqual(self.c.phase, 'HOLD')
         self.assertAlmostEqual(self.c.thrust, .75)
 
@@ -169,6 +301,7 @@ class InclineLogicTests(unittest.TestCase):
 
     def test_one_frame_below_7cm_holds_without_settle_or_rate_confirmation(self):
         self.tick(front=.1)
+        self.c._flip_search_complete = Mock(return_value=True)
         self.tick(top=.069, q=pose(5), body_rate=(0., math.radians(100.), 0.))
         self.assertEqual(self.c.phase, 'HOLD')
         self.assertEqual(self.c.q, pose(5))
@@ -178,10 +311,11 @@ class InclineLogicTests(unittest.TestCase):
 
     def test_7cm_boundary_and_invalid_top_do_not_enter_hold(self):
         self.tick(front=.1)
+        self.c._flip_search_complete = Mock(return_value=True)
         for distance, valid in ((.071, True), (.070, True), (.069, False),
                                 (math.nan, False), (math.inf, False)):
             self.tick(top=distance, top_valid=valid)
-            self.assertEqual(self.c.phase, 'SLOW_FLIP')
+            self.assertEqual(self.c.phase, 'CONTACT_SETTLE')
             self.assertFalse(self.c.contact_seen)
             self.assertFalse(self.c.fault)
         self.tick(top=.069, top_valid=True)
@@ -209,14 +343,15 @@ class InclineLogicTests(unittest.TestCase):
 
     def test_one_frame_hold_remains_latched_through_range_interruption(self):
         self.tick(front=.18)
-        self.tick(top=.065)
+        self.c._flip_search_complete = Mock(return_value=True)
+        self.tick(top=.055)
         self.assertEqual(self.c.phase, 'HOLD')
         for _ in range(150):
             self.tick(front_valid=False, top_valid=False)
         self.assertEqual(self.c.phase, 'HOLD')
         self.assertFalse(self.c.fault)
         for _ in range(45):
-            self.tick(front_valid=False, top_valid=True, top=.065)
+            self.tick(front_valid=False, top_valid=True, top=.055)
         self.assertEqual(self.c.phase, 'HOLD')
         self.assertFalse(self.c.fault)
 
@@ -261,14 +396,58 @@ class InclineLogicTests(unittest.TestCase):
         self.tick(body_rate=(0., math.radians(100.), 0.))
         self.assertEqual(self.c.phase, 'HOLD')
 
-    def test_hold_attitude_error_above_5_degrees_lands_immediately(self):
+    def test_hold_attitude_error_above_10_degrees_lands_immediately(self):
         self.contact(45)
         locked_angle = math.degrees(self.c.tilt(self.c.contact_q))
-        self.tick(q=pose(locked_angle + 4.99))
+        self.tick(q=pose(locked_angle + 9.99))
         self.assertEqual(self.c.phase, 'HOLD')
-        self.tick(q=pose(locked_angle + 5.01))
+        self.tick(q=pose(locked_angle + 10.01))
         self.assertEqual(self.c.phase, 'LAND')
         self.assertIn('HOLD', self.c.fault)
+
+    def test_hold_follows_twist_about_frozen_contact_axis(self):
+        for angle in (30, 45, 60):
+            self.setUp()
+            self.contact(angle)
+            reference, thrust = self.c.contact_q, self.c.thrust
+            locked_z = rotate_vector(reference, (0., 0., 1.))
+            for twist_deg in (30, 90, 179, -179, -90, 270):
+                half = math.radians(twist_deg)/2.
+                measured = quaternion_multiply(reference,
+                    (0., 0., math.sin(half), math.cos(half)))
+                self.tick(q=measured, top_valid=False)
+                self.assertEqual(self.c.phase, 'HOLD', (angle, twist_deg))
+                self.assertLess(quaternion_angle(self.c.q, measured), 1e-7)
+                self.assertEqual(self.c.contact_q, reference)
+                self.assertEqual(self.c.thrust, thrust)
+                for a, b in zip(rotate_vector(self.c.q, (0., 0., 1.)), locked_z):
+                    self.assertAlmostEqual(a, b, places=12)
+                self.tick(q=tuple(-v for v in measured))
+                self.assertEqual(self.c.phase, 'HOLD')
+                self.assertLess(quaternion_angle(self.c.q, measured), 1e-7)
+
+    def test_hold_axis_limit_is_independent_of_twist_and_keeps_reference(self):
+        self.contact(30)
+        reference = self.c.contact_q
+        half = math.radians(120)/2.
+        twist = (0., 0., math.sin(half), math.cos(half))
+        for deviation in (6., 9.99, 10., 10.01):
+            measured = quaternion_multiply(
+                quaternion_multiply(reference, pose(deviation)), twist)
+            self.tick(q=measured)
+            self.assertEqual(self.c.phase, 'LAND' if deviation > 10. else 'HOLD')
+            self.assertEqual(self.c.contact_q, reference)
+            if deviation <= 10.:
+                expected = quaternion_multiply(reference, twist)
+                self.assertLess(quaternion_angle(self.c.q, expected), 1e-7)
+        self.assertIn('Z轴', self.c.fault)
+
+    def test_hold_world_yaw_jump_that_moves_contact_axis_still_lands(self):
+        self.contact(45)
+        world_yaw = hover_and_pitched_quaternions(math.radians(131.), 0.)[0]
+        self.tick(q=quaternion_multiply(world_yaw, self.c.contact_q))
+        self.assertEqual(self.c.phase, 'LAND')
+        self.assertIn('Z轴', self.c.fault)
 
     def test_hold_explicit_detach_without_top_range_still_returns(self):
         self.contact()
@@ -327,16 +506,15 @@ class InclineFlipSupportTests(unittest.TestCase):
         self.c.s = self.settings
 
     tick = InclineLogicTests.tick
-    def test_descent_compensation_runs_while_angle_tracking_paused(self):
+    def test_descent_compensation_and_search_continue_with_large_yaw_error(self):
         self.tick(front=.18)
-        self.c.q = pose(20)
-        planned = self.c.q
+        yaw = (0., 0., math.sin(math.radians(20.)/2), math.cos(math.radians(20.)/2))
         for _ in range(10):
-            self.tick(q=pose(0), applied_q=pose(0), height=1.95, vz=-.4)
+            self.tick(q=yaw, applied_q=pose(0), height=1.95, vz=-.4)
         self.assertEqual(self.c.phase, 'SLOW_FLIP')
-        self.assertEqual(self.c.q, planned)
+        self.assertGreater(self.c.flip_angle, 0.)
         self.assertAlmostEqual(self.c.thrust, .53)
-        self.assertAlmostEqual(self.c.flip_pressure_thrust, .49)
+        self.assertGreater(self.c.flip_pressure_thrust, .49)
 
     def test_delayed_output_echo_cannot_reset_internal_support_ramp(self):
         self.tick(front=.18)
@@ -372,9 +550,10 @@ class InclineFlipSupportTests(unittest.TestCase):
 
     def test_support_respects_collective_cap_and_contact_freezes_sent_value(self):
         self.tick(front=.18, applied_thrust=.74)
+        self.c._flip_search_complete = Mock(return_value=True)
         self.tick(height=1.9, vz=-.4)
         self.assertLessEqual(self.c.thrust, .75)
-        self.tick(top=.065, applied_thrust=.742, height=1.9, vz=-.4)
+        self.tick(top=.055, applied_thrust=.742, height=1.9, vz=-.4)
         self.assertEqual(self.c.phase, 'HOLD')
         self.assertAlmostEqual(self.c.thrust, .742)
         self.tick(height=1.8, vz=-.6, applied_thrust=.742)
@@ -444,10 +623,11 @@ class InclineEntryBoostTests(unittest.TestCase):
 
     def test_early_contact_freezes_sent_thrust_and_stops_boost(self):
         self.tick(front=.18)
+        self.c._flip_search_complete = Mock(return_value=True)
         for _ in range(5):
             self.tick()
         elapsed, boost = self.c.flip_boost_elapsed, self.c.flip_boost_value
-        self.tick(top=.065, applied_thrust=.497)
+        self.tick(top=.055, applied_thrust=.497)
         self.assertEqual(self.c.phase, 'HOLD')
         for _ in range(25):
             self.tick()
@@ -506,9 +686,8 @@ class InclineFlipAbortTests(unittest.TestCase):
         self.f = replace(self.f, **changes)
         self.c.step(self.f)
 
-    def test_sustained_roll_pitch_or_height_loss_aborts_and_latches(self):
+    def test_sustained_roll_or_height_loss_aborts_and_latches(self):
         for changes, reason in (({'q': self.rotation(roll=15.)}, '横滚'),
-                                ({'q': self.rotation(pitch=15.)}, '俯仰'),
                                 ({'height': 1.69}, '掉高')):
             self.setUp()
             for _ in range(10):
@@ -525,7 +704,7 @@ class InclineFlipAbortTests(unittest.TestCase):
 
     def test_transient_deviation_recovers_and_clears_confirmation(self):
         for changes in ({'q': self.rotation(roll=15.)},
-                        {'q': self.rotation(pitch=15.)}, {'height': 1.69}):
+                        {'height': 1.69}):
             self.setUp()
             for _ in range(9):
                 self.tick(**changes)
@@ -552,7 +731,7 @@ class InclineFlipAbortTests(unittest.TestCase):
 
     def test_below_threshold_and_height_increase_do_not_abort(self):
         for _ in range(30):
-            self.tick(q=self.rotation(roll=9.9, pitch=9.9), height=1.701)
+            self.tick(q=self.rotation(roll=9.9, pitch=7.9), height=1.701)
         self.assertEqual(self.c.phase, 'SLOW_FLIP')
         for _ in range(30):
             self.tick(height=2.5)
@@ -590,13 +769,13 @@ class InclineFlipAbortTests(unittest.TestCase):
     def test_confirmed_fault_has_priority_over_new_contact(self):
         for _ in range(10):
             self.tick(q=self.rotation(roll=15.))
-        self.tick(q=self.rotation(roll=15.), top=.065)
+        self.tick(q=self.rotation(roll=15.), top=.055)
         self.assertEqual(self.c.phase, 'LAND')
         self.assertIn('横滚', self.c.fault)
 
     def test_new_height_guard_is_not_applied_in_other_phases(self):
         # Existing phase mechanics initialize RETURN/RECOVER through the real path.
-        for phase in ('APPROACH', 'CONTACT_SETTLE', 'HOLD', 'RETURN', 'RECOVER', 'EXIT'):
+        for phase in ('APPROACH', 'HOLD', 'RETURN', 'RECOVER', 'EXIT'):
             with self.subTest(phase=phase):
                 fixture = InclineLogicTests()
                 fixture.setUp()

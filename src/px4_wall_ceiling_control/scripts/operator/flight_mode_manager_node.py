@@ -609,7 +609,8 @@ class FlightModeManagerNode(RCTakeoverManager):
             return bool(wall is not None and is_fresh(getattr(self, 'wall_at', None), self.status_timeout_s, now)
                 and is_fresh_source(wall.header.stamp, self.status_timeout_s, now, future_tolerance_s=0.)
                 and wall.incline_active and wall.incline_ready and wall.state == WallPerchStatus.STATE_IDLE
-                and wall.front_ready and wall.front_range_fresh and wall.top_range_fresh
+                # Top range remains diagnostic; it does not gate incline approach takeover.
+                and wall.front_ready and wall.front_range_fresh
                 and wall.horizontal_equilibrium_valid and wall.entry_height_ready)
         if not self._auto_wall_selected():
             return self._manual_wall_ready(now)

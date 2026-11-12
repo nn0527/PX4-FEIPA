@@ -42,21 +42,21 @@ class DetachYawLogicTests(unittest.TestCase):
         self.assertEqual(self.c.detach_yaw_reference_stamp, self.f.pose_stamp)
         self.assertEqual(self.c.detach_yaw_request_at, self.f.now)
 
-    def test_strict_positive_and_negative_10_degree_boundary(self):
-        for yaw, abort in ((9.99, False), (10., False), (10.001, True),
-                           (-10., False), (-10.001, True)):
+    def test_strict_positive_and_negative_30_degree_boundary(self):
+        for yaw, abort in ((29.99, False), (30., False), (30.001, True),
+                           (-30., False), (-30.001, True), (50.528, True)):
             with self.subTest(yaw=yaw):
                 self.setUp()
                 self.begin()
                 self.step(yaw)
                 self.assertEqual(self.c.phase == 'LAND', abort)
                 if abort:
-                    self.assertIn('偏航', self.c.fault)
+                    self.assertIn('超过30度', self.c.fault)
                     self.assertIn('基准0.000', self.c.fault)
 
     def test_wrapped_yaw_uses_shortest_angle(self):
         for start, end, abort in ((179, -179, False), (-179, 179, False),
-                                  (179, -171, False), (179, -170.99, True)):
+                                  (179, -151, False), (179, -150.99, True)):
             with self.subTest(start=start, end=end):
                 self.setUp()
                 self.begin(start)
@@ -65,9 +65,9 @@ class DetachYawLogicTests(unittest.TestCase):
 
     def test_reference_does_not_follow_subthreshold_drift(self):
         self.begin()
-        self.step(6)
+        self.step(16)
         self.assertEqual(self.c.phase, 'RETURN')
-        self.step(12)
+        self.step(32)
         self.assertEqual(self.c.phase, 'LAND')
         self.assertEqual(self.c.detach_yaw_reference, 0.)
 
@@ -88,7 +88,7 @@ class DetachYawLogicTests(unittest.TestCase):
 
     def test_guard_already_active_between_receipt_and_return_entry(self):
         self.assertTrue(self.c.latch_detach_yaw(self.f))
-        self.step(11)
+        self.step(31)
         self.assertEqual(self.c.phase, 'LAND')
         self.assertIn('偏航', self.c.fault)
 
@@ -100,7 +100,7 @@ class DetachYawLogicTests(unittest.TestCase):
     def test_guard_does_not_extend_into_recovery(self):
         self.begin()
         self.c.recovery_started = self.f.now
-        self.step(12, phase='RECOVER')
+        self.step(32, phase='RECOVER')
         self.assertEqual(self.c.phase, 'RECOVER')
 
 

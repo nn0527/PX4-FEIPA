@@ -241,7 +241,7 @@ class RemoteRuntime:
             if self.ros is not None:
                 return
             import rospy
-            from mavros_msgs.msg import State, RCIn, EstimatorStatus, AttitudeTarget
+            from mavros_msgs.msg import State, RCIn, EstimatorStatus, AttitudeTarget, OpticalFlowRad
             from nav_msgs.msg import Odometry
             from sensor_msgs.msg import Range, BatteryState
             from std_msgs.msg import String, UInt8, Bool
@@ -253,6 +253,7 @@ class RemoteRuntime:
             self.wait_cancel_publisher = rospy.Publisher("/wall_perch/cancel_wait", Bool, queue_size=1)
             topics = {"state": ("/mavros/state", State), "rc": ("/mavros/rc/in", RCIn),
                       "estimator": ("/mavros/estimator_status", EstimatorStatus),
+                      "optical_flow": ("/mavros/px4flow/raw/optical_flow_rad", OpticalFlowRad),
                       "odom": ("/mavros/local_position/odom", Odometry),
                       "health": ("/sensor/health", SensorHealth), "wall": ("/wall_perch/status", WallPerchStatus),
                       "ceiling_status": ("/ceiling_attachment/status", CeilingAttachmentStatus),
@@ -278,6 +279,8 @@ class RemoteRuntime:
             value = {"connected": msg.connected, "armed": msg.armed, "mode": msg.mode}
         elif name == "rc":
             value = {"channels": list(msg.channels), "rssi": msg.rssi}
+        elif name == "optical_flow":
+            value = {"quality": int(msg.quality)}
         elif name == "estimator":
             value = {"attitude": msg.attitude_status_flag, "vertical_velocity": msg.velocity_vert_status_flag, "horizontal_velocity": msg.velocity_horiz_status_flag}
         elif name == "health":

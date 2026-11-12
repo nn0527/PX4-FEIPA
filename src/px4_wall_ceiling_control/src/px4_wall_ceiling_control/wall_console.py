@@ -39,6 +39,7 @@ LIMITS["ceiling_status"] = 0.5
 LIMITS["rc_selected_mode"] = 0.35
 LIMITS["ceiling_failsafe"] = 1.0
 LIMITS["wall_sensor_fusion"] = 0.5
+LIMITS["optical_flow"] = 1.0
 
 
 def validate_config(values):

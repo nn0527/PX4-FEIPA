@@ -323,6 +323,8 @@ function paint(s){
   text("velocity",range.active?(r.detach_range_velocity_valid?n(r.detach_range_velocity_mps):"未就绪"):n(odom?.vertical_speed));
   const health=v.live?fresh(s,"health"):null;
   text("front",v.live&&v.runtime?.front_sensor_masked?"已屏蔽":health?.front_valid?n(fresh(s,"front")?.range_m,3):"—");
+  const flow=v.live?fresh(s,"optical_flow"):null;
+  text("opticalFlowQuality",Number.isInteger(flow?.quality)&&flow.quality>=0&&flow.quality<=255?String(flow.quality):"—");
   text("height",v.live?n(w.wall?.height_above_takeoff_m):"—");
   text("rangeWarning",v.live?(s.sensor_warnings||[]).join("；"):"距离反馈当前无法确认");
   const angles=odom?.angles;
@@ -335,7 +337,7 @@ function paint(s){
   const reasons=v.canAttach?["顶吸入口已就绪"]:v.reasons.length?v.reasons:["等待顶吸入口条件满足"];
   $("checks").replaceChildren(...reasons.map(reason=>{const el=document.createElement("div");el.className="check"+(v.canAttach?" ok":"");el.textContent=reason;return el;}));
   $("wallChecks").replaceChildren(...(s.checks||[]).map(check=>{let label=check.label,ok=check.ok,value=ok?"就绪":check.reason||"待满足";if(w.live&&w.selected&&w.phase==="ACTIVE"&&v.state?.mode==="OFFBOARD"&&["mode","idle"].includes(check.id)){label=check.id==="mode"?"OFFBOARD 模式":"贴墙动作";ok=true;value="执行中";}const el=document.createElement("div");el.className="check"+(w.live&&ok?" ok":"");el.textContent=label+" · "+(w.live?value:"待确认");return el;}));
-  const ages=[["飞控心跳","state"],["里程计 / 姿态","odom"],["估计器","estimator"],["遥控输入","rc"],["急停","kill"],["雷达健康","health"],["顶部距离","ceiling"],["前向距离","front"],["顶吸状态","ceiling_status"],["贴墙状态","wall"],["实际设定值","setpoint"],["基础程序","runtime"]];
+  const ages=[["飞控心跳","state"],["里程计 / 姿态","odom"],["估计器","estimator"],["光流质量","optical_flow"],["遥控输入","rc"],["急停","kill"],["雷达健康","health"],["顶部距离","ceiling"],["前向距离","front"],["顶吸状态","ceiling_status"],["贴墙状态","wall"],["实际设定值","setpoint"],["基础程序","runtime"]];
   $("ages").replaceChildren(...ages.map(([label,key])=>{const item=s.status?.[key],el=document.createElement("div");el.className="check"+(v.live&&item?.fresh?" ok":"");el.textContent=label+" · "+(paused?"已暂停":!v.live?"连接中断":item?.age_s==null?"未收到":n(item.age_s,2)+" s · "+(item.fresh?"有效":"已过期"));return el;}));
   text("bridgeError",s.ssh?.error||s.launch_error||"");
   const incline=inclineView(s,busy||recoveryBusy),inclineDetail=inclineDetails(s),iw=inclineDetail.active?inclineDetail.wall:null;

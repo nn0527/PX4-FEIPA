@@ -39,7 +39,7 @@ class InclineApproachMixin:
         self.incline_approach_controller = HorizontalVelocityController(
             p['velocity_kp'], p['max_acceleration_mps2'], p['target_acceleration_mps2'],
             p['velocity_ki'], p['integral_limit_mps2'])
-        self.incline_approach_equilibrium = HorizontalEquilibrium(window=p['equilibrium_window_s'])
+        self.incline_approach_equilibrium = HorizontalEquilibrium(window=p['equilibrium_window_s'], max_tilt_deg=8.)
         self.incline_approach_yaw = None
         self.incline_approach_source = None
         self.incline_approach_reference = self.incline_approach_base = self.incline_approach_takeover = None
@@ -104,7 +104,7 @@ class InclineApproachMixin:
             angular = self.odom.twist.twist.angular
             target = tuple(getattr(source[0].orientation, k) for k in 'xyzw')
             eligible = bool(math.isfinite(angular.y) and abs(angular.y) <= math.radians(20.)
-                and rotate_vector(q, (0., 0., 1.))[2] >= math.cos(math.radians(5.))
+                and rotate_vector(q, (0., 0., 1.))[2] >= math.cos(math.radians(8.))
                 and all(math.isfinite(v) for v in target) and sum(v*v for v in target) > .5
                 and not source[0].type_mask & AttitudeTarget.IGNORE_ATTITUDE)
             if eligible:

@@ -1585,7 +1585,11 @@ class AttachmentOutputMuxNode(InclineApproachOutput, RCTakeoverOutput):
                 settings.flip_support_slew_per_s
                 if candidate.control_phase == WallPerchStatus.STATE_FLIP_TO_WALL
                 else settings.flip_thrust_ramp_per_s)
-        value = max(thrust-slew*dt, min(thrust+slew*dt, target.thrust))
+        # Keep the slower release bound at the final publisher, including
+        # delayed output echoes. ABORT retains its existing handover envelope.
+        fall_slew = (settings.return_thrust_drop_slew_per_s
+            if returning and candidate.control_phase != WallPerchStatus.STATE_ABORT else slew)
+        value = max(thrust-fall_slew*dt, min(thrust+slew*dt, target.thrust))
         # A newly configured cap cannot silently step down an old live output.
         if thrust > settings.flip_thrust_max + 1e-6:
             self.wall_candidate_rejection = 'incline_seed_thrust_outside_cap'

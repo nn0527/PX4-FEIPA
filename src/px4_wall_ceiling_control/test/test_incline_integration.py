@@ -74,6 +74,17 @@ class InclineBoundaryTests(unittest.TestCase):
         n.incline_approach_source = (output, now)
         n.operator_received_at = now
 
+    def warm_still_pitch(self, n):
+        for _ in range(30):
+            self.clock += .02
+            self.feedback(n, front=.18, top=.257)
+            n.odom.pose.pose.orientation = Quaternion(*pose(0))
+            n._valid_wall_output.return_value.orientation = Quaternion(*pose(9))
+            n._control_cycle_at(rospy.Time.now())
+            if n.incline.phase != 'SLOW_FLIP':
+                break
+        self.assertEqual(n.incline.phase, 'CONTACT_SETTLE')
+
     def test_adapter_waits_for_front_gate_and_far_safety_then_emits_candidate(self):
         n = self.node()
         for _ in range(25):
@@ -93,7 +104,9 @@ class InclineBoundaryTests(unittest.TestCase):
         self.clock += .02; self.feedback(n, front=.1)
         n._control_cycle_at(rospy.Time.now())
         self.assertEqual(n.incline.phase, 'SLOW_FLIP')
-        self.clock += .02; self.feedback(n, top=.065)
+        self.warm_still_pitch(n)
+        self.clock += .02; self.feedback(n, top=.055)
+        n.odom.pose.pose.orientation = Quaternion(*pose(0))
         n._control_cycle_at(rospy.Time.now())
         self.assertEqual(n.incline.phase, 'HOLD')
 
@@ -107,10 +120,12 @@ class InclineBoundaryTests(unittest.TestCase):
         self.assertEqual(n.flip_elapsed_s, 0.)
         self.assertIsNone(n.top_hold_accept_after)
         n._late_top_window_open = mock.Mock(side_effect=AssertionError('side-wall gate used'))
-        for distance, phase in ((.192, 'SLOW_FLIP'), (.071, 'SLOW_FLIP'),
-                                (.069, 'HOLD')):
+        self.warm_still_pitch(n)
+        for distance, phase in ((.192, 'CONTACT_SETTLE'), (.061, 'CONTACT_SETTLE'),
+                                (.059, 'HOLD')):
             self.clock += .1
             self.feedback(n, top=n.top_range.range)
+            n.odom.pose.pose.orientation = Quaternion(*pose(0))
             msg = Range(range=distance, min_range=.03, max_range=40.)
             msg.header.stamp = rospy.Time.now()
             before_q, before_thrust = n.incline.q, n.incline.thrust
@@ -120,7 +135,7 @@ class InclineBoundaryTests(unittest.TestCase):
             n._incline_cycle(rospy.Time.now())
             self.assertEqual(n.incline.phase, phase)
             if phase == 'HOLD':
-                self.assertEqual(n.incline.q, before_q)
+                self.assertEqual(n.incline.q, pose(0))
                 self.assertEqual(n.incline.thrust, before_thrust)
         n._late_top_window_open.assert_not_called()
 
