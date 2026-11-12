@@ -64,10 +64,10 @@ incline_attachment:
   detach_brake_decel_deg_s2: 30.0
   detach_brake_delay_s: 0.15
   detach_brake_margin_deg: 5.0
-  # 5deg/10deg/s below is the braking finish cone, not RECOVER admission.
+  # Command a zero braking goal at tilt <=7deg and body rate <=10deg/s.
   # Shared wall contract: enter at tilt<10deg and nonnegative pitch after
   # trajectory completion; hand over at <=10deg, <=20deg/s for 0.5s.
-  detach_recovered_tilt_deg: 5.0
+  detach_recovered_tilt_deg: 7.0
   detach_recovered_rate_deg_s: 10.0
   detach_recovered_hold_s: 0.30
   # Seed from actual HOLD collective. During return/recovery, keep total

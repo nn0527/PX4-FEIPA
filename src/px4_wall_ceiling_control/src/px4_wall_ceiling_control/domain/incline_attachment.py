@@ -74,7 +74,7 @@ class InclineSettings:
     detach_brake_decel_deg_s2: float = 30.
     detach_brake_delay_s: float = .15
     detach_brake_margin_deg: float = 5.
-    detach_recovered_tilt_deg: float = 5.
+    detach_recovered_tilt_deg: float = 7.
     detach_recovered_rate_deg_s: float = 10.
     detach_recovered_hold_s: float = .30
     return_thrust_slew_per_s: float = .20
@@ -113,7 +113,7 @@ class InclineSettings:
             return 'invalid incline distance ordering'
         if not 60. <= self.flip_max_tilt_deg <= 65.:
             return 'incline tilt cap must cover 60 degrees and not exceed 65'
-        if not (self.detach_recovered_tilt_deg <= self.detach_brake_margin_deg
+        if not (max(self.detach_recovered_tilt_deg, self.detach_brake_margin_deg)
                 < self.detach_brake_target_deg < self.flip_max_tilt_deg < 90.):
             return 'invalid incline braking angles'
         if self.top_contact_hold_s >= self.contact_settle_timeout_s:
@@ -123,7 +123,7 @@ class InclineSettings:
         if self.flip_still_min_pitch_error_deg >= self.flip_abort_pitch_error_deg:
             return 'incline still-pitch gate must be below pitch abort threshold'
         if (self.flip_thrust_ramp_per_s > .03 or self.detach_max_tracking_error_deg > 11.
-                or self.detach_max_rate_deg_s > 30. or self.detach_recovered_tilt_deg > 5.):
+                or self.detach_max_rate_deg_s > 30. or self.detach_recovered_tilt_deg > 7.):
             return 'incline motion limits exceed initial envelope'
         if self.flip_duration_timeout_s <= self.flip_max_tilt_deg / self.flip_pitch_rate_deg_s:
             return 'incline flip timeout too short for configured rate'
@@ -627,8 +627,8 @@ class InclineAttachment:
                     self.s.detach_brake_delay_s, math.radians(self.s.detach_brake_margin_deg), self.planner.max_rate)
                 goal = braking_goal(remaining, closing, allowed, 4., 1.,
                     math.radians(self.s.detach_max_tracking_error_deg), self.planner.max_angle)
-            recovered = (self.tilt(f.q) <= math.radians(self.s.detach_recovered_tilt_deg)
-                and math.sqrt(sum(v*v for v in f.body_rate)) <= math.radians(self.s.detach_recovered_rate_deg_s))
+            recovered = (self.tilt(f.q) <= math.radians(self.s.detach_recovered_tilt_deg) + 1e-12
+                and math.sqrt(sum(v*v for v in f.body_rate)) <= math.radians(self.s.detach_recovered_rate_deg_s) + 1e-12)
             if recovered:
                 goal = 0.
             # Match wall return: permit error-reducing motion even when the

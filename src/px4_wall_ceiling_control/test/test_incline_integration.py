@@ -121,8 +121,8 @@ class InclineBoundaryTests(unittest.TestCase):
         self.assertIsNone(n.top_hold_accept_after)
         n._late_top_window_open = mock.Mock(side_effect=AssertionError('side-wall gate used'))
         self.warm_still_pitch(n)
-        for distance, phase in ((.192, 'CONTACT_SETTLE'), (.061, 'CONTACT_SETTLE'),
-                                (.059, 'HOLD')):
+        for distance, phase in ((.192, 'CONTACT_SETTLE'), (.071, 'CONTACT_SETTLE'),
+                                (.070, 'CONTACT_SETTLE'), (.069, 'HOLD')):
             self.clock += .1
             self.feedback(n, top=n.top_range.range)
             n.odom.pose.pose.orientation = Quaternion(*pose(0))

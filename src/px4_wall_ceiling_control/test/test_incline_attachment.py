@@ -355,6 +355,21 @@ class InclineLogicTests(unittest.TestCase):
         self.assertEqual(self.c.phase, 'HOLD')
         self.assertFalse(self.c.fault)
 
+    def test_return_zero_goal_at_seven_degrees_and_ten_degrees_per_second(self):
+        self.contact(30)
+        self.c.step(self.f, detach=True)
+        self.tick()
+        planner = self.c.planner
+        planner.step = Mock(return_value=planner.angle)
+
+        for tilt, rate in ((7.01, 10.), (7., 10.01)):
+            self.tick(q=pose(tilt), body_rate=(0., 0., math.radians(rate)))
+            self.assertGreater(planner.step.call_args[0][1], 0.)
+
+        self.tick(q=pose(7.), body_rate=(0., 0., math.radians(10.)))
+        self.assertEqual(planner.step.call_args[0][1], 0.)
+        self.assertEqual(self.c.phase, 'RETURN')
+
     def test_return_and_recovery_finish_without_either_range(self):
         self.contact(30)
         self.c.step(replace(self.f, front_valid=False, top_valid=False), detach=True)
