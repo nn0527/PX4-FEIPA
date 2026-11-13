@@ -81,17 +81,33 @@ class HoldWatchdogTests(unittest.TestCase):
         self.assertFalse(status.candidate_valid)
         self.assertTrue(status.abort_land_requested)
 
-    def test_abort_resets_only_after_disarm_and_neutral_intent(self):
+    def test_fresh_disarm_resets_abort_before_neutral_intent(self):
         self.expire()
-        self.n._on_operator(Op(mode=Op.MODE_STANDBY, enable_control=False))
+        self.n._on_operator(Op(mode=Op.MODE_CEILING, enable_control=True))
+        abort_time = self.n.state_entered_at
+        fault = self.n.last_reason
         st = State(connected=True, armed=False, mode='AUTO.LAND')
-        st.header.stamp = at(self.fx.clock+.01)
+        st.header.stamp = abort_time
         self.fx.clock += .01
         self.n._on_state(st)
         self.n._update_state_machine(rospy.Time.now())
-        self.assertEqual(self.n.state, S.STATE_NORMAL_FLIGHT)
-        self.assertFalse(self.n.hold_timed_out)
+        self.assertEqual(self.n.state, S.STATE_ABORT)
 
+        self.fx.clock += .01
+        st = State(connected=True, armed=False, mode='AUTO.LAND')
+        st.header.stamp = rospy.Time.now()
+        self.n._on_state(st)
+        self.n._update_state_machine(rospy.Time.now())
+        self.assertEqual(self.n.state, S.STATE_NORMAL_FLIGHT)
+        self.assertIn(fault, self.n.last_reason)
+        self.assertFalse(self.n.hold_timed_out)
+        self.n._update_state_machine(rospy.Time.now())
+        self.assertTrue(self.n.rearm_required)
+        self.assertFalse(self.n._build_status(rospy.Time.now(), .02).activation_ready)
+
+        self.n._on_operator(Op(mode=Op.MODE_STANDBY, enable_control=False))
+        self.n._update_state_machine(rospy.Time.now())
+        self.assertFalse(self.n.rearm_required)
 
     def test_ordinary_abort_keeps_original_support_without_release_or_landing(self):
         # A former FAULT must retain the captured support (0.53), bounded XY

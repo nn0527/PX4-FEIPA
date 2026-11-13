@@ -296,6 +296,47 @@ class InclineBoundaryTests(unittest.TestCase):
         self.assertTrue(n.detach_requested)
         self.assertEqual(n.detach_task_phase, old)
 
+    def test_abort_handoff_waits_for_fresh_disarm_and_requires_release(self):
+        node = self.node()
+        self.feedback(node)
+        now = rospy.Time.now()
+        feedback = node._incline_feedback_at(now)
+        self.assertTrue(node.incline.start(feedback, pose(0), .49))
+        node.incline.abort(feedback, 'contact attitude fault')
+        node._incline_cycle(now)
+
+        self.clock += .02
+        self.feedback(node)
+        node.flight_state.mode = 'AUTO.LAND'
+        node._incline_cycle(rospy.Time.now())
+        self.assertEqual(node.state, W.STATE_ABORT)
+        self.assertFalse(node.abort_land_requested)
+        self.assertFalse(node.control_candidate_publisher.publish.call_args.args[0].keep_ownership)
+
+        self.clock += .02
+        self.feedback(node)
+        node.flight_state.armed = False
+        node.flight_state.header.stamp = now
+        node._incline_cycle(rospy.Time.now())
+        self.assertEqual(node.state, W.STATE_ABORT)
+
+        node.flight_state.header.stamp = rospy.Time.now()
+        node._incline_cycle(rospy.Time.now())
+        self.assertEqual(node.state, W.STATE_IDLE)
+        self.assertEqual(node.incline.phase, 'ABORT_DONE')
+        self.assertEqual(node.incline.fault, 'contact attitude fault')
+
+        node._on_operator(O(mode=O.MODE_INCLINE, enable_control=True))
+        node._incline_cycle(rospy.Time.now())
+        self.assertEqual(node.incline.phase, 'ABORT_DONE')
+        status = node._incline_status(rospy.Time.now(), node.incline_feedback, False)
+        self.assertFalse(status.incline_ready)
+
+        node._on_operator(O(mode=O.MODE_STANDBY, enable_control=False))
+        node._on_operator(O(mode=O.MODE_INCLINE, enable_control=True))
+        self.assertEqual(node.incline.phase, 'WAIT')
+        self.assertTrue(node.incline_selected)
+
     def test_external_mode_change_releases_without_reentering(self):
         n = self.node(); self.feedback(n)
         f = n._incline_feedback_at(rospy.Time.now())

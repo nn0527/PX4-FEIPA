@@ -17,7 +17,7 @@ from std_msgs.msg import Bool
 from px4_wall_ceiling_control.adapters.odometry import vertical_speed_enu_mps, odometry_is_finite
 from px4_wall_ceiling_control.domain.geometry import euler_from_quaternion, rotate_vector
 from px4_wall_ceiling_control.domain.sample_hold import held_samples, record_hold_sample
-from px4_wall_ceiling_control.freshness import clamp, is_fresh, is_valid_range
+from px4_wall_ceiling_control.freshness import clamp, is_fresh, is_fresh_source, is_valid_range
 from px4_wall_ceiling_control.msg import (
     AttachmentControlCandidate,
     AttachmentMechanismCommand,
@@ -854,20 +854,25 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
                     and is_fresh(self.motion_owner_at, .3, now))
 
     def _update_state_machine(self, now):
-        # Latch landing ABORT through flight-mode handoff; ordinary recovery must
-        # not turn an automatic landing request into a POSCTL return.
-        if self._landing_abort():
+        if self.state == CeilingAttachmentStatus.STATE_ABORT:
             flight = self.flight_state
+            received_at = self.flight_state_received_at
             if (flight is not None and flight.connected and not flight.armed
-                    and is_fresh(self.flight_state_received_at, self.state_timeout_s, now)
-                    and not self._mode_requested(now)):
+                    and is_fresh(received_at, self.state_timeout_s, now)
+                    and is_fresh_source(flight.header.stamp, self.state_timeout_s, now)
+                    and received_at > self.state_entered_at
+                    and flight.header.stamp > self.state_entered_at):
+                self.rearm_required = True
+                self.detach_requested = False
                 self._enter_state(CeilingAttachmentStatus.STATE_NORMAL_FLIGHT, now,
-                                  "ceiling abort finished after disarm and request release")
-            return
+                                  "PX4已上锁，结束顶吸中止：{}".format(self.last_reason))
+                return
+            if self._landing_abort():
+                return  # Keep the landing request latched through mode handover.
         # Safety faults outrank detach/CH12, including faults during OFFBOARD entry.
         if getattr(self, 'abort_land_on_fault', False):
             critical = (self.state not in (CeilingAttachmentStatus.STATE_NORMAL_FLIGHT, CeilingAttachmentStatus.STATE_ABORT)
-                        or (self._mode_requested(now) and getattr(self, 'motion_manager_phase', '') in ('ENTERING', 'ACTIVE')))
+                        or (not self.rearm_required and self._mode_requested(now) and getattr(self, 'motion_manager_phase', '') in ('ENTERING', 'ACTIVE')))
             if critical:
                 fault = self._ceiling_safety_fault(now)
                 if fault:
@@ -966,7 +971,8 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
 
         if self.state == CeilingAttachmentStatus.STATE_NORMAL_FLIGHT:
             if not mode_requested:
-                self.rearm_required = False
+                if is_fresh(self.operator_received_at, self.operator_timeout_s, now):
+                    self.rearm_required = False
                 self.detach_requested = False
             elif (
                 not self.rearm_required
@@ -1209,7 +1215,8 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
         status.baro_reference_ready = self.hold_pressure_pa is not None
         status.baro_pressure_pa = self.baro_pressure_pa if self.baro_pressure_pa is not None else math.nan
         status.hold_pressure_pa = self.hold_pressure_pa if self.hold_pressure_pa is not None else math.nan
-        status.activation_ready = self._activation_ready(now)
+        status.activation_ready = (self._activation_ready(now)
+            and not (self.state == CeilingAttachmentStatus.STATE_NORMAL_FLIGHT and self.rearm_required))
         z = self._height_feedback(now)
         status.detach_start_height_m = self.detach_start_height_m if getattr(self, "detach_start_height_m", None) is not None else math.nan
         status.descended_height_m = self.detach_start_height_m-z if z is not None and self.detach_start_height_m is not None else math.nan

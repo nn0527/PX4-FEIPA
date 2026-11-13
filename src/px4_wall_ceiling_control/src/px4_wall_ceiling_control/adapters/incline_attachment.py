@@ -24,7 +24,7 @@ class InclineAttachmentMixin(InclineApproachMixin):
         'SLOW_FLIP': W.STATE_FLIP_TO_WALL, 'CONTACT_SETTLE': W.STATE_WALL_CAPTURE,
         'HOLD': W.STATE_WALL_HOLD, 'RETURN': W.STATE_DETACH_ROTATE,
         'RECOVER': W.STATE_RECOVER, 'EXIT': W.STATE_EXIT,
-        'LAND': W.STATE_ABORT, 'ABORT_DONE': W.STATE_IDLE,
+        'LAND': W.STATE_ABORT, 'LAND_HANDOFF': W.STATE_ABORT, 'ABORT_DONE': W.STATE_IDLE,
     }
 
     def _init_incline(self):
@@ -177,8 +177,21 @@ class InclineAttachmentMixin(InclineApproachMixin):
                         not self._incline_approach_ranges_ready(now) or not self.horizontal_velocity_ready):
                     step_feedback = replace(f, front_valid=False)
                 engine.step(step_feedback, requested, self.detach_requested, self.cancel_requested)
-        elif engine.phase == 'LAND' and live_mode and (not flight.armed or flight.mode.upper() != 'OFFBOARD'):
-            engine.phase, engine.reason = 'ABORT_DONE', '斜墙故障交接已结束，禁止自动重启'
+        elif (engine.phase in ('LAND', 'LAND_HANDOFF') and live_mode and flight.connected
+              and self.flight_state_received_at.to_sec() > engine.entered
+              and flight.header.stamp.to_sec() > engine.entered):
+            if not flight.armed:
+                # Keep ABORT_DONE latched until the operator releases the old request.
+                engine.phase = 'ABORT_DONE'
+                engine.reason = 'PX4已上锁，结束斜墙中止：' + engine.fault
+                engine.q, engine.thrust = None, math.nan
+                self.incline_ready_since = self.incline_ready_stamp = None
+                ready = False
+                self._reset_horizontal_gate('斜墙上锁复位')
+            elif engine.phase == 'LAND' and flight.mode.upper() != 'OFFBOARD':
+                # Stop offering output after handoff, but keep reporting ABORT until disarm.
+                engine.phase = 'LAND_HANDOFF'
+                engine.reason = '斜墙故障已交接，等待PX4上锁：' + engine.fault
         self.state = self.INCLINE_STATES[engine.phase]
         self.abort_land_requested = engine.phase == 'LAND'
         self.last_reason = engine.reason
@@ -209,7 +222,8 @@ class InclineAttachmentMixin(InclineApproachMixin):
         # Retain transport state names for the existing console/manager gates.
         status.state_name = self.STATE_NAMES[self.state]
         status.incline_active = True
-        status.incline_ready = not engine.error and self.horizontal_velocity_enabled and self.auto_approach
+        status.incline_ready = (engine.phase != 'ABORT_DONE' and not engine.error
+                                and self.horizontal_velocity_enabled and self.auto_approach)
         status.incline_phase = engine.phase
         status.incline_fault_reason = engine.fault
         status.incline_thrust_limit = engine.cap
