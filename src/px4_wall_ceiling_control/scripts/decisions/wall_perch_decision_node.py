@@ -1917,6 +1917,20 @@ class WallPerchDecisionNode(InclineAttachmentMixin, WallSimpleRecoveryMixin, Wal
                 elif flight.mode.upper() != 'OFFBOARD':
                     self.last_reason = '人工/外部模式接管，停止ROS姿态推力输出'
             return
+        if self.state == WallPerchStatus.STATE_ABORT:
+            flight = getattr(self, "flight_state", None)
+            received_at = getattr(self, "flight_state_received_at", None)
+            if (flight is not None and flight.connected and not flight.armed
+                    and is_fresh(received_at, self.state_timeout_s, now)
+                    and is_fresh_source(flight.header.stamp, self.state_timeout_s, now)
+                    and received_at > self.state_entered_at
+                    and flight.header.stamp > self.state_entered_at):
+                self.rearm_required = True
+                self.approach_far_sample = None
+                self.detach_requested = self.cancel_requested = False
+                self._enter_state(WallPerchStatus.STATE_IDLE, now,
+                                  "PX4已上锁，结束侧吸中止：{}".format(self.last_reason))
+                return
         if self._range_task_active() and self.state != WallPerchStatus.STATE_EXIT:
             flight = self.flight_state
             if (flight is not None and flight.connected and flight.mode.upper() != 'OFFBOARD'
