@@ -2080,6 +2080,7 @@ class WallPerchDecisionNode(InclineAttachmentMixin, WallSimpleRecoveryMixin, Wal
                 self._enter_state(WallPerchStatus.STATE_ABORT, now, "flip clock moved backwards")
             elif self._state_age(now) >= getattr(self, "flip_duration_timeout_s", max(6., 2.*self.flip_time_s)):
                 self.fault_count += 1
+                self.abort_land_requested = True
                 self._enter_state(WallPerchStatus.STATE_ABORT, now, "flip wall-clock duration timeout")
             elif not self._safety_ok(now):
                 self.fault_count += 1

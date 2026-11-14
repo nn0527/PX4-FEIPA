@@ -110,6 +110,7 @@ class FlipLatencyTests(unittest.TestCase):
         self.assertEqual(n.state, W.STATE_ABORT)
         self.assertEqual(n.fault_count, 1)
         self.assertIn('wall-clock duration timeout', n.last_reason)
+        self.assertTrue(n.abort_land_requested)
 
     def test_backward_clock_aborts_instead_of_resetting_or_rewinding(self):
         n = self.node()
@@ -118,6 +119,7 @@ class FlipLatencyTests(unittest.TestCase):
         n._update_state_machine(at(10.1))
         self.assertEqual(n.state, W.STATE_ABORT)
         self.assertIn('clock moved backwards', n.last_reason)
+        self.assertFalse(getattr(n, 'abort_land_requested', False))
         self.assertAlmostEqual(n.flip_elapsed_s, .05)
 
     def test_capture_waits_for_accumulated_progress(self):
