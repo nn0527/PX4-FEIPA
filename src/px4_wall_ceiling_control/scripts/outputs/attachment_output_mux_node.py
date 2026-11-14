@@ -4,6 +4,7 @@
 import math
 import json
 import time
+from threading import Lock
 
 import rospy
 from geometry_msgs.msg import Quaternion, Vector3Stamped
@@ -209,6 +210,8 @@ class AttachmentOutputMuxNode(InclineApproachOutput, RCTakeoverOutput):
         self.ceiling_motion_settings = CeilingMotionSettings.read(
             lambda name, default: rospy.get_param("/ceiling_attachment_decision_node/"+name[1:], default))
         self.ceiling_candidate_snapshot = None
+        self.ceiling_candidate_lock = Lock()
+        self.ceiling_publish_rejection = ""
         self.ceiling_last_source = None
         self.ceiling_last_sequence = 0
         self.ceiling_maneuver_id = None
@@ -432,9 +435,10 @@ class AttachmentOutputMuxNode(InclineApproachOutput, RCTakeoverOutput):
                     return
                 self.ceiling_retired_maneuvers.add(self.ceiling_maneuver_id)
                 self.ceiling_maneuver_id = None
-        self.ceiling_candidate = message
-        self.ceiling_candidate_at = now
-        self.ceiling_candidate_snapshot = (message, now)
+        with self.ceiling_candidate_lock:
+            self.ceiling_candidate = message
+            self.ceiling_candidate_at = now
+            self.ceiling_candidate_snapshot = (message, now)
 
     def _wall_candidate_problem(self, message, now):
         if message is not None and getattr(message, 'incline_active', False):
@@ -1598,8 +1602,50 @@ class AttachmentOutputMuxNode(InclineApproachOutput, RCTakeoverOutput):
         target.thrust = max(self.min_thrust, min(self.max_thrust, settings.flip_thrust_max, value))
         return target
 
-    def _publish_candidate(self, now, candidate):
+    def _ceiling_publication_problem(self, snapshot, now):
+        if not kill_clear(self, now):
+            return "kill_active_or_stale"
+        if not self.output_enabled or self.owner != self.OWNER_CEILING:
+            return "ceiling_output_ownership_lost"
+        if not self._flight_ready(now):
+            return "owned_flight_not_ready"
+        if not self._odom_fresh(now):
+            return "owned_odometry_stale"
+
+        candidate, received = snapshot
+        if not is_fresh(received, self.ceiling_candidate_timeout_s, now):
+            return "ceiling_candidate_receipt_expired"
+        if not is_fresh_source(candidate.header.stamp, self.ceiling_candidate_timeout_s, now, future_tolerance_s=0.):
+            return "ceiling_candidate_source_time_invalid"
+
+        latest = self.ceiling_candidate_snapshot
+        if latest is None or not latest[0].valid or not latest[0].phase_valid:
+            return "ceiling_candidate_invalid"
+        current = latest[0]
+        if (current.maneuver_id != candidate.maneuver_id
+                or current.control_phase != candidate.control_phase
+                or current.keep_ownership != candidate.keep_ownership
+                or current.ceiling_abort_land_requested != candidate.ceiling_abort_land_requested
+                or getattr(current, "ceiling_rc_assist_blocked", False)
+                != getattr(candidate, "ceiling_rc_assist_blocked", False)):
+            return "ceiling_candidate_context_changed"
+        if current.kind != candidate.kind:
+            return "ceiling_candidate_kind_changed"
+        return ""
+
+    def _publish_candidate(self, now, candidate, ceiling_snapshot=None):
         wall = candidate.source == AttachmentControlCandidate.SOURCE_WALL
+        ceiling_motion = not wall and getattr(self, "ceiling_motion_enabled", False)
+        if ceiling_motion:
+            self.ceiling_publish_rejection = ""
+            if ceiling_snapshot is None:
+                ceiling_snapshot = self.ceiling_candidate_snapshot
+            if ceiling_snapshot is None or ceiling_snapshot[0] is not candidate or not candidate.valid or not candidate.phase_valid:
+                self.ceiling_publish_rejection = "ceiling_candidate_invalid"
+                return self.OUTPUT_NONE
+            if candidate.kind != AttachmentControlCandidate.KIND_ATTITUDE_THRUST:
+                self.ceiling_publish_rejection = "ceiling_candidate_kind_invalid"
+                return self.OUTPUT_NONE
         if wall:
             snapshot = getattr(self, "wall_candidate_snapshot", None)
             # Candidate admission and use are both checked; a fresh receipt can
@@ -1625,12 +1671,12 @@ class AttachmentOutputMuxNode(InclineApproachOutput, RCTakeoverOutput):
         else:
             return self.OUTPUT_NONE
         if target is None:
+            if ceiling_motion:
+                self.ceiling_publish_rejection = "ceiling_target_invalid"
             return self.OUTPUT_NONE
         target = self._limit_final_recovery_target(now, target, candidate.source, candidate if wall else None)
         target = self._limit_final_approach_target(now, target, candidate.source, candidate if wall else None)
-        if not wall and getattr(self, "ceiling_motion_enabled", False):
-            if candidate.kind != AttachmentControlCandidate.KIND_ATTITUDE_THRUST:
-                return self.OUTPUT_NONE
+        if ceiling_motion:
             seed = getattr(self, "last_published_control", None)
             previous = seed[0] if seed is not None and is_fresh(seed[2], .30, now) else None
             dt = min(.05, max(0., (now-seed[2]).to_sec())) if previous is not None else 0.
@@ -1640,13 +1686,6 @@ class AttachmentOutputMuxNode(InclineApproachOutput, RCTakeoverOutput):
                 dt, candidate.ceiling_yaw_reference_rad, self.ceiling_motion_settings, contact,
                 follow_hold_yaw=candidate.control_phase == CeilingAttachmentStatus.STATE_SURFACE_HOLD)
             target.orientation = Quaternion(*q)
-            snapshot = self.ceiling_candidate_snapshot
-            published = rospy.Time.now()
-            if (snapshot is None or snapshot[0] is not candidate or not candidate.phase_valid
-                    or not is_fresh(snapshot[1], self.ceiling_candidate_timeout_s, published)
-                    or not is_fresh_source(candidate.header.stamp, self.ceiling_candidate_timeout_s, published, future_tolerance_s=0.)):
-                return self.OUTPUT_NONE
-            target.header.stamp = published
         if wall:
             # The previous seed is stamped at actual publication, not at the
             # start of its timer. Use the current time at the matching boundary:
@@ -1686,9 +1725,21 @@ class AttachmentOutputMuxNode(InclineApproachOutput, RCTakeoverOutput):
                 "attitude_xyzw": [getattr(target.orientation, key) for key in "xyzw"],
                 "thrust": target.thrust,
             }
-        self.attitude_publisher.publish(target)
-        self._remember_publication(target, candidate.source, published_at if wall else now)
-        if not wall and getattr(self, 'ceiling_motion_enabled', False):
+        if ceiling_motion:
+            # Serialize candidate replacement with the final context check and publication.
+            with self.ceiling_candidate_lock:
+                published_at = rospy.Time.now()
+                self.ceiling_publish_rejection = self._ceiling_publication_problem(ceiling_snapshot, published_at)
+                if self.ceiling_publish_rejection:
+                    return self.OUTPUT_NONE
+                target.header.stamp = published_at
+                self.attitude_publisher.publish(target)
+        else:
+            if not wall:
+                published_at = now
+            self.attitude_publisher.publish(target)
+        self._remember_publication(target, candidate.source, published_at)
+        if ceiling_motion:
             self._publish_ceiling_rc_feedback(candidate, target)
         if wall:
             self.last_wall_command = command_diagnostic
@@ -1795,11 +1846,18 @@ class AttachmentOutputMuxNode(InclineApproachOutput, RCTakeoverOutput):
                 rospy.logwarn_throttle(1.0, "attachment output inhibited: odometry stale")
             elif self.owner in (self.OWNER_CEILING, self.OWNER_WALL):
                 snapshot = getattr(self, "wall_candidate_snapshot", None)
-                candidate = (self.ceiling_candidate if self.owner == self.OWNER_CEILING
-                             else snapshot[0] if snapshot is not None else self.wall_candidate)
+                ceiling_snapshot = None
+                if self.owner == self.OWNER_CEILING:
+                    ceiling_snapshot = self.ceiling_candidate_snapshot
+                    candidate = ceiling_snapshot[0] if ceiling_snapshot is not None else None
+                else:
+                    candidate = snapshot[0] if snapshot is not None else self.wall_candidate
                 if candidate is not None and candidate.valid:
-                    output_mode = self._publish_candidate(now, candidate)
-                    reason = "" if output_mode else "candidate_kind_or_payload_invalid"
+                    output_mode = self._publish_candidate(now, candidate, ceiling_snapshot)
+                    if not output_mode:
+                        reason = "candidate_kind_or_payload_invalid"
+                        if ceiling_snapshot is not None and self.ceiling_motion_enabled:
+                            reason = self.ceiling_publish_rejection
                 else:
                     reason = "ceiling_candidate_invalid" if self.owner == self.OWNER_CEILING else "wall_candidate_invalid"
                     rospy.logerr_throttle(1.0, "%s; output stopped and owner retained", reason)

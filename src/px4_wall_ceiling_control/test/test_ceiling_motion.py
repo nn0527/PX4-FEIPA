@@ -1,6 +1,7 @@
 """POSCTL ceiling lifecycle and feedback-fault boundaries; no flight commands."""
 import math
 import copy
+from threading import Lock
 import unittest
 from dataclasses import replace
 from unittest import mock
@@ -433,6 +434,11 @@ class CeilingFinalOutputTests(unittest.TestCase):
         n.ceiling_candidate_timeout_s=.2; n.ceiling_retired_maneuvers=set()
         n.ceiling_maneuver_id=None; n.ceiling_last_sequence=0; n.ceiling_last_source=None
         n.ceiling_candidate_snapshot=None
+        n.ceiling_candidate_lock = Lock()
+        n.output_enabled = True
+        n.owner = OutputMux.OWNER_CEILING
+        n._flight_ready = mock.Mock(return_value=True)
+        n._odom_fresh = mock.Mock(return_value=True)
         n._assisted_attitude=lambda now,q,*args:q
         n._attitude_target=lambda now,q,t:AttitudeTarget(orientation=q,thrust=t)
         n._limit_final_recovery_target=lambda now,t,*args:t
@@ -459,6 +465,59 @@ class CeilingFinalOutputTests(unittest.TestCase):
         self.n.ceiling_candidate_snapshot=(self.c,rospy.Time.from_sec(9.))
         self.assertEqual(self.n._publish_candidate(self.now,self.c),OutputMux.OUTPUT_NONE)
         self.n.attitude_publisher.publish.assert_not_called()
+
+    def test_same_hold_update_does_not_skip_publication(self):
+        self.c.control_phase = S.STATE_SURFACE_HOLD
+        self.n._on_ceiling_candidate(self.c)
+        newer = copy.deepcopy(self.c)
+        newer.header.stamp = self.now + rospy.Duration(.001)
+        newer.control_sequence += 1
+        newer.thrust_normalized = .60
+
+        def receive_during_calculation(now, target, *args):
+            with mock.patch.object(rospy.Time, "now", return_value=newer.header.stamp):
+                self.n._on_ceiling_candidate(newer)
+            return target
+
+        self.n._limit_final_approach_target = receive_during_calculation
+        with mock.patch.object(rospy.Time, "now", return_value=newer.header.stamp):
+            self.assertEqual(self.n._publish_candidate(self.now, self.c), OutputMux.OUTPUT_ATTITUDE_THRUST)
+        self.assertIs(self.n.ceiling_candidate_snapshot[0], newer)
+        target = self.n.attitude_publisher.publish.call_args.args[0]
+        self.assertAlmostEqual(target.thrust, self.c.thrust_normalized)
+
+    def test_detach_update_blocks_hold_publication(self):
+        self.c.control_phase = S.STATE_SURFACE_HOLD
+        self.n._on_ceiling_candidate(self.c)
+        detach = copy.deepcopy(self.c)
+        detach.header.stamp = self.now + rospy.Duration(.001)
+        detach.control_sequence += 1
+        detach.control_phase = S.STATE_DETACH
+
+        def receive_during_calculation(now, target, *args):
+            self.n._on_ceiling_candidate(detach)
+            return target
+
+        self.n._limit_final_approach_target = receive_during_calculation
+        with mock.patch.object(rospy.Time, "now", return_value=detach.header.stamp):
+            self.assertEqual(self.n._publish_candidate(self.now, self.c), OutputMux.OUTPUT_NONE)
+        self.n.attitude_publisher.publish.assert_not_called()
+        self.assertEqual(self.n.ceiling_publish_rejection, "ceiling_candidate_context_changed")
+
+    def test_kill_update_blocks_publication(self):
+        self.n._on_ceiling_candidate(self.c)
+        self.n.kill_guard_enabled = True
+        self.n.kill_status_at = self.now
+        self.n.kill_status = {"valid": True, "active": False}
+
+        def activate_kill_during_calculation(now, target, *args):
+            self.n.kill_status = {"valid": True, "active": True}
+            return target
+
+        self.n._limit_final_approach_target = activate_kill_during_calculation
+        self.assertEqual(self.n._publish_candidate(self.now, self.c), OutputMux.OUTPUT_NONE)
+        self.n.attitude_publisher.publish.assert_not_called()
+        self.assertEqual(self.n.ceiling_publish_rejection, "kill_active_or_stale")
 
     def test_replay_and_old_release_cannot_replace_current_attempt(self):
         self.n._on_ceiling_candidate(self.c)
