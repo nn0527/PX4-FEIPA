@@ -1,9 +1,6 @@
 <launch>
   <arg name="rc_wall_toggle_enabled" default="true" />
   <arg name="rc_wall_channel_index" default="11" />
-  <arg name="rc_mode_selector_enabled" default="false" />
-  <arg name="rc_mode_channel_index" default="7" />
-  <arg name="rc_mode_up_is_high" default="false" />
   <!-- ALTCTL entry: wall uses calibrated roll/yaw; ceiling uses roll/pitch. No auto takeoff. -->
   <arg name="ceiling_serial_port" default="/dev/ttyUSB1" />
   <arg name="front_serial_port" default="/dev/ttyUSB2" />
@@ -24,9 +21,6 @@
     <arg name="front_serial_port" value="$(arg front_serial_port)" />
     <arg name="rc_wall_toggle_enabled" value="$(arg rc_wall_toggle_enabled)" />
     <arg name="rc_wall_channel_index" value="$(arg rc_wall_channel_index)" />
-    <arg name="rc_mode_selector_enabled" value="$(arg rc_mode_selector_enabled)" />
-    <arg name="rc_mode_channel_index" value="$(arg rc_mode_channel_index)" />
-    <arg name="rc_mode_up_is_high" value="$(arg rc_mode_up_is_high)" />
     <arg name="kill_guard_enabled" value="true" />
     <arg name="flight_mode_enabled" value="true" />
     <arg name="wall_enabled" value="true" />

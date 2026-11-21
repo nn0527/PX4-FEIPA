@@ -235,14 +235,17 @@ function inclineDetails(s){
   return {wall,active,phase,step,returned,stage:!wall?"等待斜面反馈":returned?"已交还遥控":names[phase]||phase,
     reason:!wall?"斜面实时反馈缺失或过期":active?(wall.incline_fault_reason||wall.reason||names[phase]):wall.incline_ready?"斜面已就绪，等待启动条件":"等待启用斜面及有效配置"};
 }
-function modeSelection(s,selected="ceiling"){
+function modeSelection(s){
   const names={2:"ceiling",3:"wall",5:"incline"};
   const live=!!s.ssh?.connected && !!s.session?.feedback_live && s.session?.push!==false;
   const phase=fresh(s,"phase"),owner=fresh(s,"owner"),operator=fresh(s,"operator"),wall=fresh(s,"wall");
   const active=wall?.incline_active && !["WAIT","ABORT_DONE"].includes(wall.incline_phase)?"incline":names[operator?.mode] || (owner===1?"ceiling":owner===2?(wall?.incline_active?"incline":"wall"):null);
-  const locked=!live || phase===null || owner===null || !operator || !!active || owner!==0 || phase!=="IDLE";
-  return {selected:active||(["ceiling","wall","incline"].includes(selected)?selected:"ceiling"),locked,
-    reason:!live?"实时反馈不可用，等待确认当前任务":active?"当前任务执行中，完成交回后可切换模式":locked?"等待控制链路待命":"选择模式后，在对应面板启动；选择本身不会发送动作。"};
+  const target=fresh(s,"rc_selected_mode");
+  const selected=active||(["ceiling","wall","incline"].includes(target)?target:"");
+  const idle=phase==="IDLE"&&owner===0&&operator?.mode===1&&!active;
+  const locked=!live||!idle||!s.session?.control;
+  return {selected,locked,
+    reason:!live?"实时反馈不可用，等待确认当前任务":active?"当前任务执行中，完成交回后可切换模式":!idle?"等待控制链路待命":!s.session?.control?"申请控制权后可选择 CH12 目标":selected?"拨动 CH12 一次启动接近，保持阶段再拨一次脱离。":"请先选择 CH12 的启动目标。"};
 }
 if(typeof module!=="undefined")module.exports={inclineDetails,modeSelection,inclineView,view,fresh,wallView,rangeView,maintenanceView,attachmentSummary,ceilingReceipt,ceilingDetailView,ceilingFailsafeView};
 if(typeof document!=="undefined"){
@@ -253,9 +256,9 @@ const n=(v,d=2)=>typeof v==="number"&&Number.isFinite(v)?v.toFixed(d):"—";
 const summarize=items=>items.slice(0,2).join("；")+(items.length>2?"（另有 "+(items.length-2)+" 项，见贴墙就绪检查）":"");
 const tell=(v,error=false)=>{text("message",v);$("message").classList.toggle("error",error);};
 function paint(s){
-  const selected=modeSelection(s,$("attachmentMode").value);
+  const selected=modeSelection(s);
   $("attachmentMode").value=selected.selected;$("attachmentMode").disabled=selected.locked||busy||recoveryBusy;$("attachmentModeReason").textContent=selected.reason;
-  document.querySelectorAll("[data-attachment-mode]").forEach(panel=>{panel.hidden=panel.dataset.attachmentMode!==selected.selected;});
+  document.querySelectorAll("[data-attachment-mode]").forEach(panel=>{panel.hidden=panel.dataset.attachmentMode!==(selected.selected||"ceiling");});
   latest=s;token=s.token||"";const v=view(s,busy||recoveryBusy),w=wallView(s,busy||recoveryBusy),paused=s.session?.push===false,m=maintenanceView(s,busy,recoveryBusy);
   $("dot").classList.toggle("live",v.live);text("connection",paused?"实时反馈已暂停":v.live?"实时反馈已连接":"实时反馈未连接");text("host",s.ssh?.host||"树莓派 ROS1 · SSH");
   text("session",(s.session?.control?"本机为控制端":s.session?.owner?"本机为观察端 · 当前控制端："+s.session.owner:"本机为观察端 · 申请控制权后可操作")+" · 在线 "+(s.session?.clients||0)+" 台"+(paused?" · 反馈暂停中":""));
@@ -366,7 +369,9 @@ async function action(path,data={},recovery=false){
   }catch(error){tell(error.name==="TimeoutError"?"回执超时，执行结果未知；请核对实时状态，页面不会自动重发":error.message,true);}
   finally{if(recovery)recoveryBusy=false;else busy=false;await poll();}
 }
-$("attachmentMode").addEventListener("change",()=>{if(latest)paint(latest);});
+$("attachmentMode").addEventListener("change",event=>{
+  if(latest&&!modeSelection(latest).locked)action("/api/select-rc-mode",{mode:event.target.value});
+});
 $("control").addEventListener("click",()=>action(latest?.session?.control?"/api/release":"/api/acquire"));
 $("push").addEventListener("click",()=>action("/api/push",{enabled:latest?.session?.push===false}));
 $("inclineAction").addEventListener("click",()=>{if(latest&&inclineView(latest,busy).canStart)action("/api/incline");});

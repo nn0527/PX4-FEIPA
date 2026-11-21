@@ -36,6 +36,9 @@ class FakeRuntime:
     def wall(self):
         self.commands.append('wall')
         return {"message":"fake wall"}
+    def select_rc_mode(self, config):
+        self.commands.append(("select_rc_mode", config["mode"]))
+        return {"message": "fake selection"}
     def detach(self):
         self.commands.append('detach')
         return {"message":"fake detach"}
@@ -56,6 +59,14 @@ class FakeRuntime:
 
 
 class HTTPTests(unittest.TestCase):
+    def test_ch12_selection_reaches_controller_without_starting_an_action(self):
+        cookie, token = self.login("pilot")
+        data = {"mode": "incline"}
+        self.assertEqual(self.request("/api/select-rc-mode", data, cookie, token)[0], 409)
+        self.assertEqual(self.request("/api/acquire", {}, cookie, token)[0], 200)
+        self.assertEqual(self.request("/api/select-rc-mode", data, cookie, token)[0], 200)
+        self.assertEqual(self.runtime.commands, [("select_rc_mode", "incline")])
+
     def test_retired_fixed_height_endpoint_cannot_dispatch(self):
         cookie, token = self.login('pilot')
         self.request('/api/acquire', {}, cookie, token)

@@ -129,13 +129,11 @@ class CeilingConsentTests(unittest.TestCase):
         self.n._on_ceiling_status(c);self.n.flight_at=at(self.fx.now)
         return c
 
-    def test_early_edge_not_queued_and_third_edge_independent_of_ch8_selection(self):
+    def test_early_edge_not_queued_and_third_edge_independent_of_start_target(self):
         self.status(recovery_attitude_locked=False,recovery_ready=False)
         self.fx.press();self.assertEqual(self.n.pilot_handover_request_time,at(0))
         self.status()
-        self.n.rc_mode_selector_enabled=True
-        self.n.rc_mode_channel_index=7;self.n.mode_selector=terminal.AttachmentModeSelector()
-        self.n.rc_selected_mode=None;self.n.selected_mode_pub=mock.Mock()
+        self.n.rc_selected_mode = "wall"
         self.fx.press();event=self.n.pilot_handover_request_time
         self.assertGreater(event.to_sec(),0)
         self.n.ceiling_detach_pub.publish.assert_not_called()

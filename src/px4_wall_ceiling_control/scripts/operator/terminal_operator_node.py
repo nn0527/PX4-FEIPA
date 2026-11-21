@@ -13,7 +13,7 @@ from std_msgs.msg import Bool, String
 from px4_wall_ceiling_control.msg import OperatorCommand, WallPerchStatus, CeilingAttachmentStatus
 from px4_wall_ceiling_control.adapters.kill_switch import KillSwitchConfig
 
-from px4_wall_ceiling_control.domain.momentary_switch import MomentarySwitch, AttachmentModeSelector
+from px4_wall_ceiling_control.domain.momentary_switch import MomentarySwitch
 
 
 def serialized(callback):
@@ -34,14 +34,6 @@ class TerminalOperatorNode:
         self.rc_wall_channel_index = int(rospy.get_param("~rc_wall_channel_index", 11))
         if self.rc_wall_channel_index < 0:
             raise ValueError("rc_wall_channel_index must be nonnegative")
-        self.console_mode_only = bool(rospy.get_param("~console_mode_only", True))
-        self.rc_mode_selector_enabled = (not self.console_mode_only and bool(rospy.get_param("~rc_mode_selector_enabled", False)))
-        self.rc_mode_channel_index = int(rospy.get_param("~rc_mode_channel_index", 7))
-        if self.rc_mode_channel_index < 0 or self.rc_mode_channel_index == self.rc_wall_channel_index:
-            raise ValueError("mode selection and trigger channels must be distinct and nonnegative")
-        # Calibrated on this transmitter: CH8 up=999, down=1999.
-        self.mode_selector = AttachmentModeSelector(
-            up_is_high=bool(rospy.get_param("~rc_mode_up_is_high", False)))
         self.rc_selected_mode = None
         self.ceiling_status, self.ceiling_status_at = None, None
         self.wall_status, self.wall_status_at = None, None
@@ -97,10 +89,23 @@ class TerminalOperatorNode:
             request = json.loads(message.data)
             request_id = request.get("id", "")
             command = request.get("command", "")
-            if not isinstance(request_id, str) or not 1 <= len(request_id) <= 64 or command not in ("ceiling", "incline"):
+            if not isinstance(request_id, str) or not 1 <= len(request_id) <= 64 or command not in ("ceiling", "incline", "select_rc_mode"):
                 raise ValueError("请求格式无效")
             if request_id in self.request_acks:
                 self.command_ack_pub.publish(String(data=json.dumps(self.request_acks[request_id],ensure_ascii=False)))
+                return
+            if command == "select_rc_mode":
+                selected = request.get("mode")
+                if selected not in ("ceiling", "wall", "incline"):
+                    raise ValueError("请选择顶吸、侧吸或斜面")
+                if self.mode != OperatorCommand.MODE_STANDBY or self.detaching or self.flight_mode == "OFFBOARD":
+                    raise ValueError("当前任务未结束，不能切换 CH12 目标")
+                self.rc_selected_mode = selected
+                self.wall_switch.reset()
+                self.selected_mode_pub.publish(String(data=selected))
+                self._ack_request({
+                    "id": request_id, "command": command, "accepted": True, "selected_mode": selected,
+                })
                 return
             age = (rospy.Time.now()-self.flight_at).to_sec() if self.flight_at is not None else float('inf')
             safety = self._kill_report() if self.kill_guard_enabled else {"valid":True,"active":False}
@@ -121,12 +126,17 @@ class TerminalOperatorNode:
             reply = {"id":request_id,"command":command,"accepted":accepted,"reason":reason,
                      "mode":self.mode,"enable_control":accepted,
                      "ros_time":rospy.Time.now().to_sec()}
-            if len(self.request_acks) >= 32:self.request_acks.pop(next(iter(self.request_acks)))
-            self.request_acks[request_id] = reply
+            self._ack_request(reply)
         except Exception as error:
             reply = {"id":request_id,"command":command,"accepted":False,"reason":str(error)}
-        self.command_ack_pub.publish(String(data=json.dumps(reply,ensure_ascii=False)))
+            self.command_ack_pub.publish(String(data=json.dumps(reply,ensure_ascii=False)))
         rospy.logwarn("ceiling request acknowledgement: %s",json.dumps(reply,ensure_ascii=False))
+
+    def _ack_request(self, reply):
+        if len(self.request_acks) >= 32:
+            self.request_acks.pop(next(iter(self.request_acks)))
+        self.request_acks[reply["id"]] = reply
+        self.command_ack_pub.publish(String(data=json.dumps(reply, ensure_ascii=False)))
 
     def _apply_command(self, message):
         command = message.data.strip().lower()
@@ -245,15 +255,6 @@ class TerminalOperatorNode:
         self.rc_channels, self.rc_at = tuple(message.channels), rospy.Time.now()
         if getattr(self, "rc_wall_toggle_enabled", False):
             now = time.monotonic()
-            if getattr(self, "rc_mode_selector_enabled", False):
-                pwm_mode = (self.rc_channels[self.rc_mode_channel_index]
-                            if len(self.rc_channels) > self.rc_mode_channel_index else None)
-                selected = self.mode_selector.update(pwm_mode, now)
-                if selected != self.rc_selected_mode:
-                    self.rc_selected_mode = selected
-                    self.selected_mode_pub.publish(String(data=selected or "unavailable"))
-                    rospy.loginfo("CH8 selection=%s; current operator_mode=%s (active cycle unchanged)",
-                                  selected or "unavailable", self.mode)
             pwm = (self.rc_channels[self.rc_wall_channel_index]
                    if len(self.rc_channels) > self.rc_wall_channel_index else None)
             if self.wall_switch.update(pwm, now):
@@ -271,13 +272,9 @@ class TerminalOperatorNode:
             self.detaching = False
 
     def _on_wall_toggle(self):
-        if getattr(self, 'console_mode_only', False) and self.mode == OperatorCommand.MODE_STANDBY:
-            return  # CH12 cannot select/start a default task in console-only mode.
         if self._request_ceiling_handover(rospy.Time.now()):
             return
-        if getattr(self, 'console_mode_only', False) or getattr(self, 'rc_mode_selector_enabled', False):
-            return self._on_attachment_toggle()
-        return self._on_legacy_wall_toggle()
+        self._on_attachment_toggle()
 
     def _kill_report(self):
         now = rospy.Time.now()
@@ -288,9 +285,7 @@ class TerminalOperatorNode:
 
     @serialized
     def _on_timer(self, _event):
-        if getattr(self, "rc_mode_selector_enabled", False):
-            rc_live = self.rc_at is not None and 0 <= (rospy.Time.now()-self.rc_at).to_sec() <= .25
-            self.selected_mode_pub.publish(String(data=(self.rc_selected_mode or 'unavailable') if rc_live else 'unavailable'))
+        self.selected_mode_pub.publish(String(data=self.rc_selected_mode or "unavailable"))
         if getattr(self, "kill_guard_enabled", False):
             safety = self._kill_report()
             if not safety["valid"] or safety["active"]:
@@ -350,7 +345,7 @@ class TerminalOperatorNode:
         return True
 
 
-    def _on_legacy_wall_toggle(self):
+    def _on_wall_or_incline_toggle(self):
         now = rospy.Time.now()
         fresh = lambda stamp, limit: stamp is not None and 0 <= (now-stamp).to_sec() <= limit
         wall = self.wall_status
@@ -369,8 +364,12 @@ class TerminalOperatorNode:
             if not wall.odom_fresh:
                 rospy.logwarn("CH12 wall rejected: wall odometry unavailable or stale")
                 return
-            command = "wall"
+            command = self.rc_selected_mode
+            if command == "incline" and not wall.incline_ready:
+                rospy.logwarn("CH12 incline rejected: incline is not ready")
+                return
         elif (self.mode in (OperatorCommand.MODE_WALL, OperatorCommand.MODE_INCLINE)
+                and self.flight_mode == "OFFBOARD"
                 and wall.state == WallPerchStatus.STATE_WALL_HOLD
                 and not self.detaching and not self.detach_pulse
                 and not wall.detach_pending and not wall.fault_detected):
@@ -392,19 +391,17 @@ class TerminalOperatorNode:
         if not (self.flight_connected and self.flight_armed and fresh(self.flight_at, 1.5)):
             rospy.logwarn("CH12 ignored: FCU must be connected, armed and fresh")
             return
-        # A selected wall cycle uses the original wall-only readiness checks.
-        # Missing ceiling telemetry must not introduce a new wall start gate.
-        if (self.mode in (OperatorCommand.MODE_WALL, OperatorCommand.MODE_INCLINE)
-                or (self.mode == OperatorCommand.MODE_STANDBY and not self.detaching
-                    and fresh(self.rc_at, .25) and self.mode_selector.selected == 'wall')):
-            # Reuse the unchanged legacy wall handler without selector recursion.
-            return self._on_legacy_wall_toggle()
+        if self.mode == OperatorCommand.MODE_STANDBY:
+            if self.detaching or self.rc_selected_mode is None:
+                return
+            if self.rc_selected_mode in ("wall", "incline"):
+                return self._on_wall_or_incline_toggle()
+        elif self.mode in (OperatorCommand.MODE_WALL, OperatorCommand.MODE_INCLINE):
+            return self._on_wall_or_incline_toggle()
         ceiling = getattr(self, 'ceiling_status', None)
         ceiling_fresh = (ceiling is not None and fresh(self.ceiling_status_at, .5)
                          and fresh(ceiling.header.stamp, .5))
         if self.mode == OperatorCommand.MODE_STANDBY and not self.detaching:
-            if not (fresh(self.rc_at, .25) and self.mode_selector.selected == 'ceiling'):
-                return
             if not (ceiling_fresh and ceiling.state == CeilingAttachmentStatus.STATE_NORMAL_FLIGHT
                     and not ceiling.keep_ownership and ceiling.odom_fresh):
                 rospy.logwarn('CH12 ceiling start rejected: waiting for fresh idle ceiling feedback')

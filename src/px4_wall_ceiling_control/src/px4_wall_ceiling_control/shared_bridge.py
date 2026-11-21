@@ -87,7 +87,7 @@ class SharedBridge:
                     raise ValueError("动作执行中或反馈过期，不能释放控制权")
                 self.owner, self.owner_label = None, ""
                 return {"message": "已释放控制权"}
-            if action not in ("start", "wall", "incline", "incline_detach", "detach", "ceiling", "ceiling_detach", "cancel_wait", "rc_takeover", "stop", "repair_mavros"):
+            if action not in ("start", "select_rc_mode", "wall", "incline", "incline_detach", "detach", "ceiling", "ceiling_detach", "cancel_wait", "rc_takeover", "stop", "repair_mavros"):
                 raise ValueError("未知操作")
             recovery = (action == "repair_mavros"
                         and (config or {}).get("grounded_confirmed") is True
@@ -97,7 +97,7 @@ class SharedBridge:
             if not meta["push"] and action not in ("stop", "repair_mavros"):
                 raise ValueError("实时反馈已暂停，动作未发送")
             # Ownership checks and dispatch are one critical section.
-            return getattr(self.runtime, action)(config) if action in ("start", "stop", "repair_mavros") else getattr(self.runtime, action)()
+            return getattr(self.runtime, action)(config) if action in ("start", "select_rc_mode", "stop", "repair_mavros") else getattr(self.runtime, action)()
 
 
 def serve(runtime_factory, socket_path):

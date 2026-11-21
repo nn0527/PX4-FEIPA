@@ -715,24 +715,43 @@ class RemoteRuntime:
                 slot["reply"]=reply
                 slot["event"].set()  # Do not acquire ConsoleState.lock: the request holds it while awaiting this ACK.
 
-    def _publish_ceiling_request(self, command):
+    def _publish_terminal_request(self, command, **fields):
+        node = "终端" if command == "select_rc_mode" else "吸顶"
         if not self.publisher or self.publisher.get_num_connections()==0:
-            raise ValueError("终端指令节点未订阅，吸顶消息未发送")
+            raise ValueError("终端指令节点未订阅，请求未发送")
         request_id=secrets.token_hex(12)
         slot={"event":threading.Event(),"reply":None}
         with self.command_ack_lock:self.command_acks[request_id]=slot
         try:
-            self.publisher.publish(json.dumps({"id":request_id,"command":command}))
+            self.publisher.publish(json.dumps({"id":request_id,"command":command, **fields}))
             if not slot["event"].wait(2.5):
-                raise ValueError("未收到吸顶节点回执，执行情况未确认；请检查实时阶段，勿重复点击。若为旧节点，请在落地上锁后重启基础程序")
-            reply=slot["reply"]
-            if reply.get("accepted") is not True or reply.get("mode") != (5 if command == "incline" else 2) or reply.get("enable_control") is not True:
-                error=ValueError("吸顶节点拒绝："+str(reply.get("reason","未提供原因")))
-                error.command_rejected=True
-                raise error
-            return reply
+                raise ValueError("未收到" + node + "节点回执，请核对实时状态。若为旧节点，请在落地上锁后重启基础程序")
+            return slot["reply"]
         finally:
             with self.command_ack_lock:self.command_acks.pop(request_id,None)
+
+    def _publish_ceiling_request(self, command):
+        reply = self._publish_terminal_request(command)
+        if reply.get("accepted") is not True or reply.get("mode") != (5 if command == "incline" else 2) or reply.get("enable_control") is not True:
+            error = ValueError("终端节点拒绝：" + str(reply.get("reason", "未提供原因")))
+            error.command_rejected = True
+            raise error
+        return reply
+
+    def select_rc_mode(self, config):
+        mode = (config or {}).get("mode")
+        if mode not in ("ceiling", "wall", "incline"):
+            raise ValueError("请选择顶吸、侧吸或斜面")
+        with self.state.lock:
+            status = self.state.snapshot()["status"]
+            if (not all(status[key]["fresh"] for key in ("phase", "owner", "operator"))
+                    or status["phase"]["value"] != "IDLE" or status["owner"]["value"] != 0
+                    or status["operator"]["value"]["mode"] != 1):
+                raise ValueError("等待控制链路待命后再选择模式")
+            reply = self._publish_terminal_request("select_rc_mode", mode=mode)
+            if reply.get("accepted") is not True or reply.get("selected_mode") != mode:
+                raise ValueError(reply.get("reason", "终端节点未确认 CH12 目标"))
+            return {"message": "已设置 CH12 启动目标，拨动一次开始接近"}
 
     def _incline_gate(self, detach=False):
         snapshot = self.state.snapshot()
@@ -1239,7 +1258,7 @@ class SSHTransport:
                 raise ValueError("SSH 未连接，操作未发送")
             if action == "stop" and not self.session.get("control"):
                 raise ValueError("需要控制权，终止未发送")
-            if action in ("start", "wall", "incline", "incline_detach", "detach", "cancel_wait", "rc_takeover") and (not self.push_enabled or not self.session.get("control") or time.monotonic() - self.arrived >= 2):
+            if action in ("start", "select_rc_mode", "wall", "incline", "incline_detach", "detach", "cancel_wait", "rc_takeover") and (not self.push_enabled or not self.session.get("control") or time.monotonic() - self.arrived >= 2):
                 raise ValueError("需要控制权和有效的实时反馈，操作未发送")
             if action == "push":
                 self.push_enabled = bool(config["enabled"])
