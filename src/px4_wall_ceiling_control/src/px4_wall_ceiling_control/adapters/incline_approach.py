@@ -24,7 +24,7 @@ class InclineApproachMixin:
             max_up_speed_mps=.10, max_down_speed_mps=.15,
             positive_compensation_max=.08, max_thrust=.60,
             max_down_velocity_mps=.80, max_rate_rps=3.,
-            abort_front_distance_m=1.8, source_timeout_s=.35,
+            source_timeout_s=.35,
             max_tilt_deg=10., ignore_range_loss=True)
         self.incline_approach_params = p = {
             k: rospy.get_param('/incline_attachment/approach/' + k, v) for k, v in defaults.items()}
@@ -142,8 +142,9 @@ class InclineApproachMixin:
 
     def _incline_approach_failure(self, f, elapsed, require_control=True):
         p = self.incline_approach_params
-        if f.front_valid and self._incline_approach_ranges_ready(rospy.Time.from_sec(f.now)) and f.front > p['abort_front_distance_m']:
-            return '斜面接近前距超过%.3fm' % p['abort_front_distance_m']
+        max_front = self.incline_settings.front_ready_distance_m
+        if f.front_valid and f.front > max_front and self._incline_approach_ranges_ready(rospy.Time.from_sec(f.now)):
+            return '斜面接近前距超过%.3fm' % max_front
         if not f.pose_valid or (require_control and not f.control_valid):
             return '关键姿态/速度反馈或控制权失效'
         if any(not math.isfinite(v) or abs(v) > p['max_rate_rps'] for v in f.body_rate):

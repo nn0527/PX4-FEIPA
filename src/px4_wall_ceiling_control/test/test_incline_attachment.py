@@ -100,6 +100,24 @@ class InclineLogicTests(unittest.TestCase):
         self.tick(q=pose(27), applied_q=pose(36), top=.069, top_valid=True)
         self.assertEqual(self.c.phase, 'HOLD')
 
+    def test_contact_settle_lands_after_six_seconds_without_top_data(self):
+        self.warm_still_pitch()
+        entered = self.c.entered
+        self.tick(now=entered+5.99, q=pose(27), top_valid=False)
+        self.assertEqual(self.c.phase, 'CONTACT_SETTLE')
+        self.tick(now=entered+6., q=pose(27), top_valid=False)
+        self.assertEqual(self.c.phase, 'LAND')
+        self.assertIn('连续6秒未收到新的有效顶部雷达数据', self.c.fault)
+
+    def test_contact_settle_renews_timeout_only_for_new_valid_frames(self):
+        self.warm_still_pitch()
+        new_sample = self.c.entered+5.
+        self.tick(now=new_sample, top_stamp=new_sample, q=pose(27), top=.2, top_valid=True)
+        self.tick(now=new_sample+5.99, top_stamp=new_sample, q=pose(27), top=.2, top_valid=True)
+        self.assertEqual(self.c.phase, 'CONTACT_SETTLE')
+        self.tick(now=new_sample+6., top_stamp=new_sample, q=pose(27), top=.2, top_valid=True)
+        self.assertEqual(self.c.phase, 'LAND')
+
     def test_moving_pitch_above_8deg_does_not_freeze_from_endpoints(self):
         self.tick(front=.1)
         for i in range(60):
@@ -202,7 +220,8 @@ class InclineLogicTests(unittest.TestCase):
 
     def test_invalid_parameter_geometry_and_budget(self):
         for changes in ({'flip_pitch_rate_deg_s': 20.}, {'flip_max_tilt_deg': 90.},
-                        {'flip_trigger_distance_m': 2.1}, {'top_contact_hold_s': 2.},
+                        {'flip_trigger_distance_m': 2.1},
+                        {'top_contact_hold_s': 2., 'contact_settle_timeout_s': 1.},
                         {'flip_duration_timeout_s': 5.}):
             self.assertTrue(replace(self.settings, **changes).error(.85))
 

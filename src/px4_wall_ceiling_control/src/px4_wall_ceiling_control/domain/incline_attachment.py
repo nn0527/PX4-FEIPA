@@ -31,7 +31,7 @@ class InclineSettings:
     estimate_max_residual_m: float = .005
     enabled: bool = False
     min_entry_height_m: float = .10
-    front_ready_distance_m: float = 2.00
+    front_ready_distance_m: float = 1.80
     flip_trigger_distance_m: float = .18
     top_contact_distance_m: float = .070
     front_ready_hold_s: float = .40
@@ -60,7 +60,7 @@ class InclineSettings:
     flip_entry_boost_rise_s: float = .40
     flip_thrust_max: float = 0.  # Required calibration, never inherit wall cap.
     top_contact_hold_s: float = .20
-    contact_settle_timeout_s: float = 1.
+    contact_settle_timeout_s: float = 6.
     contact_attitude_tolerance_deg: float = 10.
     contact_max_rate_deg_s: float = 10.
     hold_entry_blend_s: float = .50
@@ -207,6 +207,7 @@ class InclineAttachment:
         self.flip_pitch_history = []
         self.flip_top_stamp = 0.
         self.contact_top_stamp = 0.
+        self.contact_top_received_at = None
         self.flip_entry_thrust = self.flip_pressure_thrust = math.nan
         self.flip_support_requested = self.flip_support_correction = math.nan
         self.flip_boost_elapsed = self.flip_boost_value = 0.
@@ -217,6 +218,8 @@ class InclineAttachment:
 
     def _enter(self, phase, now, reason):
         self.phase, self.entered, self.reason = phase, now, reason
+        if phase == 'CONTACT_SETTLE':
+            self.contact_top_received_at = now
         if phase != 'EXIT':
             self.stable_since = self.stable_stamp = None
 
@@ -569,16 +572,15 @@ class InclineAttachment:
                 return
             # Stop advancing the target and collective while awaiting contact.
             self.q = self.contact_sent
-            if not f.top_valid:
-                # Range interruption is diagnostic only. Pause contact
-                # confirmation and its timeout; never confirm from stale range.
-                self.entered += delta
-                self.contact_samples = []
-                self.stable_since = self.stable_stamp = None
+            if f.now - self.contact_top_received_at >= self.s.contact_settle_timeout_s:
+                self.abort(f, f'斜面接触确认期间连续{self.s.contact_settle_timeout_s:g}秒未收到新的有效顶部雷达数据')
                 return
-            if (math.isfinite(f.top) and 0. < f.top < self.s.top_contact_distance_m
-                    and self.contact_top_stamp < f.top_stamp <= f.now):
-                self._hold_from_top(f)
+            if (f.top_valid and math.isfinite(f.top) and f.top > 0.
+                    and max(self.contact_top_stamp, self.entered) < f.top_stamp <= f.now):
+                self.contact_top_stamp = f.top_stamp
+                self.contact_top_received_at = f.now
+                if f.top < self.s.top_contact_distance_m:
+                    self._hold_from_top(f)
         elif self.phase == 'HOLD':
             # Contact is already confirmed. Range loss, distance, body rate and
             # optional friction estimates do not revoke HOLD. Common feedback

@@ -89,12 +89,12 @@ class InclineBoundaryTests(unittest.TestCase):
         n = self.node()
         for _ in range(25):
             self.clock += .02
-            self.feedback(n, front=2.0)
+            self.feedback(n, front=1.801)
             n._control_cycle_at(rospy.Time.now())
         self.assertEqual(n.incline.phase, 'WAIT')
         for _ in range(23):
             self.clock += .02
-            self.feedback(n, front=1.799)
+            self.feedback(n, front=1.80)
             n._control_cycle_at(rospy.Time.now())
         self.assertEqual(n.incline.phase, 'APPROACH')
         candidate = n.control_candidate_publisher.publish.call_args[0][0]

@@ -112,7 +112,7 @@ class InclineAttachmentMixin(InclineApproachMixin):
             output_stamp=output.header.stamp.to_sec() if output else 0.)
 
     def _incline_front_ready(self, f):
-        if not f.front_valid or f.front >= self.incline_settings.front_ready_distance_m:
+        if not f.front_valid or f.front > self.incline_settings.front_ready_distance_m:
             self.incline_ready_since = self.incline_ready_stamp = None
             return False
         stamp = self.front_range.header.stamp.to_sec()
@@ -139,8 +139,6 @@ class InclineAttachmentMixin(InclineApproachMixin):
             max(0., f.now-engine.entered) if engine.phase == 'APPROACH' else 0.,
             require_control=engine.phase == 'APPROACH')
             if engine.phase in ('WAIT', 'APPROACH') else '')
-        if f.front_valid and f.front > self.incline_approach_params['abort_front_distance_m']:
-            ready = False
         flight = self.flight_state
         live_mode = (flight is not None and is_fresh_receipt(self.flight_state_received_at, self.state_timeout_s, now)
                      and is_fresh_source(flight.header.stamp, self.state_timeout_s, now))

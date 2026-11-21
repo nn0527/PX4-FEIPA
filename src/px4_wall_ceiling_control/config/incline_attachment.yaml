@@ -12,7 +12,8 @@ incline_attachment:
   # User-selected cap: equal to the wall profile total thrust cap (0.85).
   # Must exceed the captured approach thrust and not exceed the global mux cap.
   flip_thrust_max: 0.85
-  front_ready_distance_m: 2.00
+  # Maximum front distance for both entry and active approach.
+  front_ready_distance_m: 1.80
   front_ready_hold_s: 0.40
   flip_trigger_distance_m: 0.18
   # One new valid frame below 7cm confirms HOLD after the gated still-pitch check.
@@ -47,7 +48,7 @@ incline_attachment:
   flip_entry_boost: 0.04
   flip_entry_boost_rise_s: 0.40
   top_contact_hold_s: 0.20
-  contact_settle_timeout_s: 1.0
+  contact_settle_timeout_s: 6.0
   contact_attitude_tolerance_deg: 10.0
   contact_max_rate_deg_s: 10.0
   hold_entry_blend_s: 0.50
@@ -102,8 +103,6 @@ incline_attachment:
     max_thrust: 0.60
     max_down_velocity_mps: 0.80
     max_rate_rps: 3.0
-    # The effective entry distance must also satisfy this approach safety bound.
-    abort_front_distance_m: 1.80
     source_timeout_s: 0.35
     ignore_range_loss: true
     max_tilt_deg: 10.0
