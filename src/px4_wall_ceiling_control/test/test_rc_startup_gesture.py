@@ -76,7 +76,7 @@ class AuditTests(unittest.TestCase):
     def parameters(self):
         values = {"MAN_ARM_GESTURE": 0, "RC_MAP_ROLL": 1, "RC_MAP_PITCH": 2,
                   "RC_MAP_THROTTLE": 3, "RC_MAP_YAW": 4, "RC_MAP_ARM_SW": 6,
-                  "RC_MAP_KILL_SW": 7, "RC_MAP_FLTMODE": 5, "COM_RC_IN_MODE": 0,
+                  "RC_MAP_KILL_SW": 7, "RC_MAP_FLTMODE": 9, "COM_RC_IN_MODE": 0,
                   "RC_ARMSWITCH_TH": .75, "RC_KILLSWITCH_TH": .75}
         for channel in (6, 7):
             for key, value in (("MIN", 1000), ("MAX", 2000), ("REV", 1)):

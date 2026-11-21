@@ -54,7 +54,7 @@ ceiling_attachment_decision_node:
   # 5. 靠近阶段
   # 进入 APPROACH 后先等待 approach_settle_time_s，再按距离比例/制动界限上升。
   # 超过接近总时间预算未接触则 ABORT，由模式管理器交回 POSCTL。
-  # 顶距来源：接管基准 + 朝下光流升高量（固定平面地面）。
+  # 接近用下视测距估算；顶部雷达实测触发 HOLD，保持只用实测顶距。
   # ===========================================================================
   approach_settle_time_s: 0.50
   approach_speed_mps: 0.15
@@ -62,8 +62,7 @@ ceiling_attachment_decision_node:
 
   # ===========================================================================
   # 6. 接触确认与稳定判定
-  # 原始顶距 <= wall_contact_distance_m 且低速进入 ATTACH_CONTROL；
-  # 原始/滤波距离、速度、姿态及支撑推力连续稳定后才进入 SURFACE_HOLD。
+  # 单帧有效顶部雷达实测 <= wall_contact_distance_m，且控制状态安全时进入 HOLD。
   # ===========================================================================
   wall_contact_distance_m: 0.067
   attach_control_time_s: 0.50
@@ -186,7 +185,7 @@ ceiling_attachment_decision_node:
   odom_yaw_jump_deg: 20.0
 
   # 顶距来源：进入 CEILING_ARMED 时锁定顶部基准与朝下光流距离，
-  # 之后只用“基准 − 光流升高量”估算顶距（固定平面地面）。
+  # 接近用“基准 − 光流升高量”估算；进入 HOLD 后仅使用顶部雷达实测。
   approach_flow_min_m: 0.02
   approach_flow_max_m: 6.0
   approach_flow_sync_s: 0.25

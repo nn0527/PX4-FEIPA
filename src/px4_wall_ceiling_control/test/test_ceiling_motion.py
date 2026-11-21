@@ -124,19 +124,7 @@ class CeilingMotionLifecycleTests(unittest.TestCase):
             e.header.stamp = now; self.n._on_ceiling_estimator(e)
         if flow:
             if flow_distance is None:
-                # The ceiling node locks a top-distance baseline with the first
-                # downward-flow sample and afterwards only uses that baseline.
-                # Derive the flow distance from the requested top distance so the
-                # locked estimate reproduces "distance" exactly.
-                reference = getattr(self.n, 'approach_flow_reference', None)
-                top0 = reference[0] if reference is not None else distance
-                flow_distance = 2.0 + (top0 - distance)
-            if (getattr(self.n, 'approach_flow_last_height', None) is not None
-                    and abs(flow_distance*math.cos(tilt) - self.n.approach_flow_last_height)
-                    > .25 + 2.*dt):
-                # A test may jump the simulated distance; start a fresh flow
-                # history instead of tripping the real floor-step guard.
-                self.n.approach_flow_last_height = None
+                flow_distance = 2.0
             f = OpticalFlowRad(quality=100, integration_time_us=100000, distance=flow_distance)
             f.header.stamp = now; self.n._on_ceiling_flow(f)
         if self.mode == 'POSCTL':
@@ -280,22 +268,18 @@ class CeilingMotionLifecycleTests(unittest.TestCase):
         self.assertEqual(self.n.state, S.STATE_NORMAL_FLIGHT)
         self.assertFalse(status.keep_ownership)
 
-    def test_single_near_frame_enters_contact_control_then_hold(self):
+    def test_single_near_frame_enters_hold(self):
         self.takeover()
-        status=self.feed(distance=.067)
-        self.assertEqual(self.n.state,S.STATE_ATTACH_CONTROL)
-        for _ in range(60):
-            status=self.feed(distance=.055)
-            if self.n.state == S.STATE_SURFACE_HOLD:
-                break  # Test contact entry without consuming the separate HOLD timeout.
-        self.assertEqual(self.n.state,S.STATE_SURFACE_HOLD)
-        self.assertAlmostEqual(-status.thrust_body_z_normalized,.55)
+        status = self.feed(distance=.067)
+        self.assertEqual(self.n.state, S.STATE_SURFACE_HOLD)
+        self.assertAlmostEqual(-status.thrust_body_z_normalized, .55)
 
     def test_near_frame_is_not_hidden_by_another_range_in_the_same_timer_period(self):
         self.takeover()
-        self.n._on_range(Range(range=.067,min_range=.03,max_range=40.))
-        status=self.feed(dt=.01,distance=.09)
-        self.assertEqual(self.n.state,S.STATE_ATTACH_CONTROL)
+        self.n._on_range(Range(range=.067, min_range=.03, max_range=40.))
+        status = self.feed(dt=.01, distance=.09)
+        self.assertEqual(self.n.state, S.STATE_SURFACE_HOLD)
+        self.assertAlmostEqual(status.ceiling_distance_raw_m, .09)
 
     def test_recovery_handover_accepts_fifteen_cm_band_after_reaching_half_metre(self):
         self.hold();self.n.detach_requested=True;self.feed()

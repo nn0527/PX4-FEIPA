@@ -208,6 +208,7 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
         self.approach_flow_max_m = float(rospy.get_param('~approach_flow_max_m', 6.))
         self.approach_flow_sync_s = float(rospy.get_param('~approach_flow_sync_s', .25))
         self.approach_flow_reference = None
+        self.approach_estimated_distance_m = None
         self.approach_flow_sample = None
         self.approach_flow_last_height = None
         self.approach_flow_error = ''
@@ -311,10 +312,6 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
 
     @locked_ceiling_callback
     def _on_range(self, message):
-        # Once captured, top frames (including invalid ones) cannot move the
-        # reference or reset confirmation based on independent downward samples.
-        if self._flow_approach_active():
-            return
         self._accept_range_sample(message)
 
     def _accept_range_sample(self, message):
@@ -352,8 +349,6 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
 
     @locked_ceiling_callback
     def _on_sensor_health(self, message):
-        if self._flow_approach_active():
-            return
         if not message.ceiling_valid:
             self.range_received_at = None
             self.hold_sample_at = None
@@ -468,13 +463,15 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
     def _arm_requested(self, now):
         return self._mode_requested(now)
 
+    def _top_range_fresh(self, now):
+        return (is_fresh(self.range_received_at, self.range_timeout_s, now)
+                and self.distance_filtered_m is not None)
+
     def _range_fresh(self, now):
-        return bool(
-            is_fresh(self.range_received_at, self.range_timeout_s, now)
-            and self.distance_filtered_m is not None
-            and (not self._flow_approach_active() or
-                 (not self.approach_flow_error and self._approach_flow_height(now) is not None))
-        )
+        if not self._flow_approach_active() or self._attach_confirmed(now):
+            return self._top_range_fresh(now)
+        return (self.approach_estimated_distance_m is not None
+                and not self.approach_flow_error and self._approach_flow_height(now) is not None)
 
     def _odom_fresh(self, now):
         return is_fresh(self.odom_received_at, self.odom_timeout_s, now)
@@ -579,6 +576,7 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
                 self.motion_fatal = '无法建立顶部/朝下光流高度基准'
                 return
             self.approach_flow_reference = (distance, height)
+            self.approach_estimated_distance_m = distance
             self.approach_flow_sample = None
             self.approach_flow_last_height = None
             self.approach_flow_error = ''
@@ -590,8 +588,7 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
                 distance/(.5*self.approach_speed_mps)+self.attach_control_timeout_s+5.))
             self.approach_range_lost_at = None
         elif new_state == CeilingAttachmentStatus.STATE_NORMAL_FLIGHT:
-            if self._flow_approach_active():
-                self.range_message = self.range_received_at = self.distance_filtered_m = None
+            self.approach_estimated_distance_m = None
             self.approach_flow_reference = self.approach_flow_sample = None
             self.approach_flow_last_height = None
             self.approach_flow_error = ''
@@ -652,7 +649,9 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
         return self._range_fresh(now)  # Any valid measured ceiling distance, not a 1 m gate.
 
     def _flow_approach_active(self):
-        return self.approach_flow_reference is not None
+        return (self.approach_flow_reference is not None
+                and self.state in (CeilingAttachmentStatus.STATE_CEILING_ARMED,
+                                   CeilingAttachmentStatus.STATE_APPROACH))
 
     def _approach_flow_height(self, now):
         """Downward body-z range projected onto ENU up over a fixed flat floor.
@@ -674,13 +673,11 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
         return f.distance*up
 
     def _update_approach_flow_range(self, now):
-        if not self._flow_approach_active():
+        if not self._flow_approach_active() or self._attach_confirmed(now):
             return
         height = self._approach_flow_height(now)
         if height is None or self.approach_flow_error:
-            self.range_received_at = None
-            self.hold_sample_at = None
-            self.contact_stable_since = self.contact_stable_last = None
+            self.approach_estimated_distance_m = None
             return
         source = self.motion_flow.header.stamp
         if source == self.approach_flow_sample:
@@ -690,29 +687,23 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
             if dt <= 0 or abs(height-self.approach_flow_last_height) > .25+2.*dt:
                 self.approach_flow_error = '朝下测距跳变：高度基准不再可信'
                 self.motion_fatal = self.approach_flow_error
-                self.range_received_at = None
+                self.approach_estimated_distance_m = None
                 return
         top0, height0 = self.approach_flow_reference
         vertical = top0-(height-height0)
         if vertical <= 0:
             self.approach_flow_error = '朝下光流高度超过锁定天花板基准'
             self.motion_fatal = self.approach_flow_error
-            self.range_received_at = None
+            self.approach_estimated_distance_m = None
             return
-        q = self.odom.pose.pose.orientation
-        up = rotate_vector((q.x, q.y, q.z, q.w), (0., 0., 1.))[2]
-        sample = Range(range=vertical/up, min_range=0., max_range=100.)
-        sample.header.stamp = source
-        # Estimated samples have no top-sensor LPF history. Preserve the original
-        # status/candidate contract; annotate the changed source in status.reason.
-        self.distance_filtered_m = sample.range
-        self._accept_range_sample(sample)
-        self.range_received_at = self.motion_flow_at
+        self.approach_estimated_distance_m = vertical
         self.approach_flow_sample = source
         self.approach_flow_last_height = height
 
     def _approach_vertical_distance(self, now):
-        if not self._range_fresh(now) or self.range_message is None or self.odom is None:
+        if self._flow_approach_active() and not self._attach_confirmed(now):
+            return self.approach_estimated_distance_m if self._range_fresh(now) else None
+        if not self._top_range_fresh(now) or self.range_message is None or self.odom is None:
             return None
         # Use the nearer raw/filtered range to avoid LPF lag while closing.
         q = self.odom.pose.pose.orientation
@@ -720,6 +711,8 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
         return max(0., min(self.range_message.range, self.distance_filtered_m)*clamp(up, 0., 1.))
 
     def _closed_loop_approach_velocity(self, now):
+        if self._attach_confirmed(now):
+            return 0.
         distance = self._approach_vertical_distance(now)
         if distance is None or not self.motion_ready or self.motion_paused:
             return 0.
@@ -730,9 +723,8 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
     def _closed_loop_approach_fault(self, now):
         monitored = (CeilingAttachmentStatus.STATE_CEILING_ARMED,
                      CeilingAttachmentStatus.STATE_APPROACH,
-                     CeilingAttachmentStatus.STATE_ATTACH_CONTROL)
-        if self._flow_approach_active():
-            monitored += (CeilingAttachmentStatus.STATE_SURFACE_HOLD,)
+                     CeilingAttachmentStatus.STATE_ATTACH_CONTROL,
+                     CeilingAttachmentStatus.STATE_SURFACE_HOLD)
         if self.state not in monitored:
             return ''
         ascending = self.state != CeilingAttachmentStatus.STATE_SURFACE_HOLD
@@ -747,13 +739,13 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
             self.approach_range_lost_at = self.approach_range_lost_at or now
             if (now-self.approach_range_lost_at).to_sec() >= self.approach_range_loss_timeout_s:
                 return ('downward flow height lost during closed-loop ascent' if self._flow_approach_active()
-                        else 'ceiling range lost during closed-loop ascent')
+                        else 'ceiling lidar range lost during contact or hold')
         return ''
 
     def _contact_pressure_requested(self, now):
         """A fresh in-range sample directly selects HOLD pressure before HOLD state."""
         return bool(self.state in (CeilingAttachmentStatus.STATE_APPROACH, CeilingAttachmentStatus.STATE_ATTACH_CONTROL)
-            and self._range_fresh(now) and self.range_message is not None
+            and self._top_range_fresh(now) and self.range_message is not None
             and math.isfinite(self.range_message.range) and 0. < self.range_message.range <= self.wall_contact_distance_m+1e-7
             and self.motion_ready and not self.motion_paused and not self.motion_fatal
             and self._flight_ready(now))
@@ -828,7 +820,7 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
         return self._held_samples(True, self.detach_height_since, self.detach_height_last_sample_at, self.detach_height_hold_s)
 
     def _attach_confirmed(self, now):
-        return self._range_fresh(now) and is_fresh(self.hold_sample_at, self.range_timeout_s, now)
+        return self._top_range_fresh(now) and is_fresh(self.hold_sample_at, self.range_timeout_s, now)
 
     def _distance_stable(self, now):
         fresh = self._range_fresh(now)
@@ -1052,13 +1044,13 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
                     "approach timeout; ABORT safety handover",
                 )
             elif (self._attach_confirmed(now)
-                  and (not getattr(self, "motion_enabled", False) or (self.motion_ready and not self.motion_paused))
-                  and self.range_message.range <= self.wall_contact_distance_m+1e-7
-                  and abs(vertical_speed_enu_mps(self.odom, self.odom_twist_in_child_frame)) <= self.contact_settled_speed_mps
-                  and self.motion_tilt <= self.motion_settings.contact_max_tilt_deg):
+                  and self._ceiling_owner_confirmed(now)
+                  and self.motion_ready and not self.motion_paused
+                  and self.motion_tilt <= self.motion_settings.contact_max_tilt_deg
+                  and not self._contact_lost()):
                 self._enter_state(
-                    CeilingAttachmentStatus.STATE_ATTACH_CONTROL, now,
-                    "ceiling contact reached; confirm stable contact",
+                    CeilingAttachmentStatus.STATE_SURFACE_HOLD, now,
+                    "top lidar crossed contact threshold; using measured ceiling range",
                 )
 
         elif self.state == CeilingAttachmentStatus.STATE_ATTACH_CONTROL:
@@ -1246,7 +1238,7 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
                 and is_fresh(self.flight_state_received_at, self.state_timeout_s, now)
                 and self.flight_state.mode.upper() != 'OFFBOARD'):
             status.keep_ownership = False
-        status.range_fresh = self._range_fresh(now)
+        status.range_fresh = self._top_range_fresh(now)
         status.odom_fresh = self._odom_fresh(now)
         status.flight_state_fresh = self._flight_ready(now)
         status.ceiling_distance_raw_m = (
@@ -1300,7 +1292,7 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
         if self.state == CeilingAttachmentStatus.STATE_APPROACH:
             status.approach_velocity_z_enu_mps = (
                 0.0
-                if self._state_age_s(now) < self.approach_settle_time_s or not status.range_fresh
+                if self._state_age_s(now) < self.approach_settle_time_s or not self._range_fresh(now)
                 else self._closed_loop_approach_velocity(now)
             )
         elif self.state == CeilingAttachmentStatus.STATE_ATTACH_CONTROL:
@@ -1349,8 +1341,8 @@ class CeilingAttachmentDecisionNode(CeilingMotionMixin):
         status.fault_count = self.fault_count
         status.reason = self.last_reason
         if self._flow_approach_active():
-            status.reason += '; 顶距来源：接管基准－朝下光流测距升高量（固定平面地面）'
-            if not status.range_fresh:
+            status.reason += '; 接近控制使用下视测距估算，显示顶距为顶部雷达实测'
+            if not self._range_fresh(now):
                 status.reason += '; 朝下光流高度无效或过期：暂停接近并保留失效保护'
             if self.approach_flow_error:
                 status.reason += '; ' + self.approach_flow_error

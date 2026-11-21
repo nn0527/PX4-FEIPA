@@ -172,6 +172,8 @@ class FusionPolicy:
         self.wall_state = None
         self.connected = False
         self.armed = True
+        self.kill_active = False
+        self.emergency_restore = False
         self.tilt = math.nan
         self.previous_tilt = math.nan
         self.last_orientation_receipt = self.last_orientation_mono = None
@@ -270,11 +272,27 @@ class FusionPolicy:
             self.refresh_on_arm = True
         return True
 
+    def observe_kill(self, active, monotonic):
+        newly_active = active and not self.kill_active
+        self.kill_active = active
+        if not newly_active or self.emergency_restore:
+            return
+        self.emergency_restore = True
+        self.originals = {FLOW: 1, RANGE: 1}
+        self.episode_id = self.episode_id or uuid.uuid4().hex
+        self.cycle_consumed = self.restore_required = True
+        self.restored = False
+        self.startup_reconcile = True
+        self.restore_intent = False
+        # Supersede queued writes while keeping any dispatched write in its
+        # serial slot. Reconcile only after that write has returned.
+        self._request_restore(monotonic)
+
     def _vehicle_fresh(self, now, monotonic):
         return self.connected and self.fcu.fresh(now, monotonic)
 
     def _suspension_allowed(self, now, monotonic):
-        return bool(self._vehicle_fresh(now, monotonic) and self.armed
+        return bool(not self.kill_active and self._vehicle_fresh(now, monotonic) and self.armed
                     and self.wall.fresh(now, monotonic)
                     and self.wall_state == "WALL_HOLD")
 
@@ -456,7 +474,7 @@ class FusionPolicy:
                     if key not in self.disable_done:
                         return self._operation("set", now, monotonic, key, 0)
             return None
-        if not self.enabled:
+        if not self.enabled or self.kill_active:
             return None
         if not self.wall.fresh(now, monotonic):
             return None
@@ -497,6 +515,10 @@ class FusionPolicy:
         self.in_flight = None
         self.execution_started_mono = None
         self.operation_stage = ''
+        if self.emergency_restore and operation.revision != self.revision:
+            # Even an acknowledged old snapshot must not replace the emergency
+            # target. The fresh reconcile read will account for old writes.
+            return True
         if not success:
             if values.get('cancelled') is True:
                 # No FCU write occurred. Do not erase confirmed evidence or
@@ -541,8 +563,10 @@ class FusionPolicy:
             elif operation.kind == "reconcile":
                 self.startup_reconcile = False
                 self.recovered_pending = None
-                # Both restores will still be explicitly acknowledged, even if
-                # current values happen to match the original after a restart.
+                if self.emergency_restore:
+                    # Preserve values already at the requested setting.
+                    self.restore_done = {key for key in PARAMETERS if values[key] == self.originals[key]}
+                # Normal restart recovery still explicitly acknowledges both writes.
             elif operation.kind == "verify":
                 if values != self.originals:
                     self.restore_done.clear()
@@ -556,6 +580,7 @@ class FusionPolicy:
                     return True
                 self.restore_required = False
                 self.restarted_obligation = False
+                self.emergency_restore = False
                 self.restored = True
                 self.ready_after = now
         self.error = ""

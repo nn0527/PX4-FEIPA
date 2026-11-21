@@ -408,6 +408,56 @@ class FusionTransactionTests(unittest.TestCase):
         self.assertEqual(h.status()["phase"], "DISABLED")
 
 
+class EmergencyFusionTests(unittest.TestCase):
+    def test_kill_during_flip_restores_only_disabled_parameters(self):
+        h = Harness(originals={FLOW: 0, RANGE: 1})
+        h.start()
+        h.feed(state="FLIP_TO_WALL", tilt=85.)
+        h.policy.observe_kill(True, h.mono)
+        op = h.tick()
+        self.assertEqual(op.kind, "reconcile")
+        h.complete(op)
+        op = h.tick()
+        self.assertEqual((op.parameter, op.value), (FLOW, 1))
+        h.complete(op)
+        h.feed(dt=1.3)
+        op = h.tick()
+        self.assertEqual(op.kind, "verify")
+        h.complete(op)
+        self.assertEqual(h.values, {FLOW: 1, RANGE: 1})
+        self.assertTrue(h.status()["parameters_restored"])
+        h.feed(state="WALL_HOLD", tilt=90.)
+        self.assertIsNone(h.tick())
+
+    def test_kill_waits_for_dispatched_disable_before_reconciling(self):
+        h = Harness(originals={FLOW: 1, RANGE: 1})
+        h.start()
+        h.feed(state="WALL_HOLD", tilt=90.)
+        old = h.tick()
+        h.policy.observe_kill(True, h.mono)
+        self.assertFalse(h.policy.authorize_operation(old, h.now, h.mono))
+        self.assertIsNone(h.tick())
+        h.complete(old)  # The write had already reached the FCU.
+        h.feed(state="ABORT", connected=False)
+        self.assertIsNone(h.tick())
+        h.feed(connected=True)
+        h.complete(h.tick())  # Fresh reconcile sees the late zero.
+        restore = h.tick()
+        self.assertEqual((restore.parameter, restore.value), (FLOW, 1))
+        h.complete(restore)
+
+    def test_kill_leaves_enabled_values_untouched(self):
+        h = Harness(originals={FLOW: 1, RANGE: 1})
+        h.policy.observe_kill(True, h.mono)
+        h.complete(h.tick())
+        self.assertIsNone(h.tick())
+        h.feed(dt=1.3)
+        op = h.tick()
+        self.assertEqual(op.kind, "verify")
+        h.complete(op)
+        self.assertTrue(h.status()["parameters_restored"])
+
+
 class RestoreJournalTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()

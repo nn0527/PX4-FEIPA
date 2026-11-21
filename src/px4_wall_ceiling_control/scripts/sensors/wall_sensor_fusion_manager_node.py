@@ -68,6 +68,8 @@ class WallSensorFusionManagerNode:
         self.state_subscriber = rospy.Subscriber(
             rospy.get_param("~state_topic", namespace + "/state"),
             State, self._on_state, queue_size=1, tcp_nodelay=True)
+        self.kill_subscriber = rospy.Subscriber(
+            "/attachment/kill_switch", String, self._on_kill, queue_size=10, tcp_nodelay=True)
         self.timer = rospy.Timer(rospy.Duration(.1), self._on_timer)
         rospy.on_shutdown(self.worker.close)
         rospy.loginfo("wall EKF parameter manager enabled=%s vehicle=%s recovery=memory_only; status is not actual fusion evidence",
@@ -92,6 +94,17 @@ class WallSensorFusionManagerNode:
     def _on_state(self, message):
         with self.lock:
             self.policy.observe_fcu(message.connected, message.armed, *self._times(message))
+
+    def _on_kill(self, message):
+        try:
+            status = json.loads(message.data)
+        except (ValueError, TypeError):
+            return
+        if (not isinstance(status, dict) or status.get("valid") is not True
+                or type(status.get("active")) is not bool):
+            return
+        with self.lock:
+            self.policy.observe_kill(status["active"], time.monotonic())
 
     def _authorize(self, operation):
         with self.lock:

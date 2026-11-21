@@ -72,7 +72,7 @@ def audit_parameters(read):
     """Read confirmed parameters; never change FCU settings to make binding fit."""
     expected = {"MAN_ARM_GESTURE": 0, "RC_MAP_ROLL": 1, "RC_MAP_PITCH": 2,
                 "RC_MAP_THROTTLE": 3, "RC_MAP_YAW": 4, "RC_MAP_ARM_SW": 6,
-                "RC_MAP_KILL_SW": 7, "RC_MAP_FLTMODE": 5, "COM_RC_IN_MODE": 0}
+                "RC_MAP_KILL_SW": 7, "RC_MAP_FLTMODE": 9, "COM_RC_IN_MODE": 0}
     for name, value in expected.items():
         if read(name) != value:
             raise ValueError("FCU parameter conflict: %s must be %s" % (name, value))
