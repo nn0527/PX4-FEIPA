@@ -27,3 +27,4 @@
 @media(max-width:730px){.operations,.testPanels{grid-template-columns:1fr}.preparationColumn{display:grid}.preparationColumn>.compactTelemetry{grid-column:auto;grid-row:auto}.testPanels>.taskPanel{padding:18px}.taskActions{gap:10px}.taskActions article{padding:12px}.taskActions button{font-size:13px}.taskActions small{font-size:11px}.testPanels .taskExecution h3{min-height:0}.taskReason,.testPanels .taskReceipt,.testPanels .taskDiagnostic{min-height:0}.taskStatusGrid strong{min-height:0}}
 
 [data-attachment-mode][hidden]{display:none!important}.modeSelection select{max-width:360px}.modeSelection p{margin-bottom:0}.testPanels:has(>[data-attachment-mode]:not([hidden])){grid-template-columns:1fr}
+.taskActions .ceilingHandoverAction{grid-column:1/-1}.taskActions .ceilingHandoverAction small{min-height:0}

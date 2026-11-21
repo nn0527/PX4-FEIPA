@@ -192,6 +192,7 @@ class CeilingMotionLifecycleTests(unittest.TestCase):
         self.assertLess(self.n.motion_controller.horizontal.acceleration[0], 0.)
         self.n._enter_state(S.STATE_RECOVERY_HOVER, rospy.Time.now(), 'safe separation')
         self.assertEqual(self.n.motion_controller.xy, (.5, -.3))
+        self.assertEqual(self.n.motion_controller.vertical_support, baseline)
 
     def test_detach_rejects_stale_or_invalid_xy_without_rebasing(self):
         for invalid in ('stale', 'nan', 'unready', 'fatal'):
@@ -227,6 +228,7 @@ class CeilingMotionLifecycleTests(unittest.TestCase):
     def test_entering_freezes_source_through_delayed_offboard_heartbeat(self):
         for _ in range(14):
             self.feed()
+        self.feed(thrust=.70)
         self.n._on_ceiling_manager_phase(String(data='ENTERING'))
         self.assertTrue(self.n.motion_equilibrium.frozen)
         for _ in range(8):

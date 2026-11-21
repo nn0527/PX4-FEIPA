@@ -113,7 +113,7 @@ class MockRuntime:
                       health=dict(ceiling_valid=True, front_valid=True), ceiling=dict(range_m=.4), front=dict(range_m=1.0),
                       kill=dict(valid=True, active=name == 'kill', channel=7), setpoint=dict(thrust=.49),
                       battery=dict(voltage=15.8), rc=dict(channels=[1500]*8),
-                      ceiling_status=dict(rc_manual_coordination_enabled=True, rc_manual_feedback_ready=True, rc_manual_active=False, rc_position_weight=1., hold_elapsed_s=1.5, hold_timeout_s=0., baseline_ready=True,detach_target_drop_m=.40,detach_max_drop_m=1.50,vertical_integral_thrust=.02,vertical_support_thrust=.49,vertical_proportional_thrust=.01, recovery_ready=name == 'ceiling_recovery_locked', recovery_attitude_locked=name == 'ceiling_recovery_locked', recovery_lock_time=now-.5 if name == 'ceiling_recovery_locked' else 0., motion_control_enabled=True, motion_ready=True, motion_paused=False, horizontal_drift_m=.04, horizontal_speed_mps=.02, actual_tilt_deg=2., actual_body_rate_deg_s=3., motion_reason="离线模拟：水平稳定", state_name=cstate, reason=reason, fault_detected=False, odom_fresh=True,
+                      ceiling_status=dict(rc_manual_coordination_enabled=True, rc_manual_feedback_ready=True, rc_manual_active=False, rc_position_weight=1., hold_elapsed_s=1.5, hold_timeout_s=0., baseline_ready=True,detach_target_drop_m=.40,detach_max_drop_m=1.50,vertical_integral_thrust=.02,vertical_support_thrust=.49,vertical_proportional_thrust=.01, recovery_ready=name == 'ceiling_recovery_locked', recovery_attitude_locked=name == 'ceiling_recovery_locked', recovery_lock_time=self.episode_started if name == 'ceiling_recovery_locked' else 0., motion_control_enabled=True, motion_ready=True, motion_paused=False, horizontal_drift_m=.04, horizontal_speed_mps=.02, actual_tilt_deg=2., actual_body_rate_deg_s=3., motion_reason="离线模拟：水平稳定", state_name=cstate, reason=reason, fault_detected=False, odom_fresh=True,
                                           height_source='px4_fused_hold_relative', height_feedback_valid=True, height_reference_ready=True, fused_height_m=1.7 if cstate == 'DETACH' else 1.6 if cstate == 'RECOVERY_HOVER' else 2., hold_fused_height_m=2., fused_vertical_speed_mps=-.08, baro_descended_height_m=.30, baro_fresh=True, baro_reference_ready=True,
                                           range_fresh=True, ceiling_distance_filtered_m=.056 if cstate == 'SURFACE_HOLD' else .4,
                                           descended_height_m=.3 if cstate == 'DETACH' else .4 if name in ('ceiling_returned','ceiling_recovery_locked') else 0., detach_height_ready=name == 'ceiling_recovery_locked'),
@@ -161,6 +161,11 @@ class MockRuntime:
 
     def ceiling_detach(self):
         return self._action('can_ceiling_detach', 'ceiling_detach', '进入融合高度下降脱离')
+
+    def ceiling_handover(self, config):
+        if (config or {}).get("recovery_lock_time") != self.episode_started:
+            raise ValueError("恢复阶段已变化，请等待当前任务反馈")
+        return self._action('can_ceiling_handover', 'ceiling_returned', '飞控已确认 POSCTL')
 
     def wall(self):
         return self._action('can_wall', 'wall_wait', '进入手动接近等待')

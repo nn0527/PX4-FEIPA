@@ -307,7 +307,7 @@ class CeilingMotionMixin:
                 q = tuple(getattr(self.odom.pose.pose.orientation, k) for k in "xyzw")
                 yaw = euler_from_quaternion(q)[2]
                 p = self.odom.pose.pose.position
-                self.motion_controller.capture((p.x, p.y), yaw, self.motion_equilibrium.axis, self.motion_fcu.thrust)
+                self.motion_controller.capture((p.x, p.y), yaw, self.motion_equilibrium.axis, self.motion_equilibrium.thrust)
                 self.q_hover = Quaternion(*attitude_from_axis_yaw(self.motion_equilibrium.axis, yaw))
                 self.motion_attempt += 1
                 self.motion_id = 'ceiling-%.9f-%d' % (now.to_sec(), self.motion_attempt)
@@ -383,9 +383,11 @@ class CeilingMotionMixin:
             self.motion_epoch_last = sample
             self.motion_ready = held_samples(True, self.motion_epoch, sample, self.motion_settings.motion_reacquire_time_s)
             self.motion_reason = '位置/速度/光流反馈有效' if self.motion_ready else '等待连续新反馈重新准入'
+        vertical_speed = math.nan
         if self._odom_fresh(now) and self.odom is not None and odometry_is_finite(self.odom):
             q = tuple(getattr(self.odom.pose.pose.orientation, k) for k in "xyzw")
             v = linear_velocity_parent_frame(self.odom, self.odom_twist_in_child_frame)
+            vertical_speed = v[2]
             self.motion_speed = math.hypot(*v[:2])
             self.motion_tilt = math.degrees(math.acos(clamp(rotate_vector(q, (0., 0., 1.))[2], -1., 1.)))
             a = self.odom.twist.twist.angular
@@ -393,10 +395,13 @@ class CeilingMotionMixin:
             p = self.odom.pose.pose.position
             self.motion_drift = self.motion_controller.drift((p.x, p.y))
         if self.flight_state is not None and self.flight_state.mode.upper() == 'POSCTL' and not self.motion_equilibrium.frozen:
-            eligible = (self.motion_ready and self.motion_speed <= self.motion_settings.motion_equilibrium_speed_mps
+            eligible = (self.motion_ready and self.flight_state.connected and self.flight_state.armed
+                        and self.motion_speed <= self.motion_settings.motion_equilibrium_speed_mps
+                        and abs(vertical_speed) <= self.contact_settled_speed_mps
                         and self.motion_rate <= 30. and self._motion_target_fresh(now))
             self.motion_equilibrium.observe(self.motion_fcu_at.to_sec() if self.motion_fcu_at is not None else 0.,
-                tuple(getattr(self.motion_fcu.orientation, k) for k in 'xyzw') if self.motion_fcu is not None else (0., 0., 0., 1.), eligible)
+                tuple(getattr(self.motion_fcu.orientation, k) for k in 'xyzw') if self.motion_fcu is not None else (0., 0., 0., 1.),
+                eligible, thrust=self.motion_fcu.thrust if eligible else None)
         if (self.state == S.STATE_SURFACE_HOLD and not self.motion_fatal
                 and self._odom_fresh(now) and self._flight_ready(now)
                 and self.odom is not None and odometry_is_finite(self.odom)):

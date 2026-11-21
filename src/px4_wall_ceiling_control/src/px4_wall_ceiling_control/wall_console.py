@@ -221,6 +221,17 @@ class ConsoleState:
                 and val("operator", {}).get("mode") == 2 and val("operator", {}).get("enabled")
                 and status["setpoint"]["fresh"]
                 and val("odom", {}).get("finite") and estimator.get("attitude") and estimator.get("vertical_velocity"))
+            operator = val("operator", {})
+            ceiling_handover_ok = bool(kill_ok and runtime.get("enabled") and runtime.get("ceiling_enabled")
+                and flight.get("connected") and flight.get("armed") and flight.get("mode") == "OFFBOARD"
+                and val("phase") == "ACTIVE" and val("owner") == 1
+                and operator.get("mode") == 2 and operator.get("enabled")
+                and not operator.get("pilot_handover_request_time")
+                and ceiling.get("state_name") == "RECOVERY_HOVER" and ceiling.get("recovery_ready")
+                and ceiling.get("recovery_attitude_locked") and ceiling.get("recovery_lock_time", 0) > 0
+                and ceiling.get("detach_height_ready") and not ceiling.get("fault_detected") and not ceiling.get("detach_failed")
+                and status["setpoint"]["fresh"] and val("odom", {}).get("finite")
+                and estimator.get("attitude") and estimator.get("vertical_velocity") and estimator.get("horizontal_velocity"))
             request = dict(self.ceiling_request)
             if request.get("state") == "ACCEPTED":
                 if val("phase") in ("PRESTREAM","ENTERING"):
@@ -230,7 +241,8 @@ class ConsoleState:
                 elif self.ceiling_request_seen and val("operator",{}).get("mode")==1 and val("phase") in ("IDLE","LOCKED"):
                     request.update(state="RELEASED",reason=val("reason") or "吸顶请求已释放，请核对急停和飞控状态")
             return {"mavros_repair": dict(getattr(self, "mavros_repair", {"state": "IDLE", "reason": "尚未执行连接修复"})), "ceiling_request":request,"can_ceiling": not ceiling_blockers, "ceiling_blockers": ceiling_blockers,
-                    "ceiling_wait_conditions": ceiling_wait_conditions, "can_ceiling_detach": ceiling_detach_ok, "status": status, "checks": [{"id": i, "label": label, "ok": ok, "reason": reason}
+                    "ceiling_wait_conditions": ceiling_wait_conditions, "can_ceiling_detach": ceiling_detach_ok,
+                    "can_ceiling_handover": ceiling_handover_ok, "status": status, "checks": [{"id": i, "label": label, "ok": ok, "reason": reason}
                     for i, label, ok, reason in checks], "blockers": blockers, "can_wall": not blockers and not self.starting,
                     "success": bool(success), "starting": self.starting, "pending": pending,
                     "can_detach": not detach_blockers, "detach_blockers": detach_blockers,
@@ -268,7 +280,7 @@ class ConsoleState:
             if not self.snapshot()["can_ceiling_detach"]:
                 raise ValueError("离顶要求当前吸顶保持、OFFBOARD及新鲜有效反馈")
             publish("detach")
-            self.event("已发送离顶请求；按节点反馈的本轮目标下降量闭环控制，恢复稳定后等待CH12确认交回POSCTL")
+            self.event("离顶请求已发送。恢复稳定后可通过测试台或 CH12 确认交回 POSCTL")
 
     def send_wall(self, publish):
         # Serialize the preflight check and dispatch across tabs and double clicks.

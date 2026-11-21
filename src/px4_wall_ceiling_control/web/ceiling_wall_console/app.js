@@ -5,7 +5,7 @@ function attachmentSummary(s){
   if(!live)return "模式来源：测试台 · 当前任务：等待实时反馈";
   const mode=fresh(s,"operator")?.mode,owner=fresh(s,"owner"),wall=fresh(s,"wall");
   const active=mode===5||(owner===2&&wall?.incline_active)?"斜面":owner===1||mode===2?"吸顶":owner===2||mode===3?"侧吸":mode===1&&owner===0?"待命":"未确认";
-  return "模式来源：测试台 · 当前任务："+active+"。CH8不参与选择；测试台启动任务后，CH12可请求脱离，顶吸恢复后仍用CH12确认交回。";
+  return "模式来源：测试台 · 当前任务："+active+"。CH12 可启动所选任务、请求脱离，顶吸恢复稳定后可用测试台或 CH12 确认交回。";
 }
 function ceilingReceipt(s){
   const live=!!s.ssh?.connected&&!!s.session?.feedback_live&&s.session?.push!==false;
@@ -66,7 +66,7 @@ function ceilingDetailView(s){
   }
   if(c.recovery_attitude_locked)manual="高度参考保持中：XY闭环继续，允许遥控修正；回中稳定后可确认交回";
   let recovery="下降达标后检查悬停稳定与交回条件";
-  if(c.state_name==="RECOVERY_HOVER")recovery=c.recovery_attitude_locked?(c.recovery_ready?"高度范围保持、XY闭环继续；等待 CH12 确认交回 POSCTL":"高度范围保持、XY闭环继续；交回条件暂未满足，等待回中及稳定反馈"):"恢复确认中：检查高度、速度、姿态、漂移及遥控修正反馈";
+  if(c.state_name==="RECOVERY_HOVER")recovery=c.recovery_attitude_locked?(c.recovery_ready?"高度范围保持、XY闭环继续；可用测试台或 CH12 确认交回 POSCTL":"高度范围保持、XY闭环继续；交回条件暂未满足，等待回中及稳定反馈"):"恢复确认中：检查高度、速度、姿态、漂移及遥控修正反馈";
   const selected=fresh(s,"owner")===1||fresh(s,"operator")?.mode===2;
   if(selected&&fresh(s,"phase")==="RETURNING")recovery="正在交回 POSCTL；等待飞控实际模式和输出释放";
   if(c.state_name==="ABORT")recovery=c.abort_land_requested?"中止降落流程；不使用正常下降/悬停交回判据":"顶吸中止："+(c.reason||"等待管理器及飞控反馈");
@@ -92,7 +92,7 @@ function view(s,busy=false){
   const steps={NORMAL_FLIGHT:0,CEILING_ARMED:1,APPROACH:2,ATTACH_CONTROL:2,SURFACE_HOLD:3,DETACH:4,RECOVERY_HOVER:5};
   if(s.starting){stage="基础链路启动中";reason="等待 MAVROS、雷达和控制节点就绪";}
   else if(enabled && ceiling){stage=names[ceiling.state_name]||ceiling.state_name;reason=ceiling.reason||"等待节点反馈";step=steps[ceiling.state_name]??-1;}
-  if(enabled && ceiling?.state_name==="RECOVERY_HOVER" && ceiling.recovery_attitude_locked){stage=ceiling.recovery_ready?"高度保持 · 等待 CH12":"XY闭环 · 等待稳定";reason=ceiling.reason||"高度范围保持、XY闭环继续；回中稳定后 CH12 确认交回 POSCTL";step=5;}
+  if(enabled && ceiling?.state_name==="RECOVERY_HOVER" && ceiling.recovery_attitude_locked){stage=ceiling.recovery_ready?"高度保持 · 等待确认交回":"XY闭环 · 等待稳定";reason=ceiling.reason||"回中稳定后，可用测试台或 CH12 确认交回 POSCTL";step=5;}
   if(ceilingSelected && phase==="WAITING_CEILING"){stage="等待顶吸入口条件";reason=fresh(s,"reason")||"等待有效顶距、估计器和平衡基准";step=1;}
   if(ceilingSelected && ["PRESTREAM","ENTERING"].includes(phase)){stage="正在接管飞行";reason=fresh(s,"reason")||"等待飞控确认 OFFBOARD";step=1;}
   if(ceilingSelected && phase==="RETURNING"){stage="等待遥控接管";reason="等待飞控确认 POSCTL，当前尚未完成交接";step=6;}
@@ -113,8 +113,14 @@ function view(s,busy=false){
   const canAttach=control && complete && safe && idle && state.mode==="POSCTL" && ceiling?.state_name==="NORMAL_FLIGHT" && !busy && !!s.can_ceiling;
   const selectedHeightReady=ceiling?.height_source==="px4_fused_hold_relative"?ceiling.height_feedback_valid&&ceiling.height_reference_ready:ceiling?.height_source==="barometer_hold_relative"?ceiling.baro_fresh&&ceiling.baro_reference_ready:true;
   const canDetach=control && complete && safe && selectedHeightReady && ceilingSelected && owner===1 && operator?.mode===2 && operator.enabled && phase==="ACTIVE" && state.mode==="OFFBOARD" && ceiling?.state_name==="SURFACE_HOLD" && !ceiling.fault_detected && !ceiling.detach_failed && !!fresh(s,"setpoint") && !busy && !!s.can_ceiling_detach;
+  const canHandover=control && complete && safe && owner===1 && phase==="ACTIVE" && state.mode==="OFFBOARD"
+    && ceiling?.state_name==="RECOVERY_HOVER" && ceiling.recovery_ready && ceiling.recovery_lock_time>0
+    && !operator?.pilot_handover_request_time && !busy && !!s.can_ceiling_handover;
+  const handoverReason=!live?"实时反馈未连接":!control?"请先申请控制权":
+    phase==="RETURNING"||operator?.pilot_handover_request_time>0?"已确认交回请求，等待 PX4 反馈 POSCTL":
+    canHandover?"恢复已稳定，可确认交回":ceiling?.state_name==="RECOVERY_HOVER"?"等待恢复稳定和有效控制反馈":"离顶并恢复稳定后可确认";
   const canRepair=maintenanceView(s,busy).canRepair;
-  return {live,control,runtime,state,ceiling,phase,owner,kill,ceilingSelected,enabled,editable,canStart:editable,canRepair,canAttach,canDetach,reasons,detachReason,stage,reason,step};
+  return {live,control,runtime,state,ceiling,phase,owner,kill,ceilingSelected,enabled,editable,canStart:editable,canRepair,canAttach,canDetach,canHandover,reasons,detachReason,handoverReason,stage,reason,step};
 }
 function maintenanceView(s,busy=false,recoveryBusy=false){
   const linked=!!s.ssh?.connected,flight=fresh(s,"state"),armed=!!flight?.armed;
@@ -269,6 +275,7 @@ function paint(s){
   text("repairMavros",s.mavros_repair?.state==="RUNNING"?"正在重启 MAVROS…":"重启 MAVROS（地面恢复）");
   text("repairStatus",m.repairReason||(s.mavros_repair&&s.mavros_repair.state!=="IDLE"?s.mavros_repair.reason:"先确认落地、上锁且电机停止；自动清理旧控制、雷达和日志，再重启 MAVROS。成功后手动启动基础链路。"));
   $("start").disabled=!v.canStart;$("attach").disabled=!v.canAttach;$("detach").disabled=!v.canDetach;
+  $("ceilingHandover").disabled=!v.canHandover;text("ceilingHandoverReason",v.handoverReason);
   $("stop").disabled=!m.canStop;$("stop").title=m.stopReason;text("stopStatus",m.stopReason||(fresh(s,"runtime")?.rc_startup_enabled?"落地上锁后停止控制、雷达和记录，保留遥控启动监听；可直接用组合动作重新启动。":"落地上锁后可停止；飞控反馈过期时需人工确认电机已停止。"));
   $("wallAction").disabled=!w.canWall;$("wallDetach").disabled=!w.canDetach;
   $("cancelWait").hidden=!s.can_cancel_wait;$("cancelWait").disabled=!w.canCancel;
@@ -281,7 +288,8 @@ function paint(s){
   for(const field of form.elements)field.disabled=!v.editable;
   text("source",v.enabled?"现场配置":"启动配置");
   let stage=v.stage,reason=v.reason;
-  if(v.live&&v.ceiling?.state_name==="DETACH")wasDetaching=true;
+  if(v.live&&(v.ceiling?.state_name==="ABORT"||v.phase==="CEILING_LANDING"))wasDetaching=false;
+  else if(v.live&&["DETACH","RECOVERY_HOVER"].includes(v.ceiling?.state_name))wasDetaching=true;
   if(wasDetaching&&v.live&&v.ceiling?.state_name==="NORMAL_FLIGHT"&&v.state?.mode==="POSCTL"&&v.owner===0&&v.phase==="IDLE"){
     stage="已交还遥控";reason="飞控已确认 POSCTL 且输出归属已释放，由飞手接管降落";
   }
@@ -384,6 +392,11 @@ $("repairMavros").addEventListener("click",()=>{if(!latest||!maintenanceView(lat
 $("start").addEventListener("click",()=>{if(!latest||!view(latest,busy).canStart||!form.reportValidity())return;const data=Object.fromEntries(new FormData(form));data.baud=Number(data.baud);data.hover_thrust=Number(data.hover_thrust);action("/api/start",data);});
 $("attach").addEventListener("click",()=>{if(latest&&view(latest,busy).canAttach){wasDetaching=false;action("/api/ceiling");}});
 $("detach").addEventListener("click",()=>{if(latest&&view(latest,busy).canDetach)action("/api/ceiling-detach");});
+$("ceilingHandover").addEventListener("click",()=>{
+  if(!latest)return;
+  const current=view(latest,busy||recoveryBusy);
+  if(current.canHandover)action("/api/ceiling-handover",{recovery_lock_time:current.ceiling.recovery_lock_time});
+});
 $("stop").addEventListener("click",()=>{if(confirm("确认飞机已落地且电机已停止？将停止控制、MAVROS、雷达和日志。"))action("/api/stop",{grounded_confirmed:true});});
 form.addEventListener("submit",event=>event.preventDefault());
 async function poll(){

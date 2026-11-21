@@ -20,6 +20,7 @@ from .transport import BridgeTransport, backend, PACKAGE
 ASSETS = PACKAGE / "web/ceiling_wall_console"
 ACTIONS = {"/api/acquire": "acquire", "/api/release": "release", "/api/start": "start",
            "/api/ceiling": "ceiling", "/api/ceiling-detach": "ceiling_detach", "/api/stop": "stop", "/api/repair-mavros": "repair_mavros",
+           "/api/ceiling-handover": "ceiling_handover",
            "/api/incline": "incline", "/api/incline-detach": "incline_detach", "/api/select-rc-mode": "select_rc_mode",
            "/api/wall": "wall", "/api/detach": "detach", "/api/cancel-wait": "cancel_wait", "/api/push": "push"}
 SESSION_IDLE = 180
@@ -275,7 +276,7 @@ class Application:
                                     temporary.replace(app.settings)
                                 app.config = config
                         else:
-                            result = item["transport"].request(action, data if action in ("select_rc_mode", "stop", "push", "repair_mavros", 'mock_scenario') else None)
+                            result = item["transport"].request(action, data if action in ("select_rc_mode", "ceiling_handover", "stop", "push", "repair_mavros", 'mock_scenario') else None)
                     finally:
                         action_lock.release()
                     return self.respond(200, result)

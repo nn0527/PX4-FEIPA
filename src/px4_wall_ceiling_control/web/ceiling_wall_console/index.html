@@ -25,10 +25,11 @@
 <section class="testPanels" aria-label="顶吸、侧吸与斜面测试">
 <section class="panel ceilingOperations taskPanel" data-attachment-mode="ceiling" aria-label="顶吸吸附与脱离操作">
 <div class="sectionHeading taskHeading"><h2>顶吸 / 吸附与脱离</h2><span class="badge">POSCTL 入口与交回</span></div>
-<p class="taskIntro">POSCTL 稳定后启动；离顶恢复后保持高度与 XY 闭环，稳定后由 CH12 确认交回。</p>
+<p class="taskIntro">POSCTL 稳定后启动。离顶恢复稳定后，可用测试台或 CH12 确认交回。</p>
 <div class="taskActions">
 <article><h3>启动吸附</h3><p>飞手在 POSCTL 下起飞并稳定后提交顶吸请求。</p><button id="attach" disabled>一键启动顶吸</button><small id="attachReason">等待有效飞行反馈</small></article>
-<article><h3>启动脱离</h3><p>保持时请求脱离，下降恢复后等待 CH12 确认。</p><button id="detach" disabled>一键启动脱离</button><small id="detachReason">等待顶吸保持</small></article>
+<article><h3>启动脱离</h3><p>顶吸保持时请求脱离。</p><button id="detach" disabled>一键启动脱离</button><small id="detachReason">等待顶吸保持</small></article>
+<article class="ceilingHandoverAction"><button id="ceilingHandover" type="button" aria-describedby="ceilingHandoverReason" disabled>确认交回 POSCTL</button><small id="ceilingHandoverReason" aria-live="polite">离顶并恢复稳定后可确认</small></article>
 </div>
 <section class="ceilingExecution taskExecution" aria-label="顶吸执行状态">
 <div class="sectionHeading"><h2>执行状态</h2><span id="phase" class="badge">离线</span></div><h3 id="stage">等待连接</h3><p id="reason" class="taskReason">正在建立实时反馈通道</p><p id="receipt" class="muted taskReceipt">尚未发送顶吸请求</p>
@@ -42,7 +43,7 @@
 </div>
 <p id="ceilingMotion" class="muted taskDiagnostic" role="status">水平稳定控制：等待反馈</p>
 <div class="taskDetails" aria-label="飞控失联保护核验"><strong>飞控失联保护：<span id="ceilingFailsafeState">未核验</span></strong><p id="ceilingFailsafeRC" class="muted">COM_OBL_RC_ACT：目标 4，等待读回</p><p id="ceilingFailsafeLoss" class="muted">COM_OF_LOSS_T：目标 2.0 s，等待读回</p><p id="ceilingFailsafeReason" class="muted" role="status">等待核验反馈</p></div>
-<details class="taskDetails"><summary>顶吸流程与遥控操作说明</summary><p>模式只在测试台选择并使用对应按钮启动，CH8不参与；保持时可用CH12或对应脱离按钮请求脱离。提交顶吸请求后仍由飞手控制POSCTL，控制节点等待有效顶部测距及估计器、平衡基准等接管条件，不限制在1 m以内。接管后从当前高度按顶距闭环上升，最大目标速度0.15 m/s，接近顶部连续减速；有效顶距≤6.7 cm时直接使用保持推力0.55，停止主动上升，不因顶距更小而减推力；速度、姿态及新鲜距离反馈持续稳定后进入保持。保持推力目标0.55，保持时等待遥控器脱离请求；已发出的脱离请求或反馈异常时进入安全降落流程，以飞控实际模式确认。</p><p>脱离先请求机构释放，以脱离开始时的当前PX4融合高度锁定下降0.40 m目标，按剩余距离减速、速度PI调节推力，高度和速度连续稳定后恢复悬停；仅在DETACH阶段下降超过1.50 m时中止。高度与竖直速度采用 PX4 融合里程计，测距参与有效性检查，气压仅作辅助对照，不作为正常达标门槛。允许阶段摇杆可微调横滚/俯仰：人工修正时减弱位置回拉、暂停积分；回中后平滑恢复。恢复交回还需本轮遥控反馈有效、微调消退和位置权重恢复。恢复后保持高度与 XY 闭环，允许受限遥控修正；高度控制范围为目标 ±10 cm，交回允许 ±15 cm，并同时满足速度、姿态与连续稳定条件；恢复后再按 CH12 确认才请求交回，最终以飞控 POSCTL 及控制权释放确认完成。</p></details>
+<details class="taskDetails"><summary>顶吸流程与遥控操作说明</summary><p>模式只在测试台选择并使用对应按钮启动，CH8不参与；保持时可用CH12或对应脱离按钮请求脱离。提交顶吸请求后仍由飞手控制POSCTL，控制节点等待有效顶部测距及估计器、平衡基准等接管条件，不限制在1 m以内。接管后从当前高度按顶距闭环上升，最大目标速度0.15 m/s，接近顶部连续减速；有效顶距≤6.7 cm时直接使用保持推力0.55，停止主动上升，不因顶距更小而减推力；速度、姿态及新鲜距离反馈持续稳定后进入保持。保持推力目标0.55，保持时等待遥控器脱离请求；已发出的脱离请求或反馈异常时进入安全降落流程，以飞控实际模式确认。</p><p>脱离先请求机构释放，以脱离开始时的当前PX4融合高度锁定下降0.40 m目标，按剩余距离减速、速度PI调节推力，高度和速度连续稳定后恢复悬停；仅在DETACH阶段下降超过1.50 m时中止。高度与竖直速度采用 PX4 融合里程计，测距参与有效性检查，气压仅作辅助对照，不作为正常达标门槛。允许阶段摇杆可微调横滚/俯仰：人工修正时减弱位置回拉、暂停积分；回中后平滑恢复。恢复交回还需本轮遥控反馈有效、微调消退和位置权重恢复。恢复后保持高度与 XY 闭环，允许受限遥控修正；高度控制范围为目标 ±10 cm，交回允许 ±15 cm，并同时满足速度、姿态与连续稳定条件；恢复稳定后，可通过测试台或 CH12 确认交回，最终以飞控 POSCTL 及控制权释放确认完成。</p></details>
 </section>
 <section class="panel wallOperations taskPanel" data-attachment-mode="wall" hidden aria-label="侧吸吸附与脱离操作">
 <div class="sectionHeading taskHeading"><h2>侧吸 / 吸附与脱离</h2><span class="badge">POSCTL 入口与交回</span></div>
@@ -100,7 +101,7 @@
 <label for="ceiling_port">顶部雷达串口</label><input name="ceiling_port" id="ceiling_port" value="/dev/serial/by-path/wall-top" required>
 <label for="front_port">前向雷达串口</label><input name="front_port" id="front_port" value="/dev/serial/by-path/wall-front" required>
 </form><p class="muted">启动请求通过后保存，下次自动载入。运行时显示现场配置；更改参数需先落地并停止链路。悬停推力使用实测值。</p></section>
-<section class="panel"><h2>顶吸入口检查</h2><div id="checks"><p class="muted">等待反馈</p></div><p class="muted">顶吸、脱离沿用现有程序参数。有效顶部测距支持任意距离准入，按顶距减速上升，≤6.7 cm进入接触确认，稳定后才保持；离顶以当前高度减0.40 m为目标，高度与速度连续稳定后恢复悬停，继续高度与 XY 闭环；DETACH阶段下降超过1.50 m进入ABORT；第三次 CH12 确认后请求交回，以飞控确认 POSCTL 为准。</p></section>
+<section class="panel"><h2>顶吸入口检查</h2><div id="checks"><p class="muted">等待反馈</p></div><p class="muted">顶吸、脱离沿用现有程序参数。有效顶部测距支持任意距离准入，按顶距减速上升，≤6.7 cm进入接触确认，稳定后才保持；离顶以当前高度减0.40 m为目标，高度与速度连续稳定后恢复悬停，继续高度与 XY 闭环；DETACH阶段下降超过1.50 m进入ABORT；恢复稳定后可通过测试台或 CH12 确认交回，以飞控确认 POSCTL 为准。</p></section>
 <section class="panel"><h2>贴墙就绪检查</h2><div id="wallChecks"><p class="muted">等待反馈</p></div></section><section class="panel"><h2>数据新鲜度</h2><div id="ages"><p class="muted">等待反馈</p></div><p id="bridgeError" class="error" role="status"></p></section>
 </aside></div></main><footer>ceiling_wall_console · 顶吸、侧吸与斜面测试台 · 实时 ROS 反馈 · 断线不重放动作</footer>
 </body></html>

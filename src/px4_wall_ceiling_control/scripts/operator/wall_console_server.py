@@ -320,7 +320,9 @@ class RemoteRuntime:
         elif name in ("phase", "reason", "owner", "rc_takeover", "rc_selected_mode"):
             value = msg.data
         elif name == "operator":
-            value = {"mode": msg.mode, "enabled": msg.enable_control}
+            handover = getattr(msg, "pilot_handover_request_time", None)
+            value = {"mode": msg.mode, "enabled": msg.enable_control,
+                     "pilot_handover_request_time": handover.to_sec() if handover is not None else 0.}
         elif name == "setpoint":
             value = {"thrust": msg.thrust, "type_mask": msg.type_mask}
         elif name == "battery":
@@ -551,7 +553,7 @@ class RemoteRuntime:
                     raise ValueError("贴墙节点启动未完成，请查看缺失节点和启动日志")
                 time.sleep(0.3)
             self.state.launch_error = ""
-            self.state.event("基础程序已就绪；吸顶与侧吸均用POSCTL起飞并稳定；CH8低值选吸顶、高值选侧吸，CH12提交所选动作")
+            self.state.event("基础程序已就绪。飞手在 POSCTL 下起飞并稳定，再通过测试台或 CH12 提交动作")
         except Exception as error:
             self.state.launch_error = str(error)
             self.state.event(str(error), "error")
@@ -798,6 +800,20 @@ class RemoteRuntime:
             self.publisher.publish(command)
         self.state.send_ceiling_detach(publish)
         return {"message": "离顶请求已提交；等待吸顶节点确认"}
+
+    def ceiling_handover(self, config):
+        lock_time = (config or {}).get("recovery_lock_time")
+        with self.state.lock:
+            snapshot = self.state.snapshot()
+            if not snapshot["can_ceiling_handover"]:
+                raise ValueError("等待顶吸恢复稳定及有效飞控反馈")
+            if lock_time != snapshot["status"]["ceiling_status"]["value"]["recovery_lock_time"]:
+                raise ValueError("恢复阶段已变化，请等待当前任务反馈")
+            reply = self._publish_terminal_request("ceiling_handover", recovery_lock_time=lock_time)
+            if reply.get("accepted") is not True:
+                raise ValueError(reply.get("reason", "终端节点未确认交回请求"))
+            self.state.event("测试台已确认顶吸交回请求，等待飞控反馈 POSCTL")
+            return {"message": "交回请求已受理，等待飞控确认 POSCTL"}
 
     def wall(self):
         def publish(command):
@@ -1238,6 +1254,7 @@ class SSHTransport:
             ceiling_detach_sources = tuple(n for n in ceiling_sources if n not in ("health", "ceiling")) + ("setpoint",)
             if not connected or not self.session.get("control") or any(not result["status"][n]["fresh"] for n in ceiling_detach_sources):
                 result["can_ceiling_detach"] = False
+                result["can_ceiling_handover"] = False
             result["config"] = config
             if not connected or stale:
                 result["can_cancel_wait"] = False

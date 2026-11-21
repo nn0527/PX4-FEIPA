@@ -89,7 +89,7 @@ class TerminalOperatorNode:
             request = json.loads(message.data)
             request_id = request.get("id", "")
             command = request.get("command", "")
-            if not isinstance(request_id, str) or not 1 <= len(request_id) <= 64 or command not in ("ceiling", "incline", "select_rc_mode"):
+            if not isinstance(request_id, str) or not 1 <= len(request_id) <= 64 or command not in ("ceiling", "incline", "select_rc_mode", "ceiling_handover"):
                 raise ValueError("请求格式无效")
             if request_id in self.request_acks:
                 self.command_ack_pub.publish(String(data=json.dumps(self.request_acks[request_id],ensure_ascii=False)))
@@ -106,6 +106,15 @@ class TerminalOperatorNode:
                 self._ack_request({
                     "id": request_id, "command": command, "accepted": True, "selected_mode": selected,
                 })
+                return
+            if command == "ceiling_handover":
+                status = self.ceiling_status
+                if status is None or request.get("recovery_lock_time") != status.recovery_lock_time.to_sec():
+                    raise ValueError("恢复阶段已变化，请等待当前任务反馈")
+                if not self._request_ceiling_handover(rospy.Time.now()):
+                    raise ValueError("交回条件暂未满足，请核对恢复状态与急停反馈")
+                self._ack_request({"id": request_id, "command": command, "accepted": True,
+                                   "pilot_handover_request_time": self.pilot_handover_request_time.to_sec()})
                 return
             age = (rospy.Time.now()-self.flight_at).to_sec() if self.flight_at is not None else float('inf')
             safety = self._kill_report() if self.kill_guard_enabled else {"valid":True,"active":False}
@@ -336,12 +345,12 @@ class TerminalOperatorNode:
             return False
         safety = self._kill_report() if self.kill_guard_enabled else {'valid': True, 'active': False}
         if not safety['valid'] or safety['active']:
-            rospy.logwarn('CH12 ceiling handover rejected: kill switch active or unavailable')
-            return True
+            rospy.logwarn('ceiling handover rejected: kill switch active or unavailable')
+            return False
         if getattr(self, 'pilot_handover_request_time', rospy.Time(0)).to_sec() == 0:
             self.pilot_handover_request_time = now
             self._publish_intent()
-            rospy.loginfo('CH12 ceiling handover confirmed; hold attitude until live POSCTL feedback')
+            rospy.loginfo('ceiling handover confirmed; hold attitude until live POSCTL feedback')
         return True
 
 

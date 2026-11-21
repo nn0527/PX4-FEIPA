@@ -48,6 +48,9 @@ class FakeRuntime:
     def ceiling_detach(self):
         self.commands.append('ceiling_detach')
         return {'message': 'fake ceiling detach'}
+    def ceiling_handover(self, config):
+        self.commands.append(("ceiling_handover", config["recovery_lock_time"]))
+        return {"message": "fake handover acknowledgement"}
     def stop(self, config):
         self.commands.append('stop')
         return {'message': 'fake stop'}
@@ -59,6 +62,14 @@ class FakeRuntime:
 
 
 class HTTPTests(unittest.TestCase):
+    def test_ceiling_handover_route_requires_control_and_forwards_recovery_timestamp(self):
+        cookie, token = self.login("pilot")
+        data = {"recovery_lock_time": 12.5}
+        self.assertEqual(self.request("/api/ceiling-handover", data, cookie, token)[0], 409)
+        self.assertEqual(self.request("/api/acquire", {}, cookie, token)[0], 200)
+        self.assertEqual(self.request("/api/ceiling-handover", data, cookie, token)[0], 200)
+        self.assertEqual(self.runtime.commands, [("ceiling_handover", 12.5)])
+
     def test_ch12_selection_reaches_controller_without_starting_an_action(self):
         cookie, token = self.login("pilot")
         data = {"mode": "incline"}

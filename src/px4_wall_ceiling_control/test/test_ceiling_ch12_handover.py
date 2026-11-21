@@ -1,4 +1,5 @@
-"""Ceiling recovery keeps position control until a new CH12 edge; no live transports."""
+"""Ceiling recovery requires fresh pilot confirmation; no live transports."""
+import json
 import unittest
 from unittest import mock
 import rospy
@@ -141,6 +142,24 @@ class CeilingConsentTests(unittest.TestCase):
         self.assertEqual(self.n.pilot_handover_request_time,event)
         self.n._on_state(State(connected=True,armed=True,mode='POSCTL'))
         self.assertEqual(self.n.pilot_handover_request_time,at(0))
+
+    def test_console_confirmation_checks_recovery_stamp_and_live_readiness(self):
+        status = self.status(recovery_ready=False)
+        lock_time = status.recovery_lock_time.to_sec()
+        for request_id, time_value in (("unstable", lock_time), ("stale", lock_time - 1)):
+            request = {"id": request_id, "command": "ceiling_handover", "recovery_lock_time": time_value}
+            self.n._on_command(String(data=json.dumps(request)))
+            reply = json.loads(self.n.command_ack_pub.publish.call_args.args[0].data)
+            self.assertFalse(reply["accepted"])
+            self.assertEqual(self.n.pilot_handover_request_time, at(0))
+            self.status()
+        request = {"id": "ready", "command": "ceiling_handover", "recovery_lock_time": lock_time}
+        self.n._on_command(String(data=json.dumps(request)))
+        reply = json.loads(self.n.command_ack_pub.publish.call_args.args[0].data)
+        self.assertTrue(reply["accepted"])
+        self.assertEqual(reply["pilot_handover_request_time"], self.fx.now)
+        intent = self.n.command_pub.publish.call_args.args[0]
+        self.assertEqual(intent.pilot_handover_request_time, at(self.fx.now))
 
     def test_stale_unstable_kill_and_future_lock_cannot_grant_consent(self):
         for values in ({'recovery_ready':False},{'fault_detected':True},{'detach_failed':True},
