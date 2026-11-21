@@ -179,7 +179,8 @@ ceiling_attachment_decision_node:
   recovery_max_rate_deg_s: 25.0
   recovery_stable_time_s: 0.4
   recovery_timeout_s: 15.0
-  contact_release_distance_m: 0.1
+  # 脱离阶段按滤波顶距连续确认后，允许水平闭环介入。
+  contact_release_distance_m: 0.06
   contact_release_hold_s: 0.2
   odom_position_jump_m: 0.75
   odom_yaw_jump_deg: 20.0

@@ -553,7 +553,7 @@ class CeilingMotionMixin:
         if self.motion_release_stamp != self.range_received_at:
             self.motion_release_stamp = self.range_received_at
             self.motion_release_since, self.motion_release_last = record_hold_sample(
-                self.range_message.range >= self.motion_settings.contact_release_distance_m,
+                self.distance_filtered_m + 1.e-7 >= self.motion_settings.contact_release_distance_m,
                 self.range_received_at, self.motion_release_since)
         self.motion_contact_released = held_samples(True, self.motion_release_since,
             self.motion_release_last, self.motion_settings.contact_release_hold_s)

@@ -67,7 +67,7 @@ class CeilingMotionSettings:
     recovery_max_rate_deg_s: float = 20.
     recovery_stable_time_s: float = .50
     recovery_timeout_s: float = 15.
-    contact_release_distance_m: float = .10
+    contact_release_distance_m: float = .06
     contact_release_hold_s: float = .20
     odom_position_jump_m: float = .75
     odom_yaw_jump_deg: float = 20.
