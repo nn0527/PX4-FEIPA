@@ -718,7 +718,7 @@ class RemoteRuntime:
                 slot["event"].set()  # Do not acquire ConsoleState.lock: the request holds it while awaiting this ACK.
 
     def _publish_terminal_request(self, command, **fields):
-        node = "终端" if command == "select_rc_mode" else "吸顶"
+        node = "吸顶" if command == "ceiling" else "终端"
         if not self.publisher or self.publisher.get_num_connections()==0:
             raise ValueError("终端指令节点未订阅，请求未发送")
         request_id=secrets.token_hex(12)
@@ -734,7 +734,8 @@ class RemoteRuntime:
 
     def _publish_ceiling_request(self, command):
         reply = self._publish_terminal_request(command)
-        if reply.get("accepted") is not True or reply.get("mode") != (5 if command == "incline" else 2) or reply.get("enable_control") is not True:
+        if (reply.get("accepted") is not True or reply.get("mode") != {"ceiling": 2, "wall": 3, "incline": 5}[command]
+                or reply.get("enable_control") is not True):
             error = ValueError("终端节点拒绝：" + str(reply.get("reason", "未提供原因")))
             error.command_rejected = True
             raise error
@@ -753,7 +754,7 @@ class RemoteRuntime:
             reply = self._publish_terminal_request("select_rc_mode", mode=mode)
             if reply.get("accepted") is not True or reply.get("selected_mode") != mode:
                 raise ValueError(reply.get("reason", "终端节点未确认 CH12 目标"))
-            return {"message": "已设置 CH12 启动目标，拨动一次开始接近"}
+            return {"message": "已选择测试台模式"}
 
     def _incline_gate(self, detach=False):
         snapshot = self.state.snapshot()
@@ -784,9 +785,7 @@ class RemoteRuntime:
     def incline_detach(self):
         with self.state.lock:
             self._incline_gate(detach=True)
-            if not self.publisher or self.publisher.get_num_connections() == 0:
-                raise ValueError("终端节点未订阅，消息未发送")
-            self.publisher.publish("detach")
+            self._publish_detach_request("incline")
             return {"message": "斜面脱离请求已提交，等待 RETURN 反馈"}
 
     def ceiling(self):
@@ -794,11 +793,7 @@ class RemoteRuntime:
         return {"message":"吸顶节点已确认接收；正在ALTCTL下等待距离和接管条件", "request":self.state.ceiling_request}
 
     def ceiling_detach(self):
-        def publish(command):
-            if not self.publisher or self.publisher.get_num_connections() == 0:
-                raise ValueError("终端指令节点未订阅，消息未发送")
-            self.publisher.publish(command)
-        self.state.send_ceiling_detach(publish)
+        self.state.send_ceiling_detach(lambda _: self._publish_detach_request("ceiling"))
         return {"message": "离顶请求已提交；等待吸顶节点确认"}
 
     def ceiling_handover(self, config):
@@ -816,20 +811,17 @@ class RemoteRuntime:
             return {"message": "交回请求已受理，等待飞控确认 POSCTL"}
 
     def wall(self):
-        def publish(command):
-            if not self.publisher or self.publisher.get_num_connections() == 0:
-                raise ValueError("终端指令节点未订阅，消息未发送")
-            self.publisher.publish(command)
-        self.state.send_wall(publish)
+        self.state.send_wall(self._publish_ceiling_request)
         return {"message": "贴墙请求已提交；保持遥控模式稳定飞行，距离及速度反馈条件满足后接管接近"}
 
     def detach(self):
-        def publish(command):
-            if not self.publisher or self.publisher.get_num_connections() == 0:
-                raise ValueError("终端指令节点未订阅，消息未发送")
-            self.publisher.publish(command)
-        self.state.send_detach(publish)
+        self.state.send_detach(lambda _: self._publish_detach_request("wall"))
         return {"message": "离墙请求已发送；控制节点等待连续稳定后旋转，8 秒未满足会取消"}
+
+    def _publish_detach_request(self, mode):
+        reply = self._publish_terminal_request("detach", mode=mode)
+        if reply.get("accepted") is not True:
+            raise ValueError(reply.get("reason", "终端节点未确认脱离请求"))
 
 
     def rc_takeover(self):

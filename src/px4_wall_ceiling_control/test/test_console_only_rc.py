@@ -5,7 +5,8 @@ from test_rc_wall_toggle import MixedOperatorTest, Op
 class ConsoleOnlyRCTests(unittest.TestCase):
     def setUp(self):
         self.fx=MixedOperatorTest();self.fx.setUp();self.addCleanup(self.fx.doCleanups)
-        self.n=self.fx.node;self.n.rc_selected_mode=None
+        self.n=self.fx.node;self.n.console_selected_mode=None
+        self.n.rc_wall_toggle_enabled=False
 
     def test_ch12_cannot_start_an_idle_task(self):
         self.n.mode=Op.MODE_STANDBY
@@ -34,5 +35,5 @@ class ConsoleOnlyRCTests(unittest.TestCase):
         for pwm in (999,1999,999):
             channels=[999]*12;channels[7]=pwm
             self.n._on_rc(RCIn(channels=channels))
-        self.assertIsNone(self.n.rc_selected_mode)
+        self.assertIsNone(self.n.console_selected_mode)
         self.n._apply_command.assert_not_called()

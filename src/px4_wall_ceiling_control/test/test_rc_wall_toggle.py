@@ -11,7 +11,7 @@ import rospy
 from std_msgs.msg import String
 from mavros_msgs.msg import RCIn, State
 from px4_wall_ceiling_control.msg import OperatorCommand as Op, WallPerchStatus as Wall, CeilingAttachmentStatus as Ceiling
-from px4_wall_ceiling_control.domain.momentary_switch import MomentarySwitch
+from px4_wall_ceiling_control.domain.momentary_switch import MomentarySwitch, ThreePositionSelector
 
 path = pathlib.Path(__file__).resolve().parents[1] / 'scripts/operator/terminal_operator_node.py'
 spec = importlib.util.spec_from_file_location('ch12_terminal', str(path))
@@ -64,7 +64,13 @@ class MixedOperatorTest(unittest.TestCase):
         n.rc_wall_toggle_enabled = True
         n.rc_wall_channel_index = 11
         n.wall_switch = MomentarySwitch()
-        n.rc_selected_mode = "wall"
+        n.console_selected_mode = None
+        n.ch9 = ThreePositionSelector()
+        n.ch9.update(1500, self.now - .1)
+        n.ch9.update(1500, self.now)
+        n.ch9_mapping_verified = True
+        n.ch9_mapping_loading = True
+        n.rc_at = rospy.Time.now()
         n.request_acks = {}
         n.selected_mode_pub = mock.Mock()
         n.command_ack_pub = mock.Mock()
@@ -239,7 +245,7 @@ class ModeSelectionTest(unittest.TestCase):
         self.addCleanup(self.fx.doCleanups)
         self.fx.posctl()
         self.n = n = self.fx.node
-        n.rc_selected_mode = None
+        n.ch9.reset()
         n.kill_pub = mock.Mock()
         n.kill_guard_enabled = True
         n._kill_report = lambda: {'valid': True, 'active': False}
@@ -256,7 +262,7 @@ class ModeSelectionTest(unittest.TestCase):
             self.n._on_command(String(data=json.dumps(data)))
         return json.loads(self.n.command_ack_pub.publish.call_args.args[0].data)
 
-    def frame(self, ch8, ch12=999, refresh=True):
+    def frame(self, ch9, ch12=999, refresh=True, ch8=1500):
         n = self.n
         if refresh:
             n.flight_at = rospy.Time.from_sec(self.fx.now)
@@ -264,38 +270,72 @@ class ModeSelectionTest(unittest.TestCase):
                 m.header.stamp = rospy.Time.from_sec(self.fx.now)
             n.wall_status_at = n.ceiling_status_at = rospy.Time.from_sec(self.fx.now)
         channels = [1500]*12
-        channels[7], channels[11] = ch8, ch12
+        channels[7], channels[8], channels[11] = ch8, ch9, ch12
         with mock.patch.object(module.time, 'monotonic', return_value=self.fx.now):
             n._on_rc(RCIn(channels=channels))
         self.fx.now += .1
 
-    def press(self, ch8):
+    def press(self, ch9):
         for ch12 in (999, 999, 1999, 1999):
-            self.frame(ch8, ch12)
+            self.frame(ch9, ch12)
 
-    def test_ch8_alone_never_starts_and_ch12_uses_selection(self):
-        self.press(1999)
+    def test_ch9_selects_all_three_modes_and_rejects_transition_pulses(self):
+        for pwm, chosen in ((999, "ceiling"), (1500, "wall"), (1999, "incline")):
+            self.frame(pwm, ch8=1999)
+            self.assertEqual(self.n._selection_status(), "unavailable")
+            self.frame(pwm, ch8=999)
+            self.assertEqual(self.n._selection_status(), chosen)
+            self.assertEqual(self.n.mode, Op.MODE_STANDBY)
+        self.press(1280)
         self.assertEqual(self.n.mode, Op.MODE_STANDBY)
-        self.assertTrue(self.select("ceiling")["accepted"])
+
+    def test_console_cannot_override_remote_even_before_rc_trigger(self):
+        self.frame(999)
+        self.frame(999)
+        self.assertFalse(self.select("wall")["accepted"])
+        self.n._on_command(String(data="wall"))
         self.assertEqual(self.n.mode, Op.MODE_STANDBY)
-        self.assertEqual(self.n.selected_mode_pub.publish.call_args.args[0].data, "ceiling")
         with mock.patch.object(rospy, "set_param"):
-            self.press(1999)
+            self.press(999)
         self.assertEqual(self.n.mode, Op.MODE_CEILING)
-        self.assertTrue(self.n.front_sensor_masked)
+
+    def test_conflicting_or_unconfirmed_fcu_mapping_blocks_start(self):
+        self.n.ch9_mapping_verified = False
+        self.press(999)
+        self.n._on_command(String(data="ceiling"))
+        self.assertEqual(self.n.mode, Op.MODE_STANDBY)
 
     def test_incline_selection_requires_ready_and_routes_to_incline(self):
-        self.assertTrue(self.select("incline")["accepted"])
         self.n._apply_command = mock.Mock()
-        self.press(999)
+        self.press(1999)
         self.n._apply_command.assert_not_called()
         self.n.wall_status.incline_ready = True
         self.press(1999)
         self.assertEqual(self.n._apply_command.call_args.args[0].data, "incline")
 
+    def test_console_detach_for_a_different_mode_is_rejected(self):
+        self.n.mode = Op.MODE_WALL
+        self.fx.status(Wall.STATE_WALL_HOLD)
+        request = {"id": "detach-other", "command": "detach", "mode": "incline"}
+        self.n._on_command(String(data=json.dumps(request)))
+        ack = json.loads(self.n.command_ack_pub.publish.call_args.args[0].data)
+        self.assertFalse(ack["accepted"])
+        self.assertFalse(self.n.detach_pulse)
+
+    def test_console_start_matches_ch9_and_rc_cannot_restart_the_active_cycle(self):
+        self.frame(1500)
+        self.frame(1500)
+        request = {"id": "start-wall", "command": "wall"}
+        self.n._on_command(String(data=json.dumps(request)))
+        ack = json.loads(self.n.command_ack_pub.publish.call_args.args[0].data)
+        self.assertTrue(ack["accepted"])
+        self.assertEqual(self.n.mode, Op.MODE_WALL)
+        self.press(1999)
+        self.assertEqual(self.n.mode, Op.MODE_WALL)
+        self.assertFalse(self.n.detach_pulse)
+
     def test_ceiling_cycle_rejects_selection_during_active_mode(self):
         n = self.n
-        self.select("ceiling")
         with mock.patch.object(rospy, "set_param"):
             self.press(999)
         n._on_state(State(connected=True, armed=True, mode='OFFBOARD'))
@@ -316,14 +356,12 @@ class ModeSelectionTest(unittest.TestCase):
         with mock.patch.object(rospy, "set_param"):
             n._on_state(State(connected=True, armed=True, mode='POSCTL'))
         self.ceiling(Ceiling.STATE_NORMAL_FLIGHT)
-        self.assertTrue(self.select("wall")["accepted"])
-        self.press(1999)
+        self.press(1500)
         self.assertEqual(n.mode, Op.MODE_WALL)
 
     def test_wall_detach_remains_bound_to_active_mode(self):
         n = self.n
-        self.select("wall")
-        self.press(1999)
+        self.press(1500)
         n._on_state(State(connected=True, armed=True, mode='OFFBOARD'))
         self.assertFalse(self.select("ceiling")["accepted"])
         self.fx.status(Wall.STATE_WALL_HOLD)
@@ -335,13 +373,11 @@ class ModeSelectionTest(unittest.TestCase):
     def test_stale_ceiling_does_not_add_a_wall_start_gate(self):
         self.n.ceiling_status = None
         self.n.ceiling_status_at = None
-        self.select("wall")
-        self.press(1999)
+        self.press(1500)
         self.assertEqual(self.n.mode, Op.MODE_WALL)
 
     def test_unsafe_inputs_and_stale_status_still_block(self):
         n = self.n
-        self.select("ceiling")
         self.frame(999); self.frame(999)
         for fault in ('kill', 'disarmed', 'disconnected', 'ceiling_stale', 'odom', 'wrong_mode'):
             with self.subTest(fault=fault):
@@ -357,7 +393,6 @@ class ModeSelectionTest(unittest.TestCase):
 
     def test_ceiling_fault_or_stale_hold_cannot_detach(self):
         n = self.n
-        self.select("ceiling")
         with mock.patch.object(rospy, "set_param"):
             self.press(999)
         n._on_state(State(connected=True, armed=True, mode='OFFBOARD'))
@@ -371,7 +406,6 @@ class ModeSelectionTest(unittest.TestCase):
         self.assertFalse(n.detaching)
 
     def test_startup_high_and_reconnect_high_never_start(self):
-        self.select("ceiling")
         for _ in range(4): self.frame(999, 1999)
         self.assertEqual(self.n.mode, Op.MODE_STANDBY)
         self.frame(999); self.frame(999)

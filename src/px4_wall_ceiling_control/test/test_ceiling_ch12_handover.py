@@ -134,7 +134,6 @@ class CeilingConsentTests(unittest.TestCase):
         self.status(recovery_attitude_locked=False,recovery_ready=False)
         self.fx.press();self.assertEqual(self.n.pilot_handover_request_time,at(0))
         self.status()
-        self.n.rc_selected_mode = "wall"
         self.fx.press();event=self.n.pilot_handover_request_time
         self.assertGreater(event.to_sec(),0)
         self.n.ceiling_detach_pub.publish.assert_not_called()

@@ -1,6 +1,32 @@
-"""Debounce a CH12 low-rest/high-pressed switch without startup/reconnect edges."""
+"""Debounce the attachment selector and momentary switch."""
 
 import math
+
+
+class ThreePositionSelector:
+    def __init__(self, up_is_high=False):
+        self.positions = ("incline", "wall", "ceiling") if up_is_high else ("ceiling", "wall", "incline")
+        self.reset()
+
+    def reset(self):
+        self.selected = self.candidate = None
+        self.candidate_at = self.last_at = None
+
+    def update(self, pwm, now):
+        if self.last_at is not None and not 0 <= now - self.last_at <= .25:
+            self.reset()
+        self.last_at = now
+        position = None
+        if pwm is not None:
+            for index, (low, high) in enumerate(((800, 1200), (1350, 1650), (1800, 2200))):
+                if low <= pwm <= high:
+                    position = self.positions[index]
+                    break
+        if position != self.candidate:
+            self.selected = None
+            self.candidate, self.candidate_at = position, now
+        elif position is not None and now - self.candidate_at >= .05:
+            self.selected = position
 
 
 class MomentarySwitch:

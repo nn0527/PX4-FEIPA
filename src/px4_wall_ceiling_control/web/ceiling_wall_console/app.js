@@ -2,10 +2,13 @@
 const fresh=(s,key)=>s.status?.[key]?.fresh?s.status[key].value:null;
 function attachmentSummary(s){
   const live=!!s.ssh?.connected&&!!s.session?.feedback_live&&s.session?.push!==false;
-  if(!live)return "模式来源：测试台 · 当前任务：等待实时反馈";
+  if(!live)return "当前任务：等待实时反馈";
   const mode=fresh(s,"operator")?.mode,owner=fresh(s,"owner"),wall=fresh(s,"wall");
   const active=mode===5||(owner===2&&wall?.incline_active)?"斜面":owner===1||mode===2?"吸顶":owner===2||mode===3?"侧吸":mode===1&&owner===0?"待命":"未确认";
-  return "模式来源：测试台 · 当前任务："+active+"。CH12 可启动所选任务、请求脱离，顶吸恢复稳定后可用测试台或 CH12 确认交回。";
+  const target=fresh(s,"rc_selected_mode");
+  const names={ceiling:"吸顶",wall:"侧吸",incline:"斜面"};
+  const source=target?.startsWith("console:")?"测试台":"CH9 · "+(names[target]||"等待档位反馈");
+  return "模式来源："+source+" · 当前任务："+active;
 }
 function ceilingReceipt(s){
   const live=!!s.ssh?.connected&&!!s.session?.feedback_live&&s.session?.push!==false;
@@ -247,11 +250,15 @@ function modeSelection(s){
   const phase=fresh(s,"phase"),owner=fresh(s,"owner"),operator=fresh(s,"operator"),wall=fresh(s,"wall");
   const active=wall?.incline_active && !["WAIT","ABORT_DONE"].includes(wall.incline_phase)?"incline":names[operator?.mode] || (owner===1?"ceiling":owner===2?(wall?.incline_active?"incline":"wall"):null);
   const target=fresh(s,"rc_selected_mode");
-  const selected=active||(["ceiling","wall","incline"].includes(target)?target:"");
+  const consoleMode=target?.startsWith("console:");
+  const choice=consoleMode?target.slice("console:".length):target;
+  const selected=active||(["ceiling","wall","incline"].includes(choice)?choice:"");
   const idle=phase==="IDLE"&&owner===0&&operator?.mode===1&&!active;
-  const locked=!live||!idle||!s.session?.control;
-  return {selected,locked,
-    reason:!live?"实时反馈不可用，等待确认当前任务":active?"当前任务执行中，完成交回后可切换模式":!idle?"等待控制链路待命":!s.session?.control?"申请控制权后可选择 CH12 目标":selected?"拨动 CH12 一次启动接近，保持阶段再拨一次脱离。":"请先选择 CH12 的启动目标。"};
+  const locked=!consoleMode||!live||!idle||!s.session?.control;
+  return {selected,locked,startAllowed:live&&idle&&(consoleMode||!!selected),
+    reason:!live?"实时反馈不可用，等待确认当前任务":active?"显示当前任务，CH9 档位用于下一轮":!idle?"等待控制链路待命":
+      consoleMode?"在测试台选择模式和启动任务":target==="ch9_blocked"?"等待确认 CH9 未被 PX4 功能占用":
+      selected?"CH9 决定模式。CH12 拨一次启动，HOLD 时再拨一次脱离。":"等待 CH9 档位稳定及新鲜遥控反馈"};
 }
 if(typeof module!=="undefined")module.exports={inclineDetails,modeSelection,inclineView,view,fresh,wallView,rangeView,maintenanceView,attachmentSummary,ceilingReceipt,ceilingDetailView,ceilingFailsafeView};
 if(typeof document!=="undefined"){
@@ -274,10 +281,10 @@ function paint(s){
   $("repairMavros").disabled=!m.canRepair;$("repairMavros").title=m.repairReason;
   text("repairMavros",s.mavros_repair?.state==="RUNNING"?"正在重启 MAVROS…":"重启 MAVROS（地面恢复）");
   text("repairStatus",m.repairReason||(s.mavros_repair&&s.mavros_repair.state!=="IDLE"?s.mavros_repair.reason:"先确认落地、上锁且电机停止；自动清理旧控制、雷达和日志，再重启 MAVROS。成功后手动启动基础链路。"));
-  $("start").disabled=!v.canStart;$("attach").disabled=!v.canAttach;$("detach").disabled=!v.canDetach;
+  $("start").disabled=!v.canStart;$("attach").disabled=!v.canAttach||!selected.startAllowed;$("detach").disabled=!v.canDetach;
   $("ceilingHandover").disabled=!v.canHandover;text("ceilingHandoverReason",v.handoverReason);
   $("stop").disabled=!m.canStop;$("stop").title=m.stopReason;text("stopStatus",m.stopReason||(fresh(s,"runtime")?.rc_startup_enabled?"落地上锁后停止控制、雷达和记录，保留遥控启动监听；可直接用组合动作重新启动。":"落地上锁后可停止；飞控反馈过期时需人工确认电机已停止。"));
-  $("wallAction").disabled=!w.canWall;$("wallDetach").disabled=!w.canDetach;
+  $("wallAction").disabled=!w.canWall||!selected.startAllowed;$("wallDetach").disabled=!w.canDetach;
   $("cancelWait").hidden=!s.can_cancel_wait;$("cancelWait").disabled=!w.canCancel;
   text("wallBlockReason",w.canWall?"贴墙入口已就绪":summarize(w.blockers)||"等待贴墙入口条件");
   text("wallDetachReason",w.canDetach?"可提交离墙请求，控制节点确认连续稳定后执行":summarize(w.detachBlockers)||"等待当前贴墙保持与离墙条件");
@@ -352,7 +359,7 @@ function paint(s){
   $("ages").replaceChildren(...ages.map(([label,key])=>{const item=s.status?.[key],el=document.createElement("div");el.className="check"+(v.live&&item?.fresh?" ok":"");el.textContent=label+" · "+(paused?"已暂停":!v.live?"连接中断":item?.age_s==null?"未收到":n(item.age_s,2)+" s · "+(item.fresh?"有效":"已过期"));return el;}));
   text("bridgeError",s.ssh?.error||s.launch_error||"");
   const incline=inclineView(s,busy||recoveryBusy),inclineDetail=inclineDetails(s),iw=inclineDetail.active?inclineDetail.wall:null;
-  $("inclineAction").disabled=!incline.canStart;$("inclineDetach").disabled=!incline.canDetach;
+  $("inclineAction").disabled=!incline.canStart||!selected.startAllowed;$("inclineDetach").disabled=!incline.canDetach;
   text("inclineAttachReason",incline.canStart?"斜面入口已就绪":incline.reason);
   text("inclineDetachReason",incline.canDetach?"可提交脱离请求，等待回平反馈":iw?iw.detach_block_reason||"等待斜面保持与有效控制反馈":"等待斜面保持");
   text("inclinePhase",inclineDetail.wall?inclineDetail.phase:"等待反馈");text("inclineStage",inclineDetail.stage);text("inclineState",inclineDetail.reason);

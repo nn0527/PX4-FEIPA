@@ -37,7 +37,7 @@ class MockRuntime:
         self.state = ConsoleState()
         self.scenario = 'grounded'
         self.running = False
-        self.rc_selected_mode = None
+        self.console_selected_mode = None
         self.episode_started = time.time()-4.
         self._refresh()
 
@@ -123,7 +123,7 @@ class MockRuntime:
                                               target_range=0 if fusion_phase == 'SUSPENDED' else 1, confirmed_flow=1, confirmed_range=1,
                                               reason='离线模拟：80°请求恢复，等待读回与应用缓冲' if fusion_phase == 'RESTORING' else reason))
         values['rc']['channels'] = [1500]*11+[999]
-        values['rc_selected_mode'] = self.rc_selected_mode or 'unavailable'
+        values['rc_selected_mode'] = 'console:' + (self.console_selected_mode or '')
         values['ceiling_failsafe'] = dict(verified=True,connected=True,parameters={
             'COM_OBL_RC_ACT':dict(actual=4,expected=4), 'COM_OF_LOSS_T':dict(actual=2.,expected=2.)},
             reason='离线模拟值，未读取或写入任何真实飞控参数')
@@ -145,9 +145,9 @@ class MockRuntime:
         status = self.state.snapshot()['status']
         if status['phase']['value'] != 'IDLE' or status['owner']['value'] != 0:
             raise ValueError("等待控制链路待命后再选择模式")
-        self.rc_selected_mode = mode
+        self.console_selected_mode = mode
         self._refresh()
-        return {'message': '离线模拟：已设置 CH12 启动目标'}
+        return {'message': '离线模拟：已选择测试台模式'}
 
     def _action(self, permission, scenario, message):
         self._refresh()

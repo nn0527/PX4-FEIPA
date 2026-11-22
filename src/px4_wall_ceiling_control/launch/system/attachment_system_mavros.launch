@@ -1,6 +1,7 @@
 <launch>
   <arg name="rc_wall_toggle_enabled" default="false" />
   <arg name="rc_wall_channel_index" default="11" />
+  <arg name="rc_ch9_up_is_high" default="false" />
   <!-- Explicit default lets rospy cache this setting instead of querying Master per log. -->
   <param name="/rosout_disable_topics_generation" value="false" />
   <!--
@@ -98,6 +99,7 @@
         name="terminal_operator_node" output="screen">
     <param name="rc_wall_toggle_enabled" value="$(arg rc_wall_toggle_enabled)" />
     <param name="rc_wall_channel_index" value="$(arg rc_wall_channel_index)" />
+    <param name="rc_ch9_up_is_high" value="$(arg rc_ch9_up_is_high)" />
     <param name="kill_guard_enabled" value="$(arg kill_guard_enabled)" />
   </node>
 

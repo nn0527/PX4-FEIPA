@@ -67,19 +67,27 @@ SWITCH_MAPS = (
     "RC_MAP_ENG_MOT", "RC_MAP_PAY_SW", "RC_MAP_GIMB_SW",
 )
 
+def audit_ch9_mapping(read):
+    """Keep the live PX4 flight switches and axes off the attachment selector."""
+    required = ("RC_MAP_FLTMODE", "RC_MAP_ARM_SW", "RC_MAP_KILL_SW", "RC_MAP_ROLL",
+                "RC_MAP_PITCH", "RC_MAP_THROTTLE", "RC_MAP_YAW")
+    for name in required + SWITCH_MAPS:
+        if read(name, optional=name not in required) == 9:
+            raise ValueError("CH9 与 PX4 参数 " + name + " 冲突")
+
 
 def audit_parameters(read):
     """Read confirmed parameters; never change FCU settings to make binding fit."""
     expected = {"MAN_ARM_GESTURE": 0, "RC_MAP_ROLL": 1, "RC_MAP_PITCH": 2,
                 "RC_MAP_THROTTLE": 3, "RC_MAP_YAW": 4, "RC_MAP_ARM_SW": 6,
-                "RC_MAP_KILL_SW": 7, "RC_MAP_FLTMODE": 9, "COM_RC_IN_MODE": 0}
+                "RC_MAP_KILL_SW": 7, "RC_MAP_FLTMODE": 8, "COM_RC_IN_MODE": 0}
     for name, value in expected.items():
         if read(name) != value:
             raise ValueError("FCU parameter conflict: %s must be %s" % (name, value))
     for name in SWITCH_MAPS:
         value = read(name, optional=True)
-        if value in (1, 2, 3, 4):
-            raise ValueError("FCU function shares a gesture channel: " + name)
+        if value in (1, 2, 3, 4, 9):
+            raise ValueError("PX4 功能与摇杆手势或 CH9 冲突: " + name)
     configs = []
     for channel, threshold in ((6, "RC_ARMSWITCH_TH"), (7, "RC_KILLSWITCH_TH")):
         configs.append(KillSwitchConfig(channel, read(threshold),
